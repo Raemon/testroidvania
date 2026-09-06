@@ -14,7 +14,7 @@ import { TILE } from '../../core/constants.js';
 import { TILES } from '../../content/tiles.js';
 import { createSurface, SurfaceCache } from './surface.js';
 import { cosmeticRng, seedFrom } from './rng.js';
-import { materialLook, rgba, shade } from './palette.js';
+import { PLAYER, materialLook, rgba, shade } from './palette.js';
 import { setMemoryMask } from './darkness.js';
 
 /** @typedef {import('../../core/types.js').Room} Room */
@@ -43,7 +43,9 @@ function solid(room, tx, ty) {
 
 /**
  * The material face pattern. These are drawn *inside* the cell, in a colour a
- * couple of steps off the fill, so they survive being dimmed by the overlay.
+ * couple of steps off the fill, and at an alpha chosen so that what survives the
+ * overlay is still legible — the hatch is gating information, so "visible only in
+ * full light" is the same as "not there".
  * @param {CanvasRenderingContext2D} ctx
  * @param {() => number} rnd
  * @param {import('./palette.js').MaterialLook} look
@@ -55,7 +57,7 @@ function facePattern(ctx, rnd, look, x, y) {
   ctx.lineCap = 'round';
   if (look.pattern === 'grain') {
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.72;
     ctx.beginPath();
     for (let i = 0; i < 3; i++) {
       const o = 2 + i * 5 + rnd() * 2;
@@ -65,7 +67,7 @@ function facePattern(ctx, rnd, look, x, y) {
     ctx.stroke();
   } else if (look.pattern === 'crack') {
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.68;
     ctx.beginPath();
     const n = 1 + Math.floor(rnd() * 2);
     for (let i = 0; i < n; i++) {
@@ -77,7 +79,7 @@ function facePattern(ctx, rnd, look, x, y) {
     }
     ctx.stroke();
   } else {
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.88;
     ctx.fillStyle = look.hatch;
     for (const [rx, ry] of [[4, 4], [12, 4], [4, 12], [12, 12]]) {
       ctx.beginPath();
@@ -105,6 +107,22 @@ function bakeRoom(room, region, scale) {
   const rnd = cosmeticRng(seedFrom(`${room.id}:terrain`));
   const dark = shade(region.terrain, -0.45);
 
+  // The solid mass is filled as one path, not as a `fillRect` per cell. Under a
+  // fractional device transform (which is most real window sizes) two abutting
+  // anti-aliased rectangles each cover their shared edge partially, and partial
+  // plus partial does not sum to opaque — so every wall showed a faint grid of
+  // its own tiles. One path has no interior edges to antialias.
+  const mass = new Path2D();
+  for (let ty = 0; ty < room.h; ty++) {
+    for (let tx = 0; tx < room.w; tx++) {
+      const def = TILES[room.grid[ty]?.[tx] ?? '.'];
+      if (!def || !def.solid || def.crumble || def.oneWay) continue;
+      mass.rect(tx * TILE, ty * TILE, TILE, TILE);
+    }
+  }
+  ctx.fillStyle = region.terrain;
+  ctx.fill(mass);
+
   for (let ty = 0; ty < room.h; ty++) {
     for (let tx = 0; tx < room.w; tx++) {
       const glyph = room.grid[ty]?.[tx] ?? '.';
@@ -126,9 +144,6 @@ function bakeRoom(room, region, scale) {
       const down = solid(room, tx, ty + 1);
       const left = solid(room, tx - 1, ty);
       const right = solid(room, tx + 1, ty);
-
-      ctx.fillStyle = region.terrain;
-      ctx.fillRect(x, y, TILE, TILE);
 
       // Mortar: one cell in six carries a crack, so a wall of identical tiles
       // stops repeating without any per-cell cost at runtime.
@@ -154,11 +169,13 @@ function bakeRoom(room, region, scale) {
         // Top light: a bevel plus a short gradient down the face, which is what
         // makes a flat block read as a lit surface rather than a rectangle. Its
         // brightness wobbles per cell so a long ledge is a lit edge and not a
-        // drafting rule.
+        // drafting rule. The gradient is strong on purpose: it is the thing the
+        // darkness has to *take away*, and a wash that hides nothing reads as a
+        // colour cast rather than as an absence of light.
         ctx.fillStyle = rgba(look.edge, 0.78 + rnd() * 0.22);
         ctx.fillRect(x, y, TILE, 1.6);
         const g = ctx.createLinearGradient(0, y + 1.6, 0, y + 12);
-        g.addColorStop(0, rgba(look.edge, 0.20));
+        g.addColorStop(0, rgba(look.edge, 0.45));
         g.addColorStop(1, rgba(look.edge, 0));
         ctx.fillStyle = g;
         ctx.fillRect(x, y + 1.6, TILE, 10);
@@ -378,11 +395,14 @@ export function drawFluids(ctx, room, region, view, t) {
           ctx.stroke();
         }
       } else if (glyph === 'D') {
-        // A door is a slot of the region's own light: an invitation, not a wall.
+        // A door is a slot of *warm* light: cream, not the region accent. The
+        // accent belongs to things that are alive and may bite; cream is the
+        // game's "this one is for you" colour, and a door and an enemy eye must
+        // never be the same hue at a glance.
         const g = ctx.createLinearGradient(x, y, x + TILE, y);
-        g.addColorStop(0, rgba(region.accent, 0.05));
-        g.addColorStop(0.5, rgba(region.accent, 0.20 + 0.06 * Math.sin(t * 1.6)));
-        g.addColorStop(1, rgba(region.accent, 0.05));
+        g.addColorStop(0, rgba(PLAYER.core, 0.05));
+        g.addColorStop(0.5, rgba(PLAYER.core, 0.20 + 0.06 * Math.sin(t * 1.6)));
+        g.addColorStop(1, rgba(PLAYER.core, 0.05));
         ctx.fillStyle = g;
         ctx.fillRect(x + 1, y, TILE - 2, TILE);
       }

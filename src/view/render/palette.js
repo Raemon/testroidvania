@@ -18,7 +18,11 @@
  * @property {boolean} litFromBelow  Foundry: the void gradient is brighter at the floor
  * @property {string} far         parallax 0.2 silhouettes (L 15-18)
  * @property {string} mid         parallax 0.45/0.7 silhouettes (L 20-26)
- * @property {string} fog         fog planes, darkness tint, entity backlight (L 30-38)
+ * @property {string} fog         fog planes, entity backlight (L 30-38)
+ * @property {string} wash        the unlit wash. Blue-dominant in every region,
+ *   including the warm ones: the overlay has no value left to spend (it is already
+ *   at the §D5 cap over L5 terrain), so *hue* is what separates lit from unlit —
+ *   warm means a light reaches here, cold means it does not.
  * @property {string} terrain     collidable foreground (L 3-5)
  * @property {string} edge        terrain bevel (L 38-46)
  * @property {string} enemy       enemy body (L 30-36)
@@ -31,21 +35,21 @@ export const REGIONS = {
   spine: {
     id: 'spine',
     voidTop: '#12161C', voidBottom: '#0A0D12', litFromBelow: false,
-    far: '#1A2029', mid: '#252D38', fog: '#3A4553',
+    far: '#1A2029', mid: '#252D38', fog: '#3A4553', wash: '#070D16',
     terrain: '#080A0D', edge: '#4E5A68', enemy: '#2C3644', accent: '#9FB3C8',
     darkness: 0.44,
   },
   cistern: {
     id: 'cistern',
     voidTop: '#0F1A24', voidBottom: '#070E15', litFromBelow: false,
-    far: '#16283A', mid: '#1E3A4E', fog: '#2A5468',
+    far: '#16283A', mid: '#1E3A4E', fog: '#2A5468', wash: '#06111C',
     terrain: '#070B10', edge: '#3C6A7C', enemy: '#24384A', accent: '#5FE3D0',
     darkness: 0.55,
   },
   ossuary: {
     id: 'ossuary',
     voidTop: '#150F22', voidBottom: '#0B0714', litFromBelow: false,
-    far: '#221A36', mid: '#2F2549', fog: '#4A3B6B',
+    far: '#221A36', mid: '#2F2549', fog: '#4A3B6B', wash: '#0A0A1E',
     terrain: '#0A0710', edge: '#6B5A8C', enemy: '#3A2E52', accent: '#C9A0FF',
     // 05 asks for 0.70 here; 06 §D5 caps every region at 0.55 and that cap wins.
     darkness: 0.55,
@@ -53,14 +57,14 @@ export const REGIONS = {
   foundry: {
     id: 'foundry',
     voidTop: '#140906', voidBottom: '#2E1810', litFromBelow: true,
-    far: '#2E1810', mid: '#452416', fog: '#6B3A22',
+    far: '#2E1810', mid: '#452416', fog: '#6B3A22', wash: '#0B0A14',
     terrain: '#0D0604', edge: '#8C4E2E', enemy: '#4A2A1C', accent: '#FFB84D',
     darkness: 0.5,
   },
   verdant: {
     id: 'verdant',
     voidTop: '#0F1A12', voidBottom: '#070E09', litFromBelow: false,
-    far: '#1A2C1B', mid: '#29402A', fog: '#4A6A3E',
+    far: '#1A2C1B', mid: '#29402A', fog: '#4A6A3E', wash: '#06121A',
     terrain: '#060A06', edge: '#6E8C4A', enemy: '#2E4230', accent: '#C8F26A',
     darkness: 0.4,
   },
@@ -69,7 +73,7 @@ export const REGIONS = {
     // in the dark, brightness is the payoff, so this is the one bright region.
     id: 'core',
     voidTop: '#E8E0CC', voidBottom: '#C8BFA6', litFromBelow: false,
-    far: '#D2C8AE', mid: '#B8AC90', fog: '#8C8068',
+    far: '#D2C8AE', mid: '#B8AC90', fog: '#8C8068', wash: '#1A1B26',
     terrain: '#2A2418', edge: '#6B5D44', enemy: '#4A4032', accent: '#FFD97A',
     darkness: 0.18,
   },

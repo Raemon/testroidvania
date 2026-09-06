@@ -35,7 +35,10 @@ const useBot = params.get('bot') === '1';
 const startRoom = params.get('room') ?? undefined;
 
 const canvas = /** @type {HTMLCanvasElement} */ (document.querySelector('[data-testid="canvas"]'));
-const raw = canvas.getContext('2d', { alpha: false });
+// Alpha, not opaque: the renderer clears to transparent and fills the distance
+// back in behind the world with `destination-over`, which is what lets the
+// darkness overlay land on the world only (see render/index.js).
+const raw = canvas.getContext('2d', { alpha: true });
 if (!raw) throw new Error('main: 2d context unavailable');
 
 const guard = debug ? guardContext(raw) : null;

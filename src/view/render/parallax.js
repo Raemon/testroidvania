@@ -190,8 +190,14 @@ function voidBand(region) {
 }
 
 /**
- * One bank of haze between the background and the foreground. It is what gives
- * the terrain something lighter to be a silhouette *against*.
+ * One bank of haze between the background and the foreground, plus the flat dim
+ * the whole distance takes.
+ *
+ * The dim is deliberately hole-less and deliberately not the darkness overlay:
+ * no light in the game reaches the skyline, so nothing out here should ever
+ * brighten when the Pin flies past. It is the one place a *uniform* darkening is
+ * the honest answer, and keeping it out of the overlay is what stops the overlay
+ * flattening the L26/L20/L15 bands into one another.
  * @param {Region} region
  * @returns {Surface}
  */
@@ -203,6 +209,8 @@ function fogPlane(region) {
     g.addColorStop(1, rgba(region.fog, 0.20));
     s.ctx.fillStyle = g;
     s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    s.ctx.fillStyle = 'rgba(4,10,16,0.30)';
+    s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     return s;
   });
 }
@@ -212,8 +220,11 @@ function fogPlane(region) {
  * @param {Region} region
  * @param {number} camX
  * @param {number} camY
+ * @param {HTMLCanvasElement|null} [grade]  the constant grade, which the distance
+ *   needs too: the darkness blit that used to carry it now stops at the world
+ * @param {number} [gradeAlpha]
  */
-export function drawParallax(ctx, region, camX, camY) {
+export function drawParallax(ctx, region, camX, camY, grade = null, gradeAlpha = 1) {
   if (!composite) composite = createSurface(VIEW_W, VIEW_H, true);
   const b = composite.ctx;
   b.setTransform(1, 0, 0, 1, 0, 0);
@@ -233,14 +244,14 @@ export function drawParallax(ctx, region, camX, camY) {
     if (off < VIEW_W) b.drawImage(s.canvas, Math.round(off), y);
   }
 
-  // One fog plane in front of everything distant. A single bank of haze between
-  // the background and the foreground is what gives the terrain something
-  // lighter to be a silhouette *against*.
-  const g = b.createLinearGradient(0, VIEW_H * 0.30, 0, VIEW_H);
-  g.addColorStop(0, rgba(region.fog, 0.02));
-  g.addColorStop(1, rgba(region.fog, 0.20));
-  b.fillStyle = g;
-  b.fillRect(0, 0, VIEW_W, VIEW_H);
+  // One fog plane in front of everything distant, baked: evaluating its gradient
+  // per frame is a full-surface gradient fill bought for nothing.
+  b.drawImage(fogPlane(region).canvas, 0, 0);
+  if (grade) {
+    b.globalAlpha = gradeAlpha;
+    b.drawImage(grade, 0, 0, VIEW_W, VIEW_H);
+    b.globalAlpha = 1;
+  }
 
   // Blitted without smoothing. This is a 2-3x upscale of a full screen and the
   // filtered path costs ~4ms of the frame; the content is flat silhouettes and

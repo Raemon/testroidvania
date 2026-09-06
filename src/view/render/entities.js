@@ -85,12 +85,14 @@ export function drawEntities(ctx, state, region, t, light) {
     const hurt = (e.flash ?? 0) > 0;
 
     // Guarantee 2: the backlight halo, behind everything else the entity draws.
-    drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.25, region.fog, 0.22);
+    drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.25, region.fog, 0.12);
 
-    // 05 §2c requires an enemy body never darker than L 30%, which the region's
-    // own `enemy` swatch sits just under; lifting it here keeps the rule rather
-    // than the number.
-    const body = hurt ? '#FFFFFF' : shade(region.enemy, e.pinned ? 0.3 : 0.18);
+    // 05 §2c puts the enemy band at L30-36, and that is a measurement of the
+    // *pixel*, not of the swatch. The halo, the rim, the eye glow and the warm
+    // cast all land on top of this fill, and measured together they were putting
+    // enemies at L49 — a light-valued moving thing, which the player is supposed
+    // to be the only one of. The fill is set low so the sum comes out in band.
+    const body = hurt ? '#FFFFFF' : shade(region.enemy, e.pinned ? 0.12 : -0.05);
     const rig = rigFor(e.kind);
     if (rig === 'jelly') drawJelly(ctx, e, region, body, dir, t);
     else if (rig === 'knight') drawKnight(ctx, e, region, body, dir);
@@ -135,7 +137,7 @@ function rim(ctx, path, region, dir) {
  * @param {Region} region @param {number} intensity
  */
 function eye(ctx, x, y, r, region, intensity) {
-  drawGlow(ctx, x, y, 9 * intensity, region.accent, 0.7);
+  drawGlow(ctx, x, y, 6 * intensity, region.accent, 0.5);
   ctx.fillStyle = region.accent;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -304,7 +306,7 @@ function drawKnight(ctx, e, region, body, dir) {
   ctx.stroke();
 
   const slitW = visorW * 0.7;
-  drawGlow(ctx, vx + visorW / 2, vy + visorH * 0.5, 14, region.accent, 0.8);
+  drawGlow(ctx, vx + visorW / 2, vy + visorH * 0.5, 10, region.accent, 0.55);
   ctx.fillStyle = region.accent;
   ctx.fillRect(vx + (visorW - slitW) / 2, vy + visorH * 0.42, slitW, clamp(visorH * 0.22, 1, 3));
 }

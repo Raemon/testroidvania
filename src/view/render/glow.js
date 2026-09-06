@@ -10,6 +10,7 @@
  * only ever builds a few sprites.
  */
 
+import { VIEW_W, VIEW_H } from '../../core/constants.js';
 import { createSurface, SurfaceCache } from './surface.js';
 import { rgba } from './palette.js';
 
@@ -85,6 +86,57 @@ export function drawHalo(ctx, x, y, radius, color, alpha = 0.18) {
   ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
   ctx.drawImage(s.canvas, x - radius, y - radius, radius * 2, radius * 2);
   ctx.globalAlpha = 1;
+}
+
+/**
+ * The warm cast: what the lights *add* to the scene, as opposed to what the
+ * darkness subtracts everywhere else. All of them at once, composited into one
+ * world-resolution surface and upscaled in a single blit.
+ *
+ * Drawn straight into the frame this was the most expensive thing the renderer
+ * did — a 256px sprite scaled to ~700 device pixels per light, 4.6 ms at 1280 and
+ * 9.9 ms at 1920, a third of the frame for a smudge. Here each light costs a
+ * 480x270 draw whatever the window is, and the upscale is paid once. It is the
+ * same trade the parallax makes, for the same reason.
+ *
+ * @param {CanvasRenderingContext2D} ctx  in view space (origin at the view corner)
+ * @param {import('./darkness.js').Light[]} lights  screen-space (world minus camera)
+ * @param {number} alpha  per-light strength before `warmth`
+ */
+export function drawWarmCasts(ctx, lights, alpha) {
+  let drew = false;
+  for (const l of lights) {
+    if (!l.warmth) continue;
+    const r = Math.min(l.r * 0.85, 230);
+    if (!(r > 0)) continue;
+    if (l.x < -r || l.y < -r || l.x > VIEW_W + r || l.y > VIEW_H + r) continue;
+    if (!drew) {
+      const c = warmSurface();
+      c.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      c.ctx.globalCompositeOperation = 'source-over';
+      c.ctx.clearRect(0, 0, c.w, c.h);
+      drew = true;
+    }
+    // A wider, softer falloff than a lamp bloom: this is the light *landing on
+    // surfaces*, so it has to reach as far as the hole the same light punches.
+    drawGlow(warmSurface().ctx, l.x, l.y, r, l.color, alpha * l.warmth, 2.6);
+  }
+  if (!drew) return;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(warmSurface().canvas, 0, 0, VIEW_W, VIEW_H);
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalCompositeOperation = prev;
+}
+
+/** @type {import('./surface.js').Surface|null} */
+let warm = null;
+
+/** @returns {import('./surface.js').Surface} */
+function warmSurface() {
+  if (!warm) warm = createSurface(VIEW_W, VIEW_H);
+  return warm;
 }
 
 /** Warm sprite cache after the palette is known, so frame one is not the slow one. */

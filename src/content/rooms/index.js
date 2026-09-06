@@ -10,6 +10,16 @@ import * as o3_drop from './o3_drop.js';
 import * as o4_step from './o4_step.js';
 import * as o5_ladder from './o5_ladder.js';
 import * as o6_weapon from './o6_weapon.js';
+import * as o7_shrine from './o7_shrine.js';
+import * as s1_floor from './s1_floor.js';
+import * as s2_awakening from './s2_awakening.js';
+import * as s3_throat from './s3_throat.js';
+import * as s4_gallery from './s4_gallery.js';
+import * as s5_crown from './s5_crown.js';
+import * as f1_stoker from './f1_stoker.js';
+import * as c1_diver from './c1_diver.js';
+import * as x1_sentinel from './x1_sentinel.js';
+import * as k1_seal from './k1_seal.js';
 
 /** @type {Record<string, import('../room-format.js').RoomModule>} */
 export const ROOM_MODULES = {
@@ -19,6 +29,16 @@ export const ROOM_MODULES = {
   o4_step,
   o5_ladder,
   o6_weapon,
+  o7_shrine,
+  s1_floor,
+  s2_awakening,
+  s3_throat,
+  s4_gallery,
+  s5_crown,
+  f1_stoker,
+  c1_diver,
+  x1_sentinel,
+  k1_seal,
 };
 
 export const ROOM_IDS = Object.keys(ROOM_MODULES).sort();

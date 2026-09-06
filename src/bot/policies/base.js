@@ -20,8 +20,9 @@ import { IN } from '../../core/input.js';
 const PRESS_PERIOD = 8;
 /** Where to stand to jab the root: outside its box, inside the jab's 16px reach. */
 const JAB_STANDOFF = 20;
-/** Where to stand to throw: far enough that the flight is a clean straight line. */
-const THROW_STANDOFF = 44;
+/** The band the flat throw is taken from: outside contact, well inside the range. */
+const THROW_MIN = 40;
+const THROW_MAX = 120;
 /** How close a bolt has to be before it is worth reacting to. */
 const BOLT_ALARM = 72;
 
@@ -88,27 +89,52 @@ export function brawl(obs) {
   // 2. A part is held: the plates are down and the boss has stopped. Close and jab.
   const held = boss.parts.find((part) => part.pinned);
   if (held) {
-    const fromLeft = p.cx < boss.x + boss.w / 2;
-    const standX = fromLeft ? boss.x - JAB_STANDOFF : boss.x + boss.w + JAB_STANDOFF;
+    const standX = standoff(obs, boss, JAB_STANDOFF);
     const walk = walkTo(obs, standX);
     if (walk) return walk;
-    const face = fromLeft ? IN.RIGHT : IN.LEFT;
+    const face = standX < boss.x + boss.w / 2 ? IN.RIGHT : IN.LEFT;
     return face | (p.jabFrames === 0 ? IN.ATTACK : 0);
   }
 
   // 3. The Pin is out there and holding nothing useful: bring it home.
   if (obs.pin.state !== 'held') return pressNow(obs) ? IN.THROW : 0;
 
-  // 4. Line up on the nearest part and throw flat at it. A part sits at hand height
-  //    and stands proud of the body, so a level throw reaches it before the armour.
+  // 4. Throw at the nearest part the moment it is in the lane and inside range.
+  //    Not from a fixed mark: a boss walks, and a policy that insists on standing
+  //    exactly 44px away spends the whole fight shuffling instead of throwing.
   const part = nearestPart(obs, boss);
   if (!part) return 0;
-  const fromLeft = p.cx < part.x + part.w / 2;
-  const standX = fromLeft ? boss.x - THROW_STANDOFF : boss.x + boss.w + THROW_STANDOFF;
-  const walk = walkTo(obs, standX, 4);
-  if (walk) return walk;
-  if (Math.abs(p.vx) > 0.01 || !p.grounded) return 0;
-  return (fromLeft ? IN.RIGHT : IN.LEFT) | (pressNow(obs) ? IN.THROW : 0);
+  const partX = part.x + part.w / 2;
+  const reach = Math.abs(partX - p.cx);
+  const toward = partX > p.cx ? IN.RIGHT : IN.LEFT;
+  const away = partX > p.cx ? IN.LEFT : IN.RIGHT;
+  if (reach > THROW_MAX) return toward;
+  if (reach < THROW_MIN) return p.grounded && reach < THROW_MIN / 2 ? away | IN.JUMP : away;
+  // A flat throw, so it is only worth spending while the part is in the hand's lane.
+  const hand = p.y + 6;
+  if (hand < part.y - 3 || hand > part.y + part.h + 3 || !p.grounded) return 0;
+  return toward | (pressNow(obs) ? IN.THROW : 0);
+}
+
+/**
+ * Which side to fight from. A boss that walks you into a corner would otherwise
+ * leave the policy shuffling against a wall it can never back off from, which is
+ * the single thing that stops a reactive policy dead.
+ * @param {Observation} obs
+ * @param {NonNullable<Observation['boss']>} boss
+ * @param {number} dist
+ * @returns {number}
+ */
+export function standoff(obs, boss, dist) {
+  const left = boss.x - dist;
+  const right = boss.x + boss.w + dist;
+  const room = obs.roomBounds.w;
+  const okLeft = left > 28;
+  const okRight = right < room - 28;
+  if (okLeft && okRight) {
+    return Math.abs(left - obs.player.cx) <= Math.abs(right - obs.player.cx) ? left : right;
+  }
+  return okLeft ? left : right;
 }
 
 /**

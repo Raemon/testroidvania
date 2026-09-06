@@ -11,11 +11,19 @@
  * the radii are big (the light is a feel layer, not a puzzle), the overlay alpha
  * is capped at 0.55 in *every* region so nothing is ever unreadable, and terrain
  * the player has already seen stays legible at alpha 0.25.
+ *
+ * Two consequences of that cap decide everything else here. Over L5 terrain the
+ * wash is arithmetically incapable of subtracting a value step, so it does not
+ * try: it is cold (`region.wash`) rather than merely dark, and the difference
+ * between lit and unlit is carried by hue, with the warm cast on the other side.
+ * And because it cannot darken terrain, it must not be allowed to flatten the
+ * parallax either — the caller composites this with `source-atop` over the world
+ * layers only, so the value bands behind them survive intact.
  */
 
 import { VIEW_W, VIEW_H, DARKNESS_ALPHA_CAP } from '../../core/constants.js';
 import { createSurface } from './surface.js';
-import { rgba, shade } from './palette.js';
+import { rgba } from './palette.js';
 
 /** @typedef {import('./palette.js').Region} Region */
 
@@ -99,9 +107,10 @@ export function drawDarkness(ctx, region, lights, alpha, grade, gradeAlpha) {
   // 'copy' replaces the previous frame's punched holes in the same pass that
   // lays the new wash down, which is one full-surface pass cheaper than clearing.
   o.globalCompositeOperation = 'copy';
-  // Not black: the wash carries the region's hue so that unlit space still says
-  // which region you are standing in.
-  o.fillStyle = rgba(shade(region.fog, -0.78), Math.min(DARKNESS_ALPHA_CAP, Math.max(0, alpha)));
+  // Not black, and not simply a darker copy of the region: the wash is the cold
+  // half of the game's one lighting statement. `region.wash` keeps a trace of
+  // which region you are in while being blue-dominant everywhere.
+  o.fillStyle = rgba(region.wash, Math.min(DARKNESS_ALPHA_CAP, Math.max(0, alpha)));
   o.fillRect(0, 0, s.w, s.h);
 
   o.globalCompositeOperation = 'destination-out';

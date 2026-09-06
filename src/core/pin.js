@@ -119,11 +119,14 @@ export function stagePin(s) {
     emit(s.events, 'pin.recall', pin.x, pin.y);
     // A2: the recall is what shatters a slag block the Pin is buried in.
     const slag = slagUnder(s, pin, roomData);
-    if (slag) {
-      const broken = breakTile(roomData, brokenTiles, slag[0], slag[1]);
+    for (const [tx, ty] of slag) {
+      const broken = breakTile(roomData, brokenTiles, tx, ty);
       roomData = broken.room;
       brokenTiles = broken.brokenTiles;
-      emit(s.events, 'slag.shatter', (slag[0] + 0.5) * TILE, (slag[1] + 0.5) * TILE, { material: 'stone' });
+    }
+    if (slag.length) {
+      const [tx = 0, ty = 0] = slag[0] ?? [];
+      emit(s.events, 'slag.shatter', (tx + 0.5) * TILE, (ty + 0.5) * TILE, { material: 'stone' });
     }
     // A3: whatever the Pin was in comes with it, for as far as it can get.
     const dragged = startReel(s, pin);
@@ -314,17 +317,32 @@ function stepFlying(s, pin, entities, room) {
 
 
 /**
- * The slag block a Pin is buried in, if any. Recall shatters it — the Barrier gate
- * is the one explicit lock in the game and this is the only thing that opens it.
+ * The slag **block** a Pin is buried in. The whole connected run of slag goes, not
+ * the one tile the Pin happens to be in: the Barrier gate reads as a door, and a
+ * door that opens one sixteenth of the way is not a door.
  * @param {GameState} s @param {Readonly<Pin>} pin @param {Room} room
- * @returns {[number, number]|null}
+ * @returns {[number, number][]}
  */
 function slagUnder(s, pin, room) {
-  if (pin.state !== 'embedded' || pin.propId !== null) return null;
-  if (!freezesMechanisms(s.progress.abilities)) return null;
+  if (pin.state !== 'embedded' || pin.propId !== null) return [];
+  if (!freezesMechanisms(s.progress.abilities)) return [];
   const tx = Math.floor((pin.x - pin.nx) / TILE);
   const ty = Math.floor((pin.y - pin.ny) / TILE);
-  return tileAt(glyphAt(room, tx, ty)).slag ? [tx, ty] : null;
+  if (!tileAt(glyphAt(room, tx, ty)).slag) return [];
+  /** @type {[number, number][]} */
+  const found = [];
+  /** @type {[number, number][]} */
+  const queue = [[tx, ty]];
+  const seen = new Set();
+  while (queue.length) {
+    const [x = 0, y = 0] = queue.pop() ?? [];
+    const key = `${x},${y}`;
+    if (seen.has(key) || !tileAt(glyphAt(room, x, y)).slag) continue;
+    seen.add(key);
+    found.push([x, y]);
+    queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  return found;
 }
 
 
@@ -368,7 +386,10 @@ function resolveSurface(s, room, pin, contact) {
   if (verdict === 'clang' && canBounce(pin, s.progress.abilities)) {
     // A4 turns the one thing the Pin could never do into a bank shot. Range keeps
     // counting through the bounce, so it is a throw and not a free second one.
-    return { pin: bounce(at, contact.nx, contact.ny), clang: false, bounced: true, broke: null };
+    // Nudged off the face first: a Pin that starts its second leg exactly on the
+    // surface it just left re-detects the same contact and clangs on its own bounce.
+    const clear = { ...at, x: contact.x + contact.nx * 0.5, y: contact.y + contact.ny * 0.5 };
+    return { pin: bounce(clear, contact.nx, contact.ny), clang: false, bounced: true, broke: null };
   }
   // Clang is the most important readability event in the game: white flash, then
   // straight down. Everything else non-pinnable just stops dead.

@@ -177,8 +177,14 @@ export function bell(graph, opts) {
 }
 
 /**
- * **Pad.** Three detuned saws into a slow-moving 380 Hz lowpass. It is the only
- * voice with a real release, so it returns a handle you must `release()`.
+ * **Pad.** Three detuned saws into a slow-moving lowpass. It is the only voice
+ * with a real release, so it returns a handle you must `release()`.
+ *
+ * The cutoff keytracks the voicing at 1.3x its lowest note, rather than sitting at
+ * a fixed 380 Hz. With a fixed cutoff a chord voiced higher is a chord filtered
+ * harder: Cmaj7 (lowest note C5) rendered 4.5 dB *quieter* than Dm9 (lowest note
+ * D4) — so the one chord in the progression that is supposed to lift got smaller
+ * instead. Keytracking makes the filter a timbre rather than a volume control.
  * @param {AudioGraph} graph @param {VoiceOpts & {freqs?: number[], release?: number}} opts
  * @returns {Voice & { release: (when: number) => number }}
  */
@@ -188,19 +194,21 @@ export function pad(graph, opts) {
   const freqs = opts.freqs ?? [opts.freq ?? 220];
   const chain = outputChain(graph, { ...opts, gain: opts.gain ?? 0.12, reverb: opts.reverb ?? 0.7 }, 4000);
 
+  const cutoff = Math.min(MAX_LOWPASS_HZ, Math.max(120, Math.min(...freqs) * 1.3));
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
-  filter.frequency.value = 380;
+  filter.frequency.value = cutoff;
   filter.Q.value = 0.9;
   filter.connect(chain.input);
 
   // A 0.08 Hz cutoff wobble. Without it three static saws sound like an organ;
-  // with it the chord breathes and never quite repeats against the arp.
+  // with it the chord breathes and never quite repeats against the arp. Scaled
+  // with the cutoff, so the wobble is the same *interval* in every voicing.
   const lfo = ctx.createOscillator();
   lfo.type = 'sine';
   lfo.frequency.value = 0.08;
   const lfoDepth = ctx.createGain();
-  lfoDepth.gain.value = 180;
+  lfoDepth.gain.value = cutoff * 0.47;
   lfo.connect(lfoDepth);
   lfoDepth.connect(filter.frequency);
 
@@ -250,8 +258,15 @@ export function pad(graph, opts) {
 }
 
 /**
- * **Drone.** Never stops; it glides. Highpassed at 30 Hz because everything below
- * that is speaker excursion, not sound.
+ * **Drone.** Never stops; it glides.
+ *
+ * `freq` names the region's root as a *pitch class*, at D1 — but almost none of
+ * the drone is played there. Voiced at D1 with a sub an octave below it, this one
+ * voice was −27 dBFS RMS against −32 for the entire rest of the arrangement, and
+ * 77% of the music's power sat under 60 Hz: inaudible on a laptop, and eating the
+ * headroom of everything that isn't. So the weight lives an octave up at D2, D1
+ * stays only as the part you feel, and a quiet triangle at the twelfth gives the
+ * whole thing something a small speaker can actually reproduce.
  * @param {AudioGraph} graph @param {VoiceOpts} opts
  * @returns {{ setFreq: (f: number, when: number, glide?: number) => void,
  *            setCombat: (on: boolean, when: number) => void,
@@ -261,11 +276,14 @@ export function drone(graph, opts) {
   const ctx = graph.ctx;
   const t = opts.time;
   const f = opts.freq ?? 36.71;
-  const chain = outputChain(graph, { ...opts, gain: opts.gain ?? 0.5, reverb: opts.reverb ?? 0.4 }, 2000);
+  // Send 0.4 was against 05 §6a's own rule that the low end stays dry: a wet
+  // sub is mud, and it was the loudest thing going into the reverb.
+  const chain = outputChain(graph, { ...opts, gain: opts.gain ?? 0.5, reverb: opts.reverb ?? 0.1 }, 2000);
 
   const hp = ctx.createBiquadFilter();
   hp.type = 'highpass';
-  hp.frequency.value = 30;
+  hp.frequency.value = 40;
+  hp.Q.value = 0.7;
   hp.connect(chain.input);
 
   const amp = ctx.createGain();
@@ -273,27 +291,41 @@ export function drone(graph, opts) {
   amp.gain.linearRampToValueAtTime(1, t + 2);
   amp.connect(hp);
 
+  // The body of the drone, an octave above the named root: D2, 73.4 Hz.
   const root = ctx.createOscillator();
   root.type = 'sine';
-  root.frequency.value = f;
-  // Normalised so root + sub + fifth cannot sum past unity; the drone runs for
-  // the whole game and is the one voice that must never creep up on the mix.
+  root.frequency.value = f * 2;
+  // Normalised so root + sub + presence + fifth cannot sum past unity; the drone
+  // runs for the whole game and is the one voice that must never creep up.
   const rootG = ctx.createGain();
-  rootG.gain.value = 0.6;
+  rootG.gain.value = 0.45;
   root.connect(rootG);
   rootG.connect(amp);
 
+  // D1 itself, kept but demoted: on a full-range system it is the floor of the
+  // room, and on a laptop it costs nothing because it is not there.
   const sub = ctx.createOscillator();
-  sub.type = 'triangle';
-  sub.frequency.value = f / 2;
+  sub.type = 'sine';
+  sub.frequency.value = f;
   const subG = ctx.createGain();
-  subG.gain.value = 0.3;
+  subG.gain.value = 0.2;
   sub.connect(subG);
   subG.connect(amp);
 
+  // The twelfth, 220 Hz over D1. A triangle, so it carries a little edge: this is
+  // the only part of the drone a laptop speaker reproduces at all.
+  const presence = ctx.createOscillator();
+  presence.type = 'triangle';
+  presence.frequency.value = f * 6;
+  const presenceG = ctx.createGain();
+  presenceG.gain.value = 0.08;
+  presence.connect(presenceG);
+  presenceG.connect(amp);
+
+  // Combat opens the fifth — A2, over the D2 body rather than under it.
   const fifth = ctx.createOscillator();
   fifth.type = 'sine';
-  fifth.frequency.value = f * 1.5;
+  fifth.frequency.value = f * 3;
   const fifthG = ctx.createGain();
   fifthG.gain.value = SILENT;
   fifth.connect(fifthG);
@@ -309,11 +341,11 @@ export function drone(graph, opts) {
   lfo.connect(lfoDepth);
   lfoDepth.connect(amp.gain);
 
-  for (const s of [root, sub, fifth, lfo]) s.start(t);
+  for (const s of [root, sub, presence, fifth, lfo]) s.start(t);
 
   return {
     setFreq(next, when, glide = 4) {
-      for (const [osc, mult] of /** @type {[OscillatorNode, number][]} */ ([[root, 1], [sub, 0.5], [fifth, 1.5]])) {
+      for (const [osc, mult] of /** @type {[OscillatorNode, number][]} */ ([[root, 2], [sub, 1], [presence, 6], [fifth, 3]])) {
         const p = osc.frequency;
         p.cancelScheduledValues(when);
         p.setValueAtTime(p.value, when);
@@ -330,11 +362,11 @@ export function drone(graph, opts) {
       amp.gain.cancelScheduledValues(when);
       amp.gain.setValueAtTime(Math.max(amp.gain.value, SILENT), when);
       amp.gain.linearRampToValueAtTime(0, when + 1.5);
-      for (const s of [root, sub, fifth, lfo]) {
+      for (const s of [root, sub, presence, fifth, lfo]) {
         try { s.stop(when + 1.6); } catch { /* already stopped */ }
       }
       lfo.onended = () => {
-        for (const n of [...chain.nodes, hp, amp, rootG, subG, fifthG, lfoDepth, root, sub, fifth, lfo]) {
+        for (const n of [...chain.nodes, hp, amp, rootG, subG, presenceG, fifthG, lfoDepth, root, sub, presence, fifth, lfo]) {
           try { n.disconnect(); } catch { /* already gone */ }
         }
       };

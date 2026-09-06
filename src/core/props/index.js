@@ -9,6 +9,7 @@
  */
 
 import * as rail from './rail.js';
+import { overlapsSolid } from '../collision.js';
 
 /** @typedef {import('../types.js').Prop} Prop */
 /** @typedef {import('../types.js').AABB} AABB */
@@ -68,12 +69,29 @@ export function spawnProps(room) {
  */
 export function stageProps(s) {
   if (s.props.length === 0) return s;
-  return {
-    ...s,
-    props: s.props.map((p) => {
-      const held = p.id === s.pin.propId || p.id === s.pinB.propId;
-      const kindDef = PROP_KINDS[p.kind];
-      return kindDef ? kindDef.update({ ...p, frozen: held }, s) : { ...p, frozen: held };
-    }),
-  };
+  let carry = { x: 0, y: 0 };
+  const props = s.props.map((p) => {
+    const held = p.id === s.pin.propId || p.id === s.pinB.propId;
+    const kindDef = PROP_KINDS[p.kind];
+    const moved = kindDef ? kindDef.update({ ...p, frozen: held }, s) : { ...p, frozen: held };
+    if (riding(s, p)) carry = { x: carry.x + moved.x - p.x, y: carry.y + moved.y - p.y };
+    return moved;
+  });
+  if (carry.x === 0 && carry.y === 0) return { ...s, props };
+  // A rider goes with the rail. Without this the ferry slides out from under you,
+  // which is the difference between a platform and a piece of scenery.
+  const shifted = { ...s.player, x: s.player.x + carry.x, y: s.player.y + carry.y };
+  const blocked = overlapsSolid(s.roomData, { x: shifted.x, y: shifted.y, w: shifted.w, h: shifted.h });
+  return { ...s, props, player: blocked ? s.player : shifted };
+}
+
+/**
+ * @param {Readonly<GameState>} s
+ * @param {Readonly<Prop>} p
+ * @returns {boolean} true if the player's feet are resting on this prop
+ */
+function riding(s, p) {
+  const feet = s.player.y + s.player.h;
+  if (Math.abs(feet - p.y) > 1) return false;
+  return s.player.x < p.x + p.w && s.player.x + s.player.w > p.x;
 }

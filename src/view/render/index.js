@@ -4,11 +4,24 @@
  * whole art direction can be re-cut by reordering `render` without touching a
  * single drawing routine.
  *
- * Back to front:
- *   void gradient -> parallax skylines + fog planes  (view space, no camera)
+ * The frame is built in two groups, and which group a layer is in *is* the art
+ * direction. The world group — terrain through player, plus the warm casts — is
+ * everything a light can reach; the darkness is composited over it with
+ * `source-atop`, so it lands on those pixels and nothing else. The distance is
+ * then filled in behind with `destination-over` and takes a flat, hole-less dim.
+ *
+ * That split is the whole fix for 06 §D5's arithmetic problem: over L5 terrain a
+ * 0.55 wash of an L6 colour subtracts nothing, so the only thing a full-screen
+ * overlay was actually doing was crushing the parallax's L26/L20/L15 bands into
+ * each other — flattening the one part of the frame that carries depth in order to
+ * "darken" the one part it cannot darken at all.
+ *
+ * Draw order:
  *   terrain -> props -> fluids -> hazards -> particles -> entities -> Pin -> player
- *   warm light casts                                                       (world, additive)
- *   darkness overlay + remembered terrain + the constant grade, in one blit
+ *   warm light casts                                            (one blit, additive)
+ *   darkness overlay + remembered terrain + the grade   (source-atop: world only)
+ *   void gradient -> parallax skylines + fog + a flat dim   (destination-over)
+ *   letterbox bars                                                        (device)
  *   hit flash and the low-health tint, when they are happening             (view)
  *   HUD                                                                    (view)
  *
@@ -31,7 +44,7 @@ import { drawPins } from './pin.js';
 import { Particles } from './particles.js';
 import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
-import { drawGlow } from './glow.js';
+import { drawWarmCasts } from './glow.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./camera.js').Camera} Camera */
@@ -103,20 +116,10 @@ export function render(ctx, state, cam, target) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
-  // Only the letterbox bars need clearing: the background layer paints every
-  // pixel inside the view, so clearing the whole canvas would be a wasted pass.
-  ctx.fillStyle = INK;
-  if (offsetY > 0) {
-    ctx.fillRect(0, 0, target.width, Math.ceil(offsetY));
-    ctx.fillRect(0, target.height - Math.ceil(offsetY) - 1, target.width, Math.ceil(offsetY) + 1);
-  }
-  if (offsetX > 0) {
-    ctx.fillRect(0, 0, Math.ceil(offsetX), target.height);
-    ctx.fillRect(target.width - Math.ceil(offsetX) - 1, 0, Math.ceil(offsetX) + 1, target.height);
-  }
-
-  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-  drawParallax(ctx, region, camX, camY);
+  // Cleared to *transparent*, because "has anything been drawn here" is what the
+  // darkness composite reads as "can a light reach here". The distance and the
+  // bars fill the untouched pixels back in at the end of the frame.
+  ctx.clearRect(0, 0, target.width, target.height);
 
   ctx.setTransform(scale, 0, 0, scale, v.originX, v.originY);
   drawTerrain(ctx, state.roomData, region, v);
@@ -133,26 +136,41 @@ export function render(ctx, state, cam, target) {
   drawPlayer(ctx, state, rig, region, t);
   drawHazardGlow(ctx, state.roomData, view);
 
-  // The warm cast: what the light *adds* to the scene, as opposed to what the
-  // darkness overlay subtracts everywhere else. Additive and low, so it colours
-  // the surfaces near a light instead of washing them out.
-  for (const l of lights) {
-    if (!l.warmth) continue;
-    drawGlow(ctx, l.x, l.y, Math.min(l.r * 0.5, 130), l.color, 0.20 * l.warmth, 3.2);
-  }
-
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+  const screenLights = lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY }));
+
+  // The warm cast: what the light *adds*, as opposed to what the darkness
+  // subtracts everywhere else. It reaches most of the way out to the hole the
+  // same light punches, because the two are one statement: warm where a light
+  // reaches, cold where it does not.
+  drawWarmCasts(ctx, screenLights, 0.30);
+
   updateMemoryMask(state.roomData, state.discovered?.[state.room] ?? [], DISCOVERED_ALPHA, v);
   const low = state.player.maxHp > 0 && state.player.hp / state.player.maxHp < 0.25 && state.player.hp > 0;
   const grade = gradeLayer(region, state.tick);
-  drawDarkness(
-    ctx, region,
-    lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY })),
-    region.darkness,
-    grade ? grade.canvas : null,
-    low ? 0.85 + 0.15 * Math.sin(state.tick * 0.126) : 0.72,
-  );
+  const gradeAlpha = low ? 0.85 + 0.15 * Math.sin(state.tick * 0.126) : 0.72;
+  // Only what the light could have reached. See the header: a wash that also
+  // covers the sky costs the parallax its value separation and buys nothing.
+  ctx.globalCompositeOperation = 'source-atop';
+  drawDarkness(ctx, region, screenLights, region.darkness, grade ? grade.canvas : null, gradeAlpha);
 
+  // The distance, filled in behind everything above it. It carries the same grade
+  // (so the vignette still closes the frame) and a flat, hole-less dim: the light
+  // cannot reach out here, so it is neither lit nor hidden — only far.
+  ctx.globalCompositeOperation = 'destination-over';
+  drawParallax(ctx, region, camX, camY, grade ? grade.canvas : null, gradeAlpha);
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = INK;
+  if (offsetY > 0) {
+    ctx.fillRect(0, 0, target.width, Math.ceil(offsetY));
+    ctx.fillRect(0, target.height - Math.ceil(offsetY) - 1, target.width, Math.ceil(offsetY) + 1);
+  }
+  if (offsetX > 0) {
+    ctx.fillRect(0, 0, Math.ceil(offsetX), target.height);
+    ctx.fillRect(target.width - Math.ceil(offsetX) - 1, 0, Math.ceil(offsetX) + 1, target.height);
+  }
 
   drawGrade(ctx, state, state.tick, { x: offsetX, y: offsetY, w: VIEW_W * scale, h: VIEW_H * scale });
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);

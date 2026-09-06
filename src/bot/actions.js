@@ -24,7 +24,7 @@ import { policyFor } from './policies/index.js';
 const SETTLE_X = 3;
 /** Ceiling on one action. `climb` flies twice, and a boss fight is a boss fight. */
 /** @type {Record<string, number>} */
-const BUDGETS = { climb: 240, fight: 6000, zip: 180 };
+const BUDGETS = { climb: 240, fight: 6000, ride: 600, wait: 600, zip: 180 };
 const DEFAULT_BUDGET = 120;
 
 /** @type {Record<string, number>} */
@@ -44,6 +44,7 @@ export function isKnownAction(action) {
   const [verb = '', arg = ''] = action.split(':');
   if (verb === 'throw' || verb === 'jab' || verb === 'climb') return Object.hasOwn(AIM, arg);
   if (verb === 'recall' || verb === 'zip' || verb === 'kick' || verb === 'fight') return true;
+  if (verb === 'ride') return Number.isInteger(Number(arg));
   if (verb === 'wait') return Number.isInteger(Number(arg)) && Number(arg) > 0;
   return false;
 }
@@ -78,6 +79,7 @@ export function runAction(action, obs, targetX, st) {
   if (verb === 'zip') return zip(obs, next);
   if (verb === 'kick') return kick(obs, next);
   if (verb === 'climb') return climb(obs, targetX, next, bits);
+  if (verb === 'ride') return ride(obs, next, Number(arg));
   if (verb === 'fight') return fight(obs, next);
   return throwPin(obs, targetX, next, bits);
 }
@@ -165,6 +167,21 @@ function climb(obs, targetX, next, bits) {
     return { input: IN.JUMP, st: { phase: 4, frames: next.frames }, done: false, failed: '' };
   }
   return { input: 0, st: next, done: !p.hang && !p.hangBelow, failed: '' };
+}
+
+/**
+ * Stand still on a rail until it has carried you to the tile you asked for. Holding
+ * a direction on a moving platform is how a bot walks off the front of it.
+ * @param {Observation} obs @param {ActionState} next @param {number} tx
+ * @returns {ActionResult}
+ */
+function ride(obs, next, tx) {
+  const target = tx * 16 + 8;
+  const aboard = obs.props.some((pr) => (
+    Math.abs(obs.player.footY - pr.y) <= 1 && obs.player.x < pr.x + pr.w && obs.player.x + 12 > pr.x
+  ));
+  if (!aboard && next.phase === 0) return { input: 0, st: next, done: false, failed: '' };
+  return { input: 0, st: { phase: 1, frames: next.frames }, done: Math.abs(obs.player.cx - target) <= 14, failed: '' };
 }
 
 /**

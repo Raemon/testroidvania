@@ -108,8 +108,12 @@ export function drawCrumble(ctx, state, region, view) {
 }
 
 /**
- * Pickups: a floating accent ember with orbiting motes, per 05 §7.1. The warm
- * glow ring at ~0.8 Hz is the game's one "this is for you" signal.
+ * Pickups: a floating cream ember with orbiting motes, per 05 §7.1. The warm
+ * glow ring at ~0.8 Hz is the game's one "this is for you" signal — and it only
+ * says that if it is *not* the region accent. Accent is the colour of things that
+ * are alive: enemy eyes, jelly tendrils, the drifting motes. A dormant charger
+ * and a pickup rendered in the same cyan are the same object until one of them
+ * charges you.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Readonly<GameState>} state
  * @param {Region} region
@@ -121,8 +125,9 @@ export function drawPickups(ctx, state, region, t) {
     if (taken.includes(pk.id)) continue;
     const x = pk.at[0] * TILE + TILE / 2;
     const y = pk.at[1] * TILE + TILE / 2 + Math.sin(t * Math.PI * 2 * 0.6) * 3;
-    drawGlow(ctx, x, y, 20, region.accent, 0.6);
-    ctx.fillStyle = region.accent;
+    drawGlow(ctx, x, y, 20, PLAYER.core, 0.6);
+    drawGlow(ctx, x, y, 34, PLAYER.flame, 0.22);
+    ctx.fillStyle = PLAYER.core;
     ctx.beginPath();
     ctx.arc(x, y, 2.6, 0, Math.PI * 2);
     ctx.fill();

@@ -37,6 +37,8 @@ import { createRng } from './rng.js';
  * @property {number} stepInLoop    step within this layer's own loop length
  * @property {number} loop          how many times this layer's loop has come round
  * @property {Chord} chord
+ * @property {number} chordIndex    which chord of the progression, so a layer can
+ *   phase its own pattern against the harmony instead of repeating under it
  * @property {number} stepDur
  * @property {number} barDur
  * @property {number} intensity     latched at the bar, never mid-bar
@@ -245,6 +247,7 @@ function build(graph, startRegion, options) {
         stepInLoop: absStep % loopSteps,
         loop,
         chord,
+        chordIndex,
         stepDur: stepDur(),
         barDur: barDur(),
         intensity: barIntensity,
@@ -269,7 +272,9 @@ function build(graph, startRegion, options) {
       freq: midiToFreq(first?.drone ?? 26),
       gain: region.drone.gain,
       bus: graph.musicBus,
-      reverb: 0.4,
+      // 05 §6a: the low end stays dry. 0.4 made the drone the loudest thing in
+      // the reverb, which is how a room tone becomes mud.
+      reverb: 0.1,
     });
   }
 

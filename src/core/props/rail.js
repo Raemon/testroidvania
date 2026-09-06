@@ -22,7 +22,7 @@ export const kind = 'rail';
 const RAIL_W = TILE * 2;
 const RAIL_H = 4;
 /** Slow enough to time, fast enough that waiting for one is a decision. */
-const RAIL_SPEED = 0.8;
+const RAIL_SPEED = 1.2;
 
 /**
  * @param {number} id
@@ -37,7 +37,9 @@ export function spawn(id, at, to) {
     id, kind,
     x: ax, y: ay, w: RAIL_W, h: RAIL_H,
     ax, ay, bx: to[0] * TILE, by: to[1] * TILE,
-    t: 0, dir: 1, speed: RAIL_SPEED,
+    // Parked. A rail that is already running is a free ride, and the Gap gate has
+    // to be opened by A3 and not by waiting: the reel is the shove that starts it.
+    t: 0, dir: 1, speed: 0,
     frozen: false, reel: 0, material: 'metal',
   };
 }
@@ -56,9 +58,16 @@ export function update(p, s) {
     const toB = Math.hypot(p.bx - (s.player.x + s.player.w / 2), p.by - (s.player.y + s.player.h / 2))
       < Math.hypot(p.ax - (s.player.x + s.player.w / 2), p.ay - (s.player.y + s.player.h / 2));
     const t = clamp01(p.t + (toB ? 1 : -1) * (REEL_SPEED / length));
-    const done = t === 0 || t === 1;
-    return { ...place(p, t), reel: done ? 0 : p.reel - 1 };
+    // It arrives at your end of the track and then *waits* for the rest of the reel
+    // before setting off. A ferry that leaves the instant it docks is not a ferry.
+    return {
+      ...place(p, t),
+      reel: p.reel - 1,
+      speed: p.reel === 1 ? RAIL_SPEED : 0,
+      dir: /** @type {-1|1} */ (t >= 1 ? -1 : 1),
+    };
   }
+  if (p.speed === 0) return p;
   const t = p.t + p.dir * (p.speed / length);
   if (t >= 1) return { ...place(p, 1), dir: /** @type {-1|1} */ (-1) };
   if (t <= 0) return { ...place(p, 0), dir: /** @type {-1|1} */ (1) };

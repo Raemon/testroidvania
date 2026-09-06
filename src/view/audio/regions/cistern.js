@@ -9,6 +9,7 @@
  */
 
 import { bell, pluck, sub, breath, pad, midiToFreq } from '../voices.js';
+import { createRng } from '../rng.js';
 
 /** @typedef {import('../sequencer.js').StepContext} StepContext */
 /** @typedef {import('../sequencer.js').ChordContext} ChordContext */
@@ -36,6 +37,19 @@ const ARP = {
   18: 2, 22: 0, 25: 4, 30: 1,
 };
 const ARP_STEPS = Object.keys(ARP).map(Number);
+/** The arp's own loop length, in 16ths. */
+const LOOP_STEPS = 32;
+
+/**
+ * A generator for one note of the arp. The sequencer's `cx.rng` is seeded per
+ * (layer, pass) and handed out fresh on every step, so it is the right stream for
+ * a decision about the *pass* — which notes drop — and the wrong one for a
+ * decision about a note, because every step in a pass would draw the same value.
+ * @param {number} loop @param {number} step @returns {() => number}
+ */
+function noteRng(loop, step) {
+  return createRng(0x5be11 ^ Math.imul(loop, 2654435761) ^ Math.imul(step + 1, 40503));
+}
 
 /**
  * `R . . . . . R . . . R . . . b7 .` — root, root, root, flat seven.
@@ -60,7 +74,9 @@ export const CISTERN = {
   stepsPerBar: 16,
   barsPerChord: 2,
   chords: CHORDS,
-  drone: { gain: 0.26 },
+  // 0.26 put this one voice at -27 dBFS RMS against -32.3 for the whole rest of
+  // the arrangement. It is a floor, not a part.
+  drone: { gain: 0.12 },
   layers: [
     {
       id: 'pad',
@@ -71,7 +87,9 @@ export const CISTERN = {
         const voice = pad(cx.graph, {
           time: cx.time,
           freqs: cx.chord.pad.map(midiToFreq),
-          gain: 0.12,
+          // The pad is the harmony; with the drone no longer eating the mix it
+          // can be heard as one, rather than as a hiss behind a rumble.
+          gain: 0.28,
           bus: cx.bus,
           reverb: 0.7,
           release: 3.5,
@@ -81,7 +99,7 @@ export const CISTERN = {
         if (cx.calm) {
           const fifth = cx.chord.pad[0];
           if (fifth !== undefined) {
-            pad(cx.graph, { time: cx.time, freqs: [midiToFreq(fifth + 7)], gain: 0.06, bus: cx.bus, reverb: 0.8, release: 3.5 })
+            pad(cx.graph, { time: cx.time, freqs: [midiToFreq(fifth + 7)], gain: 0.14, bus: cx.bus, reverb: 0.8, release: 3.5 })
               .release(cx.time + cx.barDur * 2 - 0.4);
           }
         }
@@ -92,24 +110,34 @@ export const CISTERN = {
       id: 'bells',
       minIntensity: 0,
       gain: 1,
-      loopSteps: 32,
+      loopSteps: LOOP_STEPS,
       /** @param {StepContext} cx */
       step(cx) {
-        const degree = ARP[cx.stepInLoop];
+        // The pattern starts three steps later on each chord. Nine fixed notes on
+        // a fixed 32-step grid is 6.7 seconds long and audibly a loop; sliding the
+        // phrase against the bar means the same nine notes land somewhere new for
+        // four chords running, which is 27 seconds before anything repeats.
+        const at = (cx.stepInLoop - cx.chordIndex * 3 + LOOP_STEPS) % LOOP_STEPS;
+        const degree = ARP[at];
         if (degree === undefined) return;
-        // "Every 8th playthrough a seeded RNG drops 2 random notes" — so the arp
-        // never quite reads as a loop even after twenty minutes in one region.
-        if (cx.loop % 8 === 7) {
-          const a = ARP_STEPS[Math.floor(cx.rng() * ARP_STEPS.length)];
-          const b = ARP_STEPS[Math.floor(cx.rng() * ARP_STEPS.length)];
-          if (cx.stepInLoop === a || cx.stepInLoop === b) return;
+        // 05 §6b asks for dropped notes; every 8th pass is once every 53 seconds,
+        // which is not a variation, it is a rounding error. Every third pass is
+        // one in twenty seconds, which is what "never quite a loop" needs.
+        if (cx.loop % 3 === 2) {
+          const drop = 1 + Math.floor(cx.rng() * 2);
+          for (let i = 0; i < drop; i++) {
+            if (at === ARP_STEPS[Math.floor(cx.rng() * ARP_STEPS.length)]) return;
+          }
         }
         const note = cx.chord.tones[degree];
         if (note === undefined) return;
+        // Seeded per note, not per pass: a struck instrument whose every stroke is
+        // the same weight is a sequencer, and you hear it as one.
+        const vel = 0.26 * (0.85 + noteRng(cx.loop, at)() * 0.3);
         bell(cx.graph, {
           time: cx.time,
           freq: midiToFreq(note + 12),
-          gain: 0.26,
+          gain: vel,
           bus: cx.bus,
           reverb: 0.55,
           delay: 0.3,
