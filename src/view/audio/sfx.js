@@ -38,11 +38,10 @@ export const MAX_VOICES = 24;
 const D_DORIAN = [0, 2, 3, 5, 7, 9, 10];
 
 /**
- * @param {AudioGraph} g
  * @param {SfxOpts} o
  * @returns {{gain:number, pan:number, vary:number, bus:AudioNode|undefined}}
  */
-function base(g, o) {
+function base(o) {
   return {
     gain: o.gain ?? 1,
     pan: o.pan ?? 0,
@@ -60,7 +59,7 @@ function base(g, o) {
 export const RECIPES = {
   /** 1. Jump — an exhale that brightens, with a click of shoe leather under it. */
   jump(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       breath(g, { time: t, freq: 900 * b.vary, to: 1800 * b.vary, sweep: 0.08, attack: 0.005, decay: 0.11, gain: 0.28 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.25 }),
       tick(g, { time: t, freq: 520 * b.vary, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.15 }),
@@ -69,7 +68,7 @@ export const RECIPES = {
 
   /** 2. Land — weight. The sub carries it; the breath is the dust. */
   land(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     // Fall speed maps to loudness, not to pitch: a heavy landing should be louder,
     // not lower, or every drop sounds like a different creature.
     const impact = Math.max(0.35, Math.min(1, (o.speed ?? 4) / 6));
@@ -81,7 +80,7 @@ export const RECIPES = {
 
   /** 3. Footstep — 45 ms, quiet, alternating pan. It must never draw attention. */
   footstep(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     const material = o.material ?? 'stone';
     if (material === 'water') {
       return [
@@ -95,13 +94,13 @@ export const RECIPES = {
 
   /** 4. Weapon swing — a whoosh that darkens as it passes. Also the Pin throw. */
   swing(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [breath(g, { time: t, freq: 2500 * b.vary, to: 600 * b.vary, sweep: 0.09, attack: 0.01, decay: 0.1, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.25, delay: 0.15 })];
   },
 
   /** 5. Hit enemy — the bell is "the glass in every hit"; without it a hit is a thud. */
   hit(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       tick(g, { time: t, freq: 240 * b.vary, to: 80 * b.vary, sweep: 0.05, decay: 0.06, gain: 0.7 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }),
       breath(g, { time: t, freq: 3000 * b.vary, attack: 0.001, decay: 0.03, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }),
@@ -111,7 +110,7 @@ export const RECIPES = {
 
   /** 6. Player hurt — the two bells are 26 Hz apart on purpose; the beating is nausea. */
   hurt(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       sub(g, { time: t, freq: 120 * b.vary, to: 40 * b.vary, sweep: 0.09, attack: 0.002, decay: 0.09, gain: 0.7 * b.gain, pan: b.pan, bus: b.bus }),
       breath(g, { time: t, freq: 500 * b.vary, mode: 'lowpass', q: 0.7, attack: 0.002, decay: 0.15, gain: 0.35 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
@@ -122,7 +121,7 @@ export const RECIPES = {
 
   /** 7. Enemy death — three descending ticks, then the room swallowing it. */
   enemyDeath(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     /** @type {Voice[]} */
     const out = [];
     const steps = [880, 660, 440];
@@ -135,7 +134,7 @@ export const RECIPES = {
 
   /** 8. Pickup — `speed` is the chain index; consecutive grabs walk up D Dorian. */
   pickup(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     const stepIndex = Math.max(0, Math.min(7, Math.round(o.speed ?? 0)));
     const semis = (D_DORIAN[stepIndex % 7] ?? 0) + 12 * Math.floor(stepIndex / 7);
     const f = 1568 * Math.pow(2, semis / 12) * b.vary;
@@ -147,7 +146,7 @@ export const RECIPES = {
 
   /** 9. Ability pickup — the four-second one. 05 §7.1 step 4. */
   abilityPickup(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     /** @type {Voice[]} */
     const out = [];
     // Dm9 lifting to Dmaj9: the single raised third is the whole "the light learns
@@ -165,7 +164,7 @@ export const RECIPES = {
 
   /** 10. Door open (stone) — the grinds are what sell the weight; the thud ends it. */
   doorOpen(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     /** @type {Voice[]} */
     const out = [breath(g, { time: t, freq: 300 * b.vary, to: 120 * b.vary, sweep: 0.6, mode: 'lowpass', attack: 0.02, decay: 0.6, gain: 0.5 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 })];
     for (let i = 0; i < 8; i++) {
@@ -177,7 +176,7 @@ export const RECIPES = {
 
   /** 11. Save lantern lit — 05 §7.4. The "fwoomp" then the room answering. */
   lantern(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       breath(g, { time: t, freq: 3000 * b.vary, attack: 0.004, decay: 0.04, gain: 0.35 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.4 }),
       breath(g, { time: t + 0.04, freq: 800 * b.vary, mode: 'lowpass', attack: 0.02, decay: 0.4, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.7 }),
@@ -188,7 +187,7 @@ export const RECIPES = {
 
   /** 12. Hazard contact — hurt, plus three dry ticks. The dryness is the sting. */
   hazard(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     const out = RECIPES.hurt ? RECIPES.hurt(g, t, o) : [];
     for (let i = 0; i < 3; i++) {
       out.push(tick(g, { time: t + i * 0.015, freq: 3000 * b.vary, to: 1500, sweep: 0.01, decay: 0.02, gain: 0.25 * b.gain, pan: b.pan, bus: b.bus, reverb: 0 }));
@@ -198,7 +197,7 @@ export const RECIPES = {
 
   /** 13. Dash / Zip / recall — a whoosh that brightens, the mirror of the swing. */
   dash(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       breath(g, { time: t, freq: 1500 * b.vary, to: 4000 * b.vary, sweep: 0.12, attack: 0.005, decay: 0.14, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.25, delay: 0.4 }),
       sub(g, { time: t, freq: 200 * b.vary, to: 400 * b.vary, sweep: 0.1, attack: 0.005, decay: 0.1, gain: 0.15 * b.gain, pan: b.pan, bus: b.bus }),
@@ -207,25 +206,25 @@ export const RECIPES = {
 
   /** 14a. Menu move — dry, on the ui bus. */
   menuMove(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [tick(g, { time: t, freq: 1200 * b.vary, gain: 0.2 * b.gain, bus: b.bus ?? g.uiBus, decay: 0.03, reverb: 0 })];
   },
 
   /** 14b. Menu confirm. */
   menuConfirm(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [bell(g, { time: t, freq: 1047 * b.vary, gain: 0.3 * b.gain, bus: b.bus ?? g.uiBus, reverb: 0.5, delay: 0.2 })];
   },
 
   /** 14c. Menu back. */
   menuBack(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [tick(g, { time: t, freq: 800 * b.vary, to: 400 * b.vary, sweep: 0.06, decay: 0.06, gain: 0.22 * b.gain, bus: b.bus ?? g.uiBus, reverb: 0 })];
   },
 
   /** 15a. Map open — "paper". */
   mapOpen(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       breath(g, { time: t, freq: 2000 * b.vary, to: 3200 * b.vary, sweep: 0.08, attack: 0.004, decay: 0.08, gain: 0.25 * b.gain, bus: b.bus ?? g.uiBus, reverb: 0.2 }),
       tick(g, { time: t, freq: 600 * b.vary, gain: 0.18 * b.gain, bus: b.bus ?? g.uiBus, decay: 0.03, reverb: 0 }),
@@ -234,7 +233,7 @@ export const RECIPES = {
 
   /** 15b. Map close — the same paper, swept the other way. */
   mapClose(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       breath(g, { time: t, freq: 3200 * b.vary, to: 2000 * b.vary, sweep: 0.08, attack: 0.004, decay: 0.08, gain: 0.25 * b.gain, bus: b.bus ?? g.uiBus, reverb: 0.2 }),
       tick(g, { time: t, freq: 600 * b.vary, to: 400 * b.vary, gain: 0.18 * b.gain, bus: b.bus ?? g.uiBus, decay: 0.03, reverb: 0 }),
@@ -246,7 +245,7 @@ export const RECIPES = {
    * 400 -> 1200 -> 300 Hz lowpass arc is what keeps it a roar instead of a buzz.
    */
   bossRoar(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     const ctx = g.ctx;
     const chain = outputChain(g, { time: t, gain: 0.5 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.6, delay: 0.2 }, 8000);
     const filter = ctx.createBiquadFilter();
@@ -291,7 +290,7 @@ export const RECIPES = {
 
   /** 16b. Boss stomp. */
   bossStomp(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       sub(g, { time: t, freq: 70 * b.vary, to: 30, sweep: 0.12, attack: 0.002, decay: 0.2, gain: 0.9 * b.gain, pan: b.pan, bus: b.bus }),
       breath(g, { time: t, freq: 150 * b.vary, mode: 'lowpass', attack: 0.004, decay: 0.2, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 }),
@@ -300,7 +299,7 @@ export const RECIPES = {
 
   /** 17. Low-health heartbeat — two beats, 140 ms apart, under everything. */
   heartbeat(g, t, o) {
-    const b = base(g, o);
+    const b = base(o);
     return [
       sub(g, { time: t, freq: 60, attack: 0.006, decay: 0.08, gain: 0.4 * b.gain, bus: b.bus }),
       sub(g, { time: t + 0.14, freq: 50, attack: 0.006, decay: 0.08, gain: 0.25 * b.gain, bus: b.bus }),

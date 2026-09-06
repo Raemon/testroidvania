@@ -134,6 +134,10 @@ export function createObserver() {
         // An octave up on the whole recipe: the same impact, but unmistakably metal.
         out.push({ id: 'hit', opts: { seed, dist: r.dist, dx: r.dx, vary: 2, gain: 0.8 } });
       }
+      if (prev.pin.state === 'flying' && next.pin.state === 'dropped') {
+        const r = relativeTo(next, next.pin.x, next.pin.y);
+        out.push({ id: 'land', opts: { seed, speed: 2, gain: 0.5, dist: r.dist, dx: r.dx } });
+      }
       if (prev.pin.state === 'returning' && next.pin.state === 'held') {
         out.push({ id: 'dash', opts: { seed, gain: 0.8 } });
       }
@@ -142,8 +146,11 @@ export function createObserver() {
       }
 
       // --- combat ----------------------------------------------------------
+      // A respawn re-spawns the room with fresh entity ids, so every old id
+      // vanishes at once. That is not twelve enemies dying.
+      const respawned = prev.player.hp <= 0 && p.hp > 0;
       /** @type {Map<number, Entity>} */
-      const before = new Map(prev.entities.map((e) => [e.id, e]));
+      const before = new Map(respawned ? [] : prev.entities.map((e) => [e.id, e]));
       for (const e of next.entities) {
         const was = before.get(e.id);
         if (was && e.hp < was.hp && e.hp > 0) {
@@ -152,7 +159,7 @@ export function createObserver() {
         }
       }
       const now = new Set(next.entities.map((e) => e.id));
-      for (const e of prev.entities) {
+      for (const e of respawned ? [] : prev.entities) {
         if (now.has(e.id)) continue;
         const r = relativeTo(next, e.x + e.w / 2, e.y + e.h / 2);
         out.push({ id: 'enemyDeath', opts: { seed, dist: r.dist, dx: r.dx } });

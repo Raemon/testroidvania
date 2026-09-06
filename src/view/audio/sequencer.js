@@ -160,17 +160,23 @@ function build(graph, startRegion, options) {
     return g;
   }
 
-  /** @param {AudioParam} p @param {number} at */
+  /**
+   * Freeze a param at whatever it will be at `at`, then let the caller ramp from
+   * there. `cancelScheduledValues` alone would snap the gain back to the last set
+   * value mid-ramp, which is audible as a step.
+   * @param {AudioParam} p @param {number} at
+   */
   function holdAt(p, at) {
-    const held = p.value;
-    try {
-      /** @type {{cancelAndHoldAtTime?: (t:number)=>void}} */ (p).cancelAndHoldAtTime?.(at);
-    } catch {
-      p.cancelScheduledValues(at);
+    const held = Math.max(p.value, SILENT);
+    const hold = /** @type {{cancelAndHoldAtTime?: (t: number) => void}} */ (p).cancelAndHoldAtTime;
+    if (hold) {
+      try {
+        hold.call(p, at);
+        return;
+      } catch { /* `at` is already in the past; fall through */ }
     }
-    if (!(/** @type {{cancelAndHoldAtTime?: unknown}} */ (p).cancelAndHoldAtTime)) {
-      p.setValueAtTime(Math.max(held, SILENT), at);
-    }
+    p.cancelScheduledValues(at);
+    p.setValueAtTime(held, at);
   }
 
   /** @param {number} at */
