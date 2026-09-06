@@ -15,14 +15,16 @@
 // coin flip: one column left a twelve-pixel window of floor to stand on and make
 // the bank from. Three leaves twenty-four, which is a two-tile stand.
 //
-// There is a hatch in the west end of the gallery floor and a beam over it, and on
-// the way in they are a tease and nothing else: a straight throw up through the
-// hatch bites the beam, and a Zip leaves you hanging under it with one Pin, no way
-// on, and nothing to do but let go. The Ascent is when that changes. With the
-// second light you throw *from* the hang — down and right, into the gallery roof —
-// and the fall between the two throws is the whole trick, exactly as K1 taught it.
-// That is what puts A5 in the finale: the last tier of the climb is the chain-zip,
-// over a floor the void is in the middle of eating.
+// There is a four-tile hatch in the west end of the gallery floor and a beam over
+// it, and on the way in they are a tease and nothing else: a straight throw up
+// through the hatch bites the beam, and a Zip leaves you hanging under it with one
+// Pin, no way on, and nothing to do but let go — the hatch is deliberately wider
+// than the drift of that fall, so letting go puts you back on the floor and not on
+// the gallery. The Ascent is when it changes. With the second light you throw
+// *from* the hang, down and right into the hatch's far wall, and the fall between
+// the two throws is the whole trick, exactly as K1 taught it. That is what puts A5
+// in the finale: the last tier of the climb is the chain-zip, over a floor the void
+// is in the middle of eating.
 
 export const id = 's4_gallery';
 
@@ -35,7 +37,7 @@ export const tiles = `
 #.................#WWW.........D
 #.................#WWW..MMMMMMM#
 #.................#WWW..MMMMMMM#
-##..##################..MMMMMMM#
+##....################..MMMMMMM#
 #.......................MMMMMMM#
 #.......................MMMMMMM#
 #.......................MMMMMMM#
@@ -81,6 +83,7 @@ export const variants = [
       [2, 14],
       [2, 14, 'chain:u'],
       [2, 4, 'chain:dr'],
+      [5, 8, 'mantle'],
       [6, 7],
       [16, 7],
       [20, 4],
