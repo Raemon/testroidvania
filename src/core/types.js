@@ -270,8 +270,7 @@
  * @property {Room} roomData               the compiled room; shared, never mutated
  * @property {Player} player
  * @property {Pin} pin                     the primary Pin; see PIN_HELD_FIRST below
- * @property {Pin} pinB                    the second Pin, dormant until A5 Twin Pin
- * @property {'a'|'b'} pinLast             which Pin was thrown most recently; Zip aims there
+ * @property {Pin} pinB                    the older of the two Pins; dormant until A5
  * @property {Prop[]} props
  * @property {Entity[]} entities
  * @property {number} nextEntityId

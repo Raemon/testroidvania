@@ -19,7 +19,8 @@ import { tileAt } from './tiles.js';
  * @property {string} tiles
  * @property {Door[]} doors
  * @property {{kind:string, at:[number,number]}[]} spawns
- * @property {{id:string, kind:string, at:[number,number]}[]} pickups
+ * @property {{kind:string, at:[number,number], to:[number,number]}[]} [rails]
+ * @property {{id:string, kind:string, at:[number,number], ability?:import('../core/types.js').AbilityId, afterBoss?:string}[]} pickups
  * @property {{route:import('../core/types.js').Waypoint[]}} hints
  * @property {number[]|null} macro
  */
@@ -54,6 +55,7 @@ export function compileRoom(mod) {
     doors: mod.doors,
     hazards,
     spawns: mod.spawns,
+    rails: mod.rails ?? [],
     pickups: mod.pickups,
     lanterns,
     route: mod.hints.route,

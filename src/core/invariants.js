@@ -9,11 +9,12 @@
  * The rule numbers are 04-architecture §6.
  */
 
-import { TILE, VMAX, MAX_ENTITIES, SOFTLOCK_WINDOW, PIN_AUTO_RECALL_FRAMES } from './constants.js';
+import { TILE, VMAX, MAX_ENTITIES, SOFTLOCK_WINDOW, PIN_AUTO_RECALL_FRAMES, ZIP_SPEED, ZIP_MAX_FRAMES } from './constants.js';
 import { overlapsSolid } from './collision.js';
 import { hash, NonFiniteError } from './hash.js';
 import { IN, justPressed } from './input.js';
 import { EVENT_KINDS } from './events.js';
+import { isBoss } from './bosses/index.js';
 
 /** @type {import('./types.js').PinState[]} */
 const PIN_STATES = ['held', 'flying', 'embedded', 'pinned', 'dropped', 'returning'];
@@ -262,4 +263,72 @@ addCheck(({ next, report }) => {
     if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) report('EVENT_KIND', `event '${e.kind}' has no position`);
   }
   if (next.events.length > 64) report('EVENT_FLOOD', `${next.events.length} events in one frame`);
+});
+
+// --- Phase 3: abilities, props and bosses ----------------------------------
+
+// 24. The second Pin (A5) obeys the same state machine as the first, and the two of
+//     them obey the ordering rule the one-button model rests on: only `pin` may hold
+//     a body, and a Pin in the hand is never also embedded in something.
+addCheck(({ next, report }) => {
+  const b = next.pinB;
+  if (!PIN_STATES.includes(b.state)) {
+    report('PIN_STATE', `pinB.state is '${b.state}'`);
+    return;
+  }
+  if (b.hostId !== null) report('PIN_STATE', `pinB names host ${b.hostId}; only the primary Pin may hold a body`);
+  if (b.state === 'embedded' && b.surface === null) report('PIN_STATE', 'an embedded pinB is embedded in nothing');
+  if (b.state !== 'embedded' && b.surface !== null) report('PIN_STATE', `a ${b.state} pinB still names surface '${b.surface}'`);
+  if (b.state === 'held' && (b.vx !== 0 || b.vy !== 0)) report('PIN_STATE', 'a held pinB is moving');
+  if (!next.progress.abilities.includes('twinPin') && b.state !== 'held') {
+    report('PIN_STATE', `pinB is '${b.state}' without Twin Pin — there is only one Pin until A5`);
+  }
+});
+
+// 25. Hanging under a ceiling pin is only true while there is a ceiling pin, and it
+//     is never true at the same time as the other two grips.
+addCheck(({ next, report }) => {
+  const p = next.player;
+  if (!p.hangBelow) return;
+  const ceilingPin = next.pin.state === 'embedded' && next.pin.ny > 0;
+  if (!ceilingPin) report('GRIP', 'the player is hanging below with no ceiling pin');
+  if (p.hang || p.perch) report('GRIP', 'the player is hanging below and gripping a wall pin at once');
+});
+
+// 26. A Zip is bounded. It has an anchor, it has a frame budget, and its stored
+//     velocity is finite — so "flying to the Pin" can never become "flying".
+addCheck(({ next, report }) => {
+  const p = next.player;
+  if (!Number.isInteger(p.zipFrames) || p.zipFrames < 0) report('TIMER', `player.zipFrames is ${p.zipFrames}`);
+  if (p.zipFrames === 0) return;
+  if (p.zipFrames > ZIP_MAX_FRAMES) report('ZIP', `zip has run for ${p.zipFrames} frames`);
+  if (!next.progress.abilities.includes('zip')) report('ZIP', 'zipping without Zip');
+  if (Math.hypot(p.zipVx, p.zipVy) > ZIP_SPEED + 1e-6) report('ZIP', `zip speed ${Math.hypot(p.zipVx, p.zipVy)} exceeds ${ZIP_SPEED}`);
+});
+
+// 27. A rail stays on its own track. It is the only dynamic solid in the game, and
+//     the reason it is safe is that it can never leave the two points it runs between.
+addCheck(({ next, report }) => {
+  for (const prop of next.props) {
+    if (prop.t < 0 || prop.t > 1) report('PROP_TRACK', `${prop.kind} ${prop.id} is at t=${prop.t}`);
+    const x = prop.ax + (prop.bx - prop.ax) * prop.t;
+    const y = prop.ay + (prop.by - prop.ay) * prop.t;
+    if (Math.abs(prop.x - x) > 1e-6 || Math.abs(prop.y - y) > 1e-6) {
+      report('PROP_TRACK', `${prop.kind} ${prop.id} is at (${prop.x}, ${prop.y}), off its track point (${x}, ${y})`);
+    }
+    if (prop.frozen !== (prop.id === next.pin.propId || prop.id === next.pinB.propId)) {
+      report('PROP_FROZEN', `${prop.kind} ${prop.id} frozen=${prop.frozen} with no Pin in it`);
+    }
+  }
+});
+
+// 28. A boss can always be beaten: while it is guarded, at least one of its parts is
+//     alive to be pinned. A guarded boss with no parts is an unwinnable room.
+addCheck(({ next, report }) => {
+  for (const e of next.entities) {
+    if (!isBoss(e.kind) || (e.timers.guard ?? 0) === 0) continue;
+    if ((e.timers.born ?? 0) <= 1) continue;
+    if (next.entities.some((x) => x.timers.owner === e.id)) continue;
+    report('BOSS_SEALED', `${e.kind} ${e.id} is guarded with no pinnable part left`);
+  }
 });

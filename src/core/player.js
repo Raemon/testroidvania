@@ -56,7 +56,11 @@ export function createPlayer(x, y) {
     safeGround: { x, y },
     perch: false,
     hang: false,
+    hangBelow: false,
     hangCooldown: 0,
+    zipFrames: 0,
+    zipVx: 0,
+    zipVy: 0,
     throwFreeze: 0,
     jabFrames: 0,
     jabHits: 0,
@@ -85,9 +89,10 @@ export function deriveAnimState(p) {
  * @param {InputMask} prevInput
  * @param {Readonly<Pin>} pin
  * @param {import('./types.js').SimEvent[]} events appended to; see events.js
+ * @param {readonly import('./types.js').AABB[]} platforms dynamic one-way surfaces
  * @returns {Player}
  */
-export function stepPlayer(room, player, input, prevInput, pin, events) {
+export function stepPlayer(room, player, input, prevInput, pin, events, platforms) {
   const ticked = {
     ...player,
     iframes: Math.max(0, player.iframes - 1),
@@ -100,6 +105,8 @@ export function stepPlayer(room, player, input, prevInput, pin, events) {
       vy: 0,
       perch: false,
       hang: false,
+      hangBelow: false,
+      zipFrames: 0,
       jabFrames: 0,
       deadFrames: ticked.deadFrames + 1,
       state: /** @type {PlayerAnimState} */ ('dead'),
@@ -107,7 +114,7 @@ export function stepPlayer(room, player, input, prevInput, pin, events) {
   }
   const jabbed = stepJab(ticked, input, prevInput);
   if (jabbed.jabFrames === 1) emit(events, 'jab', jabbed.x + jabbed.w / 2, jabbed.y + jabbed.h / 2);
-  const moved = stepPlayerPhysics(room, jabbed, input, prevInput, pin, events);
+  const moved = stepPlayerPhysics(room, jabbed, input, prevInput, pin, events, platforms);
   return { ...moved, state: deriveAnimState(moved) };
 }
 
@@ -138,6 +145,10 @@ export function damagePlayer(player, amount, fromX, hazards = []) {
     vy: hp > 0 ? PLAYER_KNOCKBACK_VY : 0,
     perch: false,
     hang: false,
+    hangBelow: false,
+    zipFrames: 0,
+    zipVx: 0,
+    zipVy: 0,
     jabFrames: 0,
     state: hp > 0 ? 'hurt' : 'dead',
   };

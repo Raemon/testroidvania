@@ -12,7 +12,7 @@ import { sweepX, sweepY, moveBox, overlapsSolid, solidAt, oneWayAt } from '../..
 function room(rows) {
   return {
     id: 'test', w: rows[0]?.length ?? 0, h: rows.length, grid: rows,
-    doors: [], hazards: [], spawns: [], pickups: [], lanterns: [], route: [], macro: null,
+    doors: [], hazards: [], spawns: [], rails: [], pickups: [], lanterns: [], route: [], macro: null,
   };
 }
 

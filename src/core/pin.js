@@ -152,6 +152,7 @@ export function stagePin(s) {
       flash = PIN_CLANG_FLASH_FRAMES;
       emit(s.events, 'pin.clang', pin.x, pin.y, { material: 'metal' });
     }
+    if (moved.bounced) emit(s.events, 'pin.ricochet', pin.x, pin.y, { material: 'metal' });
     if (pin.state === 'embedded' && s.pin.state !== 'embedded') {
       emit(s.events, 'pin.embed', pin.x, pin.y, { material: pin.surface });
     }
@@ -259,13 +260,14 @@ function stepReturning(s, pin, entities) {
  * @param {Pin} pin
  * @param {readonly Entity[]} entities
  * @param {Room} room
- * @returns {{pin: Pin, entities: Entity[], hitstop: number, clang: boolean, broke: [number,number]|null}}
+ * @returns {{pin: Pin, entities: Entity[], hitstop: number, clang: boolean, bounced: boolean, broke: [number,number]|null}}
  */
 function stepFlying(s, pin, entities, room) {
   let next = { ...pin };
   let list = /** @type {Entity[]} */ (entities.slice());
   let hitstop = 0;
   let clang = false;
+  let bounced = false;
   /** @type {[number,number]|null} */
   let broke = null;
 
@@ -284,6 +286,27 @@ function stepFlying(s, pin, entities, room) {
   for (let i = 0; i < slices && next.state === 'flying'; i++) {
     const sx = next.vx / slices;
     const sy = next.vy / slices;
+    // A rail's core comes before terrain: it is the thing in front of the wall.
+    const onProp = propContact(s.props, next.x, next.y, sx, sy);
+    if (onProp) {
+      if (freezesMechanisms(s.progress.abilities) && !next.inert) {
+        next = {
+          ...next, state: 'embedded', x: onProp.x, y: onProp.y, vx: 0, vy: 0,
+          nx: onProp.nx, ny: onProp.ny, surface: 'metal', propId: onProp.id, away: 0,
+        };
+        break;
+      }
+      if (canBounce(next, s.progress.abilities)) {
+        next = bounce({ ...next, x: onProp.x, y: onProp.y }, onProp.nx, onProp.ny);
+        bounced = true;
+        continue;
+      }
+      clang = !next.inert;
+      next = { ...next, x: onProp.x, y: onProp.y, inert: true, clang: PIN_CLANG_FLASH_FRAMES, vx: 0 };
+      if (onProp.ny < 0) next = { ...next, state: 'dropped', y: onProp.y - 2, vy: 0 };
+      break;
+    }
+
     const contact = terrainContact(room, next.x, next.y, sx, sy);
     if (contact) {
       const verdict = surfaceVerdict(room, contact.tx, contact.ty, s.progress.abilities);
@@ -309,6 +332,13 @@ function stepFlying(s, pin, entities, room) {
         break;
       }
       if (verdict === 'clang') {
+        // A4 turns the one thing the Pin could never do into a bank shot. Range
+        // keeps counting through the bounce, so it is a throw, not a free second one.
+        if (canBounce(next, s.progress.abilities)) {
+          next = bounce({ ...next, x: contact.x, y: contact.y }, contact.nx, contact.ny);
+          bounced = true;
+          continue;
+        }
         // The most important readability event in the game: white flash, then
         // straight down. No embed, no bounce, no ambiguity.
         clang = !next.inert;
@@ -337,7 +367,42 @@ function stepFlying(s, pin, entities, room) {
     }
   }
 
-  return { pin: next, entities: list, hitstop, clang, broke };
+  return { pin: next, entities: list, hitstop, clang, bounced, broke };
+}
+
+/**
+ * Point-vs-rail contact for one motion slice. Rails are checked before terrain
+ * because a rail is always the thing standing in front of a wall.
+ * @param {readonly import('./types.js').Prop[]} props
+ * @param {number} x @param {number} y @param {number} dx @param {number} dy
+ * @returns {{id:number, x:number, y:number, nx:number, ny:number}|null}
+ */
+function propContact(props, x, y, dx, dy) {
+  const px = x + dx;
+  const py = y + dy;
+  for (const p of props) {
+    const b = propBox(p);
+    if (px < b.x || px > b.x + b.w || py < b.y || py > b.y + b.h) continue;
+    if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) {
+      return { id: p.id, x: dx > 0 ? b.x : b.x + b.w, y: py, nx: dx > 0 ? -1 : 1, ny: 0 };
+    }
+    return { id: p.id, x: px, y: dy > 0 ? b.y : b.y + b.h, nx: 0, ny: dy > 0 ? -1 : 1 };
+  }
+  return null;
+}
+
+/**
+ * The slag block a Pin is buried in, if any. Recall shatters it — the Barrier gate
+ * is the one explicit lock in the game and this is the only thing that opens it.
+ * @param {GameState} s @param {Readonly<Pin>} pin @param {Room} room
+ * @returns {[number, number]|null}
+ */
+function slagUnder(s, pin, room) {
+  if (pin.state !== 'embedded' || pin.propId !== null) return null;
+  if (!freezesMechanisms(s.progress.abilities)) return null;
+  const tx = Math.floor((pin.x - pin.nx) / TILE);
+  const ty = Math.floor((pin.y - pin.ny) / TILE);
+  return tileAt(glyphAt(room, tx, ty)).slag ? [tx, ty] : null;
 }
 
 /**
@@ -354,6 +419,15 @@ function strikeEntity(s, room, pin, target) {
   const hurt = damageEntity(target, PIN_THROW_DAMAGE, pin.x);
   if (hurt.hp <= 0 || target.mass !== 0) {
     return { pin: { ...pin, inert: true, vx: 0, vy: 0 }, entity: hurt };
+  }
+  // An explicitly pinnable part takes the Pin into itself, no wall required. Which
+  // parts those are is the same three-way material read as terrain, which is what
+  // makes "find the pinnable part while the rest is metal" legible without a legend.
+  if (target.pinMaterial && bitesMaterial(target.pinMaterial, s.progress.abilities)) {
+    return {
+      pin: { ...pin, state: 'pinned', hostId: target.id, hostTimer: PIN_PINNED_FRAMES, vx: 0, vy: 0, x: target.x + target.w / 2, y: target.y + target.h / 2 },
+      entity: { ...hurt, vx: 0, vy: 0, pinned: true, stun: PIN_PINNED_FRAMES },
+    };
   }
   const wall = wallBehind(s, room, pin, target);
   if (!wall) return { pin: { ...pin, inert: true, vx: 0, vy: 0 }, entity: hurt };
@@ -471,5 +545,6 @@ function trackAutoRecall(s, pin, room) {
  */
 export function snapPinToHand(s) {
   const hand = handAt(s);
-  return { ...s, pin: { ...createPin(), x: hand.x, y: hand.y } };
+  const fresh = { ...createPin(), x: hand.x, y: hand.y };
+  return { ...s, pin: fresh, pinB: { ...fresh } };
 }

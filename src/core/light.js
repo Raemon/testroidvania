@@ -16,6 +16,7 @@ import {
   LIGHT_EYE_R, LIGHT_LANTERN_R,
 } from './constants.js';
 import { entityEye } from './entities/index.js';
+import { owned as hasTwinPin } from './abilities/twinPin.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
 /** @typedef {import('./types.js').Light} Light */
@@ -37,6 +38,11 @@ export function computeLights(s) {
     { x: s.player.x + s.player.w / 2, y: s.player.y + s.player.h / 2, r: auraRadius(s), kind: 'aura' },
     { x: s.pin.x, y: s.pin.y, r: LIGHT_PIN_R, kind: 'pin' },
   ];
+  // A5's second light. Only when it is actually out there: two lights in one hand
+  // is one light, and a §D2 enemy would see a decoy that is not a decoy.
+  if (hasTwinPin(s.progress.abilities) && s.pinB.state !== 'held') {
+    lights.push({ x: s.pinB.x, y: s.pinB.y, r: LIGHT_PIN_R, kind: 'pin' });
+  }
   for (const hz of s.roomData.hazards) {
     lights.push({ x: hz.x + hz.w / 2, y: hz.y + hz.h / 2, r: LIGHT_HAZARD_R, kind: 'hazard' });
   }

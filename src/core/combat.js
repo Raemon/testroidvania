@@ -8,16 +8,18 @@
  */
 
 import {
-  ENEMY_CONTACT_DAMAGE, JAB_DAMAGE, JAB_CRIT_MULT, JAB_KNOCKBACK,
-  HITSTOP_HIT, HITSTOP_KILL, DEATH_RESPAWN_FRAMES, PLAYER_MAX_HP,
+  ENEMY_CONTACT_DAMAGE, BOSS_CONTACT_DAMAGE, JAB_DAMAGE, JAB_CRIT_MULT, JAB_KNOCKBACK,
+  HITSTOP_HIT, HITSTOP_KILL, DEATH_RESPAWN_FRAMES, PLAYER_MAX_HP, MAX_ENTITIES,
 } from './constants.js';
 import { damagePlayer } from './player.js';
 import { jabBox, jabIsActive } from './jab.js';
 import { overlaps } from './geometry.js';
-import { damageEntity, entityBox, ENTITY_KINDS } from './entities/index.js';
+import { damageEntity, entityBox, armoured, ENTITY_KINDS } from './entities/index.js';
 import { getRoom } from './rooms.js';
 import { createPin, handAt } from './pin.js';
 import { createPlayer } from './player.js';
+import { spawnProps } from './props/index.js';
+import { isBoss } from './bosses/index.js';
 import { emit } from './events.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
@@ -42,7 +44,42 @@ export function stageEntities(s) {
     const kind = ENTITY_KINDS[ticked.kind];
     return kind ? kind.update(ticked, s) : ticked;
   });
-  return { ...s, entities: stepped.filter((e) => e.hp > 0) };
+
+  // Bodies that make bodies: a Turret's bolt, a boss's limbs, a lava wave. Ids come
+  // from `nextEntityId` so they can never collide with a room's own spawns.
+  /** @type {Entity[]} */
+  const born = [];
+  let nextEntityId = s.nextEntityId;
+  for (const e of stepped) {
+    const hatch = ENTITY_KINDS[e.kind]?.hatch;
+    if (!hatch || e.hp <= 0) continue;
+    if (stepped.length + born.length >= MAX_ENTITIES) break;
+    for (const child of hatch(e, s, nextEntityId)) {
+      born.push(child);
+      nextEntityId++;
+    }
+  }
+  const reaped = reap(s, [...stepped, ...born]);
+  return { ...s, entities: reaped.entities, progress: reaped.progress, nextEntityId };
+}
+
+/**
+ * Remove the dead, and record a boss's death as progress on the way past. Doing it
+ * here rather than in a boss file means a boss killed by a recall on its way home
+ * counts exactly as much as one killed by a jab.
+ * @param {GameState} s
+ * @param {Entity[]} entities
+ * @returns {{entities: Entity[], progress: import('./types.js').Progress}}
+ */
+function reap(s, entities) {
+  if (!entities.some((e) => e.hp <= 0)) return { entities, progress: s.progress };
+  let progress = s.progress;
+  for (const e of entities) {
+    if (e.hp > 0 || !isBoss(e.kind) || progress.bossesKilled.includes(e.kind)) continue;
+    emit(s.events, 'boss.death', e.x + e.w / 2, e.y + e.h / 2, { id: e.id });
+    progress = { ...progress, bossesKilled: [...progress.bossesKilled, e.kind].sort() };
+  }
+  return { entities: entities.filter((e) => e.hp > 0), progress };
 }
 
 /**
@@ -57,9 +94,8 @@ export function stageCombat(s) {
   next = applyDeath(next);
   // Reap here as well as in the entity stage: a kill that happens *after* the
   // entity stage must not leave a 0-HP body in the state for a frame.
-  return next.entities.some((e) => e.hp <= 0)
-    ? { ...next, entities: next.entities.filter((e) => e.hp > 0) }
-    : next;
+  const reaped = reap(next, next.entities);
+  return { ...next, entities: reaped.entities, progress: reaped.progress };
 }
 
 /** @param {GameState} s @returns {GameState} */
@@ -74,7 +110,9 @@ function applyJab(s) {
     if (e.hp <= 0 || e.hitLockout > 0 || !overlaps(box, entityBox(e))) return e;
     // A pinned enemy is helpless, so the jab that frees it counts double.
     const damage = JAB_DAMAGE * (e.pinned ? JAB_CRIT_MULT : 1);
-    const hurt = damageEntity(e, damage, p.x + p.w / 2);
+    const hurt = damageEntity(e, damage, p.x + p.w / 2, p.y + p.h / 2);
+    // Rang off the armour: no hitstop, no death event, no reward for the swing.
+    if (armoured(e, p.x + p.w / 2, p.y + p.h / 2)) return hurt;
     hits++;
     emit(s.events, hurt.hp <= 0 ? 'enemy.death' : 'hit', e.x + e.w / 2, e.y + e.h / 2, { id: e.id });
     hitstop = Math.max(hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT);
@@ -116,12 +154,16 @@ function applyHazards(s) {
 function applyContact(s) {
   const p = s.player;
   if (p.hp <= 0 || p.iframes > 0) return s;
+  // Zip suppresses contact damage (01 §4): skewering must not punish you for it.
+  // Hazards still bite, so a zip into the spikes is still a zip into the spikes.
+  if (p.zipFrames > 0) return s;
   const box = { x: p.x, y: p.y, w: p.w, h: p.h };
   for (const e of s.entities) {
     // Pinned is helpless: it cannot hurt you, which is what makes "nail it to the
     // wall, then walk up and jab it" a safe thing for the game to teach.
     if (e.hp <= 0 || e.pinned || !overlaps(box, entityBox(e))) continue;
-    const hurt = damagePlayer(p, ENEMY_CONTACT_DAMAGE, e.x + e.w / 2, s.roomData.hazards);
+    const damage = isBoss(e.kind) ? BOSS_CONTACT_DAMAGE : ENEMY_CONTACT_DAMAGE;
+    const hurt = damagePlayer(p, damage, e.x + e.w / 2, s.roomData.hazards);
     emit(s.events, hurt.hp <= 0 ? 'player.death' : 'player.hurt', p.x + p.w / 2, p.y + p.h / 2, { id: e.id });
     return { ...s, player: hurt, hitstop: Math.max(s.hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT) };
   }
@@ -139,10 +181,16 @@ function applyDeath(s) {
   const room = getRoom(s.respawn.room) ?? s.roomData;
   emit(s.events, 'respawn', s.respawn.x, s.respawn.y);
   const fresh = createPlayer(s.respawn.x, s.respawn.y);
-  const revived = { ...s, room: room.id, roomData: room, entities: spawnFor(room), player: { ...fresh, hp: PLAYER_MAX_HP } };
+  const revived = {
+    ...s, room: room.id, roomData: room,
+    entities: spawnFor(room), nextEntityId: room.spawns.length + 1, props: spawnProps(room),
+    player: { ...fresh, hp: PLAYER_MAX_HP },
+  };
+  const home = { ...createPin(), ...handAt(revived) };
   return {
     ...revived,
-    pin: { ...createPin(), ...handAt(revived) },
+    pin: home,
+    pinB: { ...home },
     brokenTiles: [],
     progress: { ...s.progress, deaths: s.progress.deaths + 1 },
   };

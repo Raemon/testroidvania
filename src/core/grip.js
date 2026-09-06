@@ -7,7 +7,7 @@
  * instead of a single step, so it is load-bearing long before Zip exists.
  */
 
-import { PIN_PLATFORM_H, PIN_HAND_OFFSET, HANG_GRAB_DIST, HANG_COOLDOWN } from './constants.js';
+import { PIN_PLATFORM_H, PIN_POLE_W, PIN_POLE_H, PIN_HAND_OFFSET, HANG_GRAB_DIST, HANG_COOLDOWN } from './constants.js';
 import { overlapsSolid } from './collision.js';
 import { pinPlatform } from './pin-geometry.js';
 
@@ -76,6 +76,29 @@ export function stillHanging(p, pin) {
 }
 
 /**
+ * Where a body hangs under a ceiling pin: hands on the tip of the pole. This is a
+ * Zip arrival only — you cannot fall onto a ceiling.
+ * @param {AABB} box
+ * @param {Readonly<Pin>} pin
+ * @returns {{x:number, y:number}}
+ */
+export function hangBelowAnchor(box, pin) {
+  return { x: pin.x - box.w / 2, y: pin.y + PIN_POLE_H - PIN_HAND_OFFSET };
+}
+
+/**
+ * @param {Readonly<Player>} p
+ * @param {Readonly<Pin>} pin
+ * @returns {boolean}
+ */
+export function stillHangingBelow(p, pin) {
+  if (pin.state !== 'embedded' || pin.ny <= 0) return false;
+  if (p.hp <= 0 || p.hurtFrames > 0) return false;
+  const at = hangBelowAnchor({ x: p.x, y: p.y, w: p.w, h: p.h }, pin);
+  return Math.abs(p.x - at.x) <= PIN_POLE_W && Math.abs(p.y - at.y) <= PIN_PLATFORM_H;
+}
+
+/**
  * The Pin left, so whatever was holding on to it lets go. This runs after the Pin
  * stage because the player moves first: without it, a recall pressed while hanging
  * would leave the player dangling from a Pin that is already flying home.
@@ -84,7 +107,14 @@ export function stillHanging(p, pin) {
  */
 export function stageGrip(s) {
   const p = s.player;
-  if (!p.hang && !p.perch) return s;
-  if (s.pin.state === 'embedded' && s.pin.nx !== 0) return s;
-  return { ...s, player: { ...p, hang: false, perch: false, hangCooldown: p.hang ? HANG_COOLDOWN : p.hangCooldown } };
+  if (!p.hang && !p.perch && !p.hangBelow) return s;
+  const embedded = s.pin.state === 'embedded';
+  const wallPin = embedded && s.pin.nx !== 0;
+  const ceilingPin = embedded && s.pin.ny > 0;
+  const hang = p.hang && wallPin;
+  const perch = p.perch && wallPin;
+  const hangBelow = p.hangBelow && ceilingPin;
+  if (hang === p.hang && perch === p.perch && hangBelow === p.hangBelow) return s;
+  const letGo = (p.hang && !hang) || (p.hangBelow && !hangBelow);
+  return { ...s, player: { ...p, hang, perch, hangBelow, hangCooldown: letGo ? HANG_COOLDOWN : p.hangCooldown } };
 }

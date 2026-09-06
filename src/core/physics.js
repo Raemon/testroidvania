@@ -18,8 +18,7 @@ import {
 import { IN, axisX, isDown, justPressed } from './input.js';
 import { moveBox, isSupported, materialUnder, glyphAt } from './collision.js';
 import { emit } from './events.js';
-import { pinPlatforms } from './pin-geometry.js';
-import { grabbableHang, hangAnchor, perchCentre, stillHanging } from './grip.js';
+import { grabbableHang, hangAnchor, perchCentre, stillHanging, stillHangingBelow } from './grip.js';
 
 /** @typedef {import('./types.js').Player} Player */
 /** @typedef {import('./types.js').Pin} Pin */
@@ -76,12 +75,14 @@ export function applyGravity(vy, fastFalling) {
  * @param {Player} p
  * @param {InputMask} input
  * @param {InputMask} prevInput
- * @param {Readonly<Pin>} pin the Pin is a platform, so motion has to know about it
+ * @param {Readonly<Pin>} pin the Pin the player can grip; grips only ever attach to
+ *   `state.pin`, which A5 keeps as the most recently thrown of the two
  * @param {import('./types.js').SimEvent[]} events appended to; see events.js
+ * @param {readonly import('./types.js').AABB[]} platforms every dynamic one-way
+ *   surface this frame: both Pins' shelves and every rail
  * @returns {Player} a fresh player object
  */
-export function stepPlayerPhysics(room, p, input, prevInput, pin, events) {
-  const platforms = pinPlatforms(pin);
+export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platforms) {
   const stunned = p.hurtFrames > 0;
   const downHeld = isDown(input, IN.DOWN);
   const jumpHeld = isDown(input, IN.JUMP);
@@ -107,6 +108,13 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events) {
       jumpBuffer: 0,
       coyote: 0,
     };
+  }
+
+  if (p.hangBelow) {
+    // Under a ceiling pin, after a Zip. Jump and Down both just let go (01 §3).
+    if (!stillHangingBelow(p, pin)) return { ...p, hangBelow: false, hangCooldown: HANG_COOLDOWN };
+    if (!letGo) return { ...p, vx: 0, vy: 0, grounded: false, onOneWay: false, coyote: 0, fallFrames: 0 };
+    return { ...p, hangBelow: false, hangCooldown: HANG_COOLDOWN, vx: 0, vy: 0, jumpBuffer: 0, coyote: 0 };
   }
 
   // Perch (§D1.1) holds you still on a 16x4 shelf until you ask to leave it.

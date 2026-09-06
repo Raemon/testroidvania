@@ -278,7 +278,7 @@ export const BOSS_LIGHT_TELEGRAPH = 14;
 export const BOSS_CONTACT_DAMAGE = 1;
 export const BOSS_PART_HP = 6;
 
-export const STOKER_HP = 24;
+export const STOKER_HP = 18;
 export const STOKER_W = 40;
 export const STOKER_H = 32;
 export const STOKER_SLAM_WINDUP = 14;
@@ -286,18 +286,18 @@ export const STOKER_SLAM_ACTIVE = 10;
 export const STOKER_RECOVER = 40;
 export const STOKER_WAVE_SPEED = 1.6;
 
-export const DIVER_HP = 26;
+export const DIVER_HP = 18;
 export const DIVER_W = 32;
 export const DIVER_H = 26;
 export const DIVER_SUBMERGE_FRAMES = 50;
 export const DIVER_GEYSER_ACTIVE = 12;
 export const DIVER_RECOVER = 36;
 
-export const SENTINEL_HP = 20;
+export const SENTINEL_HP = 14;
 export const SENTINEL_W = 34;
 export const SENTINEL_H = 30;
 
-export const ANCHOR_HP = 30;
+export const ANCHOR_HP = 24;
 export const ANCHOR_W = 44;
 export const ANCHOR_H = 36;
 /** Phase 2 begins here; phase 3 was cut (06-revision-1 §C), the Ascent is the finale. */

@@ -27,9 +27,15 @@
 import { SOFTLOCK_WINDOW, DOOR_LEAD } from './constants.js';
 import { emit } from './events.js';
 import { stepPlayer } from './player.js';
-import { stagePin, snapPinToHand } from './pin.js';
+import { snapPinToHand } from './pin.js';
+import { pinPlatforms } from './pin-geometry.js';
+import { stagePins } from './abilities/twinPin.js';
+import { stageZip } from './abilities/zip.js';
+import { stageReel } from './abilities/reel.js';
+import { stageProps, spawnProps, propPlatforms } from './props/index.js';
 import { stageGrip } from './grip.js';
 import { stageEntities, stageCombat, spawnFor } from './combat.js';
+import { stagePickups } from './pickups.js';
 import { stageLanterns } from './lanterns.js';
 import { computeLights, rememberSeen } from './light.js';
 import { doorUnder, resolvePartner, doorEntry } from './rooms.js';
@@ -106,11 +112,15 @@ export function step(state, input) {
   };
 
   s = runStage(s, 'player', stagePlayer, errors);
-  s = runStage(s, 'pin', stagePin, errors);
+  s = runStage(s, 'pin', stagePins, errors);
+  s = runStage(s, 'zip', stageZip, errors);
   s = runStage(s, 'grip', stageGrip, errors);
+  s = runStage(s, 'props', stageProps, errors);
   s = runStage(s, 'light', stageLight, errors);
   s = runStage(s, 'entities', stageEntities, errors);
+  s = runStage(s, 'reel', stageReel, errors);
   s = runStage(s, 'combat', stageCombat, errors);
+  s = runStage(s, 'pickups', stagePickups, errors);
   s = runStage(s, 'rooms', (x) => stageRooms(x, state), errors);
   s = runStage(s, 'lanterns', stageLanterns, errors);
   s = runStage(s, 'discovery', stageDiscovery, errors);
@@ -118,9 +128,22 @@ export function step(state, input) {
   return s;
 }
 
-/** @param {GameState} s @returns {GameState} */
+/**
+ * The Zip stage owns the body outright while it is flying, so the ordinary physics
+ * step stands aside rather than integrating gravity into a zip.
+ * @param {GameState} s @returns {GameState}
+ */
 function stagePlayer(s) {
-  return { ...s, player: stepPlayer(s.roomData, s.player, s.input, s.prevInput, s.pin, s.events) };
+  if (s.player.zipFrames > 0) return s;
+  return { ...s, player: stepPlayer(s.roomData, s.player, s.input, s.prevInput, s.pin, s.events, platformsFor(s)) };
+}
+
+/**
+ * Every dynamic one-way surface this frame: both Pins' shelves and every rail.
+ * @param {Readonly<GameState>} s @returns {import('./types.js').AABB[]}
+ */
+export function platformsFor(s) {
+  return [...pinPlatforms(s.pin), ...pinPlatforms(s.pinB), ...propPlatforms(s.props)];
 }
 
 /** @param {GameState} s @returns {GameState} */
@@ -168,11 +191,14 @@ function stageRooms(s, prev) {
     room: partner.room.id,
     roomData: partner.room,
     entities: spawnFor(partner.room),
+    nextEntityId: partner.room.spawns.length + 1,
+    props: spawnProps(partner.room),
     brokenTiles: [],
     player: {
       ...p,
       x: at.x, y: at.y, vy: 0, grounded: false, coyote: 0,
-      perch: false, hang: false, hangCooldown: 0, jabFrames: 0, nearDoor: '',
+      perch: false, hang: false, hangBelow: false, hangCooldown: 0,
+      zipFrames: 0, zipVx: 0, zipVy: 0, jabFrames: 0, nearDoor: '',
       iframes: Math.max(p.iframes, 20), safeGround: at,
     },
   };
@@ -205,6 +231,7 @@ export function progressFingerprint(s) {
     s.room.length,
     hashString(s.room),
     hashString(s.pin.state),
+    hashString(s.pinB.state),
     s.progress.abilities.length,
     s.progress.bossesKilled.length,
     s.progress.pickupsTaken.length,

@@ -9,6 +9,7 @@ import { createPlayer } from './player.js';
 import { createPin } from './pin.js';
 import { getRoom, standOn } from './rooms.js';
 import { spawnFor } from './combat.js';
+import { spawnProps } from './props/index.js';
 import { computeLights } from './light.js';
 import { START } from '../content/world.js';
 import { PLAYER_W, PLAYER_H, PIN_HAND_OFFSET } from './constants.js';
@@ -30,7 +31,7 @@ export function createProgress() {
  */
 const VOID_ROOM = {
   id: '__void__', w: 3, h: 3, grid: ['###', '#.#', '###'],
-  doors: [], hazards: [], spawns: [], pickups: [], lanterns: [], route: [], macro: null,
+  doors: [], hazards: [], spawns: [], rails: [], pickups: [], lanterns: [], route: [], macro: null,
 };
 
 /**
@@ -61,8 +62,11 @@ export function createInitialState(seed, worldId) {
     roomData: room,
     player,
     pin: { ...createPin(), x: pos.x + PLAYER_W / 2, y: pos.y + PIN_HAND_OFFSET },
+    pinB: { ...createPin(), x: pos.x + PLAYER_W / 2, y: pos.y + PIN_HAND_OFFSET },
     entities: spawnFor(room),
-    nextEntityId: 1,
+    props: spawnProps(room),
+    // Room spawns take 1..n, so anything hatched mid-room starts after them.
+    nextEntityId: room.spawns.length + 1,
     progress: createProgress(),
     events: [],
     lights: [],

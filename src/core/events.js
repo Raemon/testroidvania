@@ -33,8 +33,10 @@ export const EVENT_KINDS = [
   'jab', 'hit', 'enemy.death', 'player.hurt', 'player.death', 'respawn',
   // World
   'crumble.break', 'lantern.light', 'door.open', 'room.enter',
-  // Phase 3, declared so the vocabulary is fixed before the code arrives
-  'zip.start', 'zip.arrive', 'boss.roar', 'boss.stomp', 'boss.phase', 'menu.move',
+  // Abilities
+  'zip.start', 'zip.arrive', 'zip.cancel', 'pin.ricochet', 'slag.shatter', 'ability.gain', 'pickup.take',
+  // Bosses
+  'boss.roar', 'boss.stomp', 'boss.phase', 'boss.death', 'menu.move',
 ];
 
 /**

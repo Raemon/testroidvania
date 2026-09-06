@@ -13,6 +13,9 @@ import { moveBox, solidAt } from '../collision.js';
 /** @typedef {import('../types.js').Room} Room */
 /** @typedef {import('../types.js').AABB} AABB */
 
+/** Bodies that carry the Shell's "only from above or behind" armour rule. */
+const ARMOURED_KINDS = ['shell', 'sentinel'];
+
 /**
  * @param {object} spec
  * @param {number} spec.id
@@ -25,6 +28,9 @@ import { moveBox, solidAt } from '../collision.js';
  * @param {number} spec.hp
  * @param {0|1} spec.mass
  * @param {string} spec.mode
+ * @param {import('../types.js').Material|null} [spec.pinMaterial] the Pin embeds in
+ *   this body itself, gated by the same three-way read as terrain
+ * @param {string} [spec.owner] boss id this body is a part of
  * @returns {Entity}
  */
 export function createEntity(spec) {
@@ -51,6 +57,9 @@ export function createEntity(spec) {
     flash: 0,
     targetX: 0,
     targetY: 0,
+    pinMaterial: spec.pinMaterial ?? null,
+    reel: 0,
+    owner: spec.owner ?? '',
   };
 }
 
@@ -65,13 +74,34 @@ export function entityEye(e) {
 }
 
 /**
+ * A Shell's armour. "Only hurt from above or behind" is a *geometry* rule, so it
+ * lives next to the geometry rather than inside four different attack sites: every
+ * attack already knows where it came from.
+ * @param {Readonly<Entity>} e
+ * @param {number} fromX
+ * @param {number} fromY
+ * @returns {boolean} true if the blow lands on the shell and does nothing
+ */
+export function armoured(e, fromX, fromY) {
+  // A boss's plates are up unless one of its pinnable parts is currently held.
+  if ((e.timers.guard ?? 0) > 0) return true;
+  if (!ARMOURED_KINDS.includes(e.kind)) return false;
+  if (e.pinned || e.stun > 0) return false;
+  if (fromY < e.y) return false;
+  return Math.sign(fromX - (e.x + e.w / 2)) !== -e.facing;
+}
+
+/**
  * @param {Entity} e
  * @param {number} amount
  * @param {number} fromX  for knockback direction
+ * @param {number} [fromY] where the blow came from vertically; defaults to level
+ *   with the body, which is the only case the armour rule can refuse
  * @returns {Entity} a fresh entity; `hp` may reach 0, which combat then reaps
  */
-export function damageEntity(e, amount, fromX) {
+export function damageEntity(e, amount, fromX, fromY) {
   if (e.hp <= 0 || e.hitLockout > 0) return e;
+  if (armoured(e, fromX, fromY ?? e.y + e.h / 2)) return { ...e, hitLockout: 4, flash: 2 };
   const hp = Math.max(0, e.hp - amount);
   const away = e.x + e.w / 2 < fromX ? -1 : 1;
   return {

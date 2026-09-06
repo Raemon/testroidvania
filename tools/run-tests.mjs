@@ -8,9 +8,31 @@
  *  2. **The suite has a published wall-clock budget** (04-architecture §9 risk 5).
  *     Over `BUDGET_MS` the run fails even if every assertion passed, because a slow
  *     suite is the failure mode where agents quietly stop running it.
+ *  3. **The gates cannot be bypassed.** Purity and typecheck run here rather than
+ *     only in `pretest`, so `node tools/run-tests.mjs` and `npm test` are the same
+ *     thing. They were a `pretest` hook, and running the runner directly skipped
+ *     them — which is how type errors reached a commit.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+
+/**
+ * Fail before spending time on tests; a broken boundary invalidates the run anyway.
+ * @param {string} name
+ * @param {string[]} argv
+ */
+function gate(name, argv) {
+  const r = spawnSync(process.execPath, argv, { stdio: 'inherit' });
+  if (r.status !== 0) {
+    process.stderr.write(`\nrun-tests: ${name} failed — fix it before the suite means anything\n`);
+    process.exit(r.status ?? 1);
+  }
+}
+
+if (!process.env.PINLIGHT_SKIP_GATES) {
+  gate('purity check', ['tools/check-purity.mjs']);
+  gate('typecheck', ['node_modules/typescript/bin/tsc', '--noEmit', '-p', '.']);
+}
 
 /** Per-test ceiling. Anything legitimately slower than this is a bug. */
 const TEST_TIMEOUT_MS = 15000;

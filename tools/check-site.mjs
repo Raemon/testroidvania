@@ -8,6 +8,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const ROOT = '_site';
+/** @type {Record<string, string>} */
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json',
   '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml',
@@ -15,7 +16,8 @@ const TYPES = {
 
 const server = createServer(async (req, res) => {
   try {
-    let p = normalize(decodeURI((req.url || '/').split('?')[0])).replace(/^(\.\.[/\\])+/, '');
+    const [urlPath = '/'] = (req.url || '/').split('?');
+    let p = normalize(decodeURI(urlPath)).replace(/^(\.\.[/\\])+/, '');
     if (p.endsWith('/')) p += 'index.html';
     const body = await readFile(join(ROOT, p));
     res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream' });
@@ -25,7 +27,7 @@ const server = createServer(async (req, res) => {
     res.end('not found');
   }
 });
-await new Promise((resolve) => server.listen(0, resolve));
+await new Promise((resolve) => server.listen(0, () => resolve(undefined)));
 const { port } = /** @type {{port:number}} */ (server.address());
 
 const entries = await readdir(ROOT, { withFileTypes: true });

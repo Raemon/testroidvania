@@ -59,8 +59,21 @@ export function spawnProps(room) {
   return out;
 }
 
-/** @param {GameState} s @returns {GameState} */
+/**
+ * `frozen` is derived from where the Pins are rather than stored, so a Pin that
+ * left — recalled, shattered, knocked loose — can never leave a mechanism stopped
+ * forever. Freezing is A2's traversal use, not a permanent edit to the room.
+ * @param {GameState} s
+ * @returns {GameState}
+ */
 export function stageProps(s) {
   if (s.props.length === 0) return s;
-  return { ...s, props: s.props.map((p) => PROP_KINDS[p.kind]?.update(p, s) ?? p) };
+  return {
+    ...s,
+    props: s.props.map((p) => {
+      const held = p.id === s.pin.propId || p.id === s.pinB.propId;
+      const kindDef = PROP_KINDS[p.kind];
+      return kindDef ? kindDef.update({ ...p, frozen: held }, s) : { ...p, frozen: held };
+    }),
+  };
 }
