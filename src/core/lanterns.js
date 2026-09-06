@@ -7,7 +7,6 @@
  * ending scales with, so an unlit lantern off the critical path is worth walking to.
  */
 
-import { PLAYER_MAX_HP } from './constants.js';
 import { overlaps } from './geometry.js';
 import { lanternId } from './light.js';
 import { emit } from './events.js';
@@ -29,7 +28,7 @@ export function stageLanterns(s) {
     emit(s.events, 'lantern.light', lantern.x, lantern.y);
     return {
       ...s,
-      player: { ...p, hp: Math.max(p.hp, Math.min(p.maxHp, PLAYER_MAX_HP)) },
+      player: { ...p, hp: p.maxHp },
       respawn: { room: s.room, x: p.safeGround.x, y: p.safeGround.y },
       progress: { ...s.progress, lanternsLit: [...s.progress.lanternsLit, id].sort() },
     };

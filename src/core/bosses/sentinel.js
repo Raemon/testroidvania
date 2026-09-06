@@ -8,7 +8,7 @@
  * Deep Pin for two regions.
  */
 
-import { SENTINEL_HP, SENTINEL_W, SENTINEL_H } from '../constants.js';
+
 import { update as chargerUpdate } from '../entities/charger.js';
 import { spawnBoss, hatchParts } from './base.js';
 
@@ -16,6 +16,11 @@ import { spawnBoss, hatchParts } from './base.js';
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'sentinel';
+export const rig = 'knight';
+
+const SENTINEL_HP = 14;
+const SENTINEL_W = 34;
+const SENTINEL_H = 30;
 
 /** @type {import('./index.js').BossDef} */
 export const boss = { id: 'sentinel', name: 'Sentinel', maxHp: SENTINEL_HP, grants: 'twinPin' };

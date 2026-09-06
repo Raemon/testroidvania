@@ -15,16 +15,16 @@
 import {
   TILE, PIN_THROW_STARTUP, PIN_SPEED, PIN_RANGE, PIN_FALL_GRAVITY, PIN_RECALL_SPEED,
   PIN_CATCH_RADIUS, PIN_THROW_LOCK, PIN_HAND_OFFSET, PIN_CLANG_FLASH_FRAMES,
-  PIN_AUTO_RECALL_FRAMES, PIN_PINNED_FRAMES, PIN_THROW_DAMAGE, PIN_RECALL_DAMAGE,
-  PIN_CARRY_RANGE, PIN_WATER_SINK, HITSTOP_HIT, HITSTOP_KILL, TERMINAL_VY,
+  PIN_AUTO_RECALL_FRAMES, PIN_PINNED_FRAMES, PIN_RECALL_DAMAGE,
+  PIN_WATER_SINK, HITSTOP_HIT, HITSTOP_KILL, TERMINAL_VY,
 } from './constants.js';
 import { IN, justPressed, axisX, axisY } from './input.js';
-import { glyphAt, solidAt } from './collision.js';
+import { glyphAt, solidAt, overlapsSolid, inWater } from './collision.js';
 import { tileAt } from '../content/tiles.js';
 import { overlaps, pointToSegment } from './geometry.js';
-import { pinHitbox } from './pin-geometry.js';
+import { pinHitbox, contactAhead } from './pin-geometry.js';
 import { damageEntity, entityBox } from './entities/index.js';
-import { propBox } from './props/index.js';
+import { strikeEntity } from './pin-strike.js';
 import { bitesMaterial, freezesMechanisms } from './abilities/deepPin.js';
 import { canBounce, bounce } from './abilities/ricochet.js';
 import { startReel } from './abilities/reel.js';
@@ -67,11 +67,6 @@ export function surfaceVerdict(room, tx, ty, abilities) {
   if (def.material === 'metal') return 'clang';
   if (!def.pinnable) return 'reject';
   return bitesMaterial(def.material, abilities) ? 'embed' : 'reject';
-}
-
-/** @param {Room} room @param {number} x @param {number} y @returns {boolean} */
-function inWater(room, x, y) {
-  return glyphAt(room, Math.floor(x / TILE), Math.floor(y / TILE)) === '~';
 }
 
 /** Where the Pin sits while it is in the hand. @param {GameState} s @returns {{x:number,y:number}} */
@@ -286,69 +281,16 @@ function stepFlying(s, pin, entities, room) {
   for (let i = 0; i < slices && next.state === 'flying'; i++) {
     const sx = next.vx / slices;
     const sy = next.vy / slices;
-    // A rail's core comes before terrain: it is the thing in front of the wall.
-    const onProp = propContact(s.props, next.x, next.y, sx, sy);
-    if (onProp) {
-      if (freezesMechanisms(s.progress.abilities) && !next.inert) {
-        next = {
-          ...next, state: 'embedded', x: onProp.x, y: onProp.y, vx: 0, vy: 0,
-          nx: onProp.nx, ny: onProp.ny, surface: 'metal', propId: onProp.id, away: 0,
-        };
-        break;
-      }
-      if (canBounce(next, s.progress.abilities)) {
-        next = bounce({ ...next, x: onProp.x, y: onProp.y }, onProp.nx, onProp.ny);
-        bounced = true;
-        continue;
-      }
-      clang = !next.inert;
-      next = { ...next, x: onProp.x, y: onProp.y, inert: true, clang: PIN_CLANG_FLASH_FRAMES, vx: 0 };
-      if (onProp.ny < 0) next = { ...next, state: 'dropped', y: onProp.y - 2, vy: 0 };
-      break;
-    }
-
-    const contact = terrainContact(room, next.x, next.y, sx, sy);
+    const contact = contactAhead(room, s.props, next.x, next.y, sx, sy);
     if (contact) {
-      const verdict = surfaceVerdict(room, contact.tx, contact.ty, s.progress.abilities);
-      if (verdict === 'embed' && !next.inert) {
-        next = {
-          ...next,
-          state: 'embedded',
-          x: contact.x,
-          y: contact.y,
-          vx: 0,
-          vy: 0,
-          nx: contact.nx,
-          ny: contact.ny,
-          surface: tileAt(glyphAt(room, contact.tx, contact.ty)).material,
-          away: 0,
-        };
-        break;
-      }
-      if (verdict === 'crumble') {
-        // The tile gives way rather than holding the Pin (§G).
-        broke = [contact.tx, contact.ty];
-        next = { ...next, x: contact.x, y: contact.y, inert: true, vx: 0, vy: 0 };
-        break;
-      }
-      if (verdict === 'clang') {
-        // A4 turns the one thing the Pin could never do into a bank shot. Range
-        // keeps counting through the bounce, so it is a throw, not a free second one.
-        if (canBounce(next, s.progress.abilities)) {
-          next = bounce({ ...next, x: contact.x, y: contact.y }, contact.nx, contact.ny);
-          bounced = true;
-          continue;
-        }
-        // The most important readability event in the game: white flash, then
-        // straight down. No embed, no bounce, no ambiguity.
-        clang = !next.inert;
-        next = { ...next, x: contact.x, y: contact.y, inert: true, clang: PIN_CLANG_FLASH_FRAMES, vx: 0 };
-        if (contact.ny < 0) next = { ...next, state: 'dropped', y: contact.y - 2, vy: 0 };
-        break;
-      }
-      // Non-pinnable and not metal (stone before Deep Pin): it just stops dead.
-      next = { ...next, x: contact.x, y: contact.y, inert: true, vx: 0 };
-      if (contact.ny < 0) next = { ...next, state: 'dropped', y: contact.y - 2, vy: 0 };
+      const hit = resolveSurface(s, room, next, contact);
+      next = hit.pin;
+      clang = clang || hit.clang;
+      bounced = bounced || hit.bounced;
+      broke = hit.broke ?? broke;
+      // A bounce is the one outcome that keeps flying, so it spends the slice and
+      // carries on rather than ending the frame's motion.
+      if (hit.bounced) continue;
       break;
     }
     // Range counts flight, not the fall afterwards, so `travelled` stays the
@@ -356,11 +298,11 @@ function stepFlying(s, pin, entities, room) {
     const flown = next.inert ? 0 : Math.hypot(sx, sy);
     next = { ...next, x: next.x + sx, y: next.y + sy, travelled: next.travelled + flown };
 
-    const hit = list.findIndex((e) => e.hp > 0 && !e.pinned && overlaps(pinHitbox(next), entityBox(e)));
-    if (hit >= 0 && !next.inert) {
-      const target = /** @type {Entity} */ (list[hit]);
+    const hitIdx = list.findIndex((e) => e.hp > 0 && !e.pinned && overlaps(pinHitbox(next), entityBox(e)));
+    if (hitIdx >= 0 && !next.inert) {
+      const target = /** @type {Entity} */ (list[hitIdx]);
       const result = strikeEntity(s, room, next, target);
-      list = list.map((e, idx) => (idx === hit ? result.entity : e));
+      list = list.map((e, idx) => (idx === hitIdx ? result.entity : e));
       next = result.pin;
       hitstop = result.entity.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT;
       break;
@@ -370,26 +312,6 @@ function stepFlying(s, pin, entities, room) {
   return { pin: next, entities: list, hitstop, clang, bounced, broke };
 }
 
-/**
- * Point-vs-rail contact for one motion slice. Rails are checked before terrain
- * because a rail is always the thing standing in front of a wall.
- * @param {readonly import('./types.js').Prop[]} props
- * @param {number} x @param {number} y @param {number} dx @param {number} dy
- * @returns {{id:number, x:number, y:number, nx:number, ny:number}|null}
- */
-function propContact(props, x, y, dx, dy) {
-  const px = x + dx;
-  const py = y + dy;
-  for (const p of props) {
-    const b = propBox(p);
-    if (px < b.x || px > b.x + b.w || py < b.y || py > b.y + b.h) continue;
-    if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) {
-      return { id: p.id, x: dx > 0 ? b.x : b.x + b.w, y: py, nx: dx > 0 ? -1 : 1, ny: 0 };
-    }
-    return { id: p.id, x: px, y: dy > 0 ? b.y : b.y + b.h, nx: 0, ny: dy > 0 ? -1 : 1 };
-  }
-  return null;
-}
 
 /**
  * The slag block a Pin is buried in, if any. Recall shatters it — the Barrier gate
@@ -405,120 +327,58 @@ function slagUnder(s, pin, room) {
   return tileAt(glyphAt(room, tx, ty)).slag ? [tx, ty] : null;
 }
 
+
+
+
+
 /**
- * One throw against one enemy. Light enemies with something pinnable close behind
- * are carried into it and held helpless; everything else takes the damage and
- * drops the Pin.
+ * What one surface does to the Pin. Every material outcome the game has lives here,
+ * once: embed, crumble, bank, clang, and the dead stop that stone gives you before
+ * Deep Pin. `stepFlying` used to spell all five out three times over.
+ *
  * @param {GameState} s
  * @param {Room} room
  * @param {Pin} pin
- * @param {Entity} target
- * @returns {{pin: Pin, entity: Entity}}
+ * @param {import('./pin-geometry.js').PinContact} contact
+ * @returns {{pin: Pin, clang: boolean, bounced: boolean, broke: [number,number]|null}}
  */
-function strikeEntity(s, room, pin, target) {
-  const hurt = damageEntity(target, PIN_THROW_DAMAGE, pin.x);
-  if (hurt.hp <= 0 || target.mass !== 0) {
-    return { pin: { ...pin, inert: true, vx: 0, vy: 0 }, entity: hurt };
-  }
-  // An explicitly pinnable part takes the Pin into itself, no wall required. Which
-  // parts those are is the same three-way material read as terrain, which is what
-  // makes "find the pinnable part while the rest is metal" legible without a legend.
-  if (target.pinMaterial && bitesMaterial(target.pinMaterial, s.progress.abilities)) {
+function resolveSurface(s, room, pin, contact) {
+  const at = { ...pin, x: contact.x, y: contact.y };
+  const onRail = contact.propId !== null;
+  // A rail is metal, so it clangs — until Deep Pin, which embeds in its core and
+  // stops it dead (§G). That is the same sentence as stone, in a different tile.
+  const verdict = onRail
+    ? (freezesMechanisms(s.progress.abilities) ? 'embed' : 'clang')
+    : surfaceVerdict(room, contact.tx, contact.ty, s.progress.abilities);
+
+  if (verdict === 'embed' && !pin.inert) {
     return {
-      pin: { ...pin, state: 'pinned', hostId: target.id, hostTimer: PIN_PINNED_FRAMES, vx: 0, vy: 0, x: target.x + target.w / 2, y: target.y + target.h / 2 },
-      entity: { ...hurt, vx: 0, vy: 0, pinned: true, stun: PIN_PINNED_FRAMES },
+      pin: {
+        ...at, state: 'embedded', vx: 0, vy: 0, nx: contact.nx, ny: contact.ny, away: 0,
+        propId: contact.propId,
+        surface: onRail ? 'metal' : tileAt(glyphAt(room, contact.tx, contact.ty)).material,
+      },
+      clang: false, bounced: false, broke: null,
     };
   }
-  const wall = wallBehind(s, room, pin, target);
-  if (!wall) return { pin: { ...pin, inert: true, vx: 0, vy: 0 }, entity: hurt };
-  return {
-    pin: {
-      ...pin,
-      state: 'pinned',
-      hostId: target.id,
-      hostTimer: PIN_PINNED_FRAMES,
-      vx: 0,
-      vy: 0,
-      x: wall.x + target.w / 2,
-      y: wall.y + target.h / 2,
-    },
-    entity: { ...hurt, x: wall.x, y: wall.y, vx: 0, vy: 0, pinned: true, stun: PIN_PINNED_FRAMES },
-  };
-}
-
-/**
- * @param {GameState} s @param {Room} room @param {Readonly<Pin>} pin @param {Readonly<Entity>} target
- * @returns {{x:number, y:number}|null} where the enemy ends up, flat against the
- *   pinnable surface behind it, or null if there is none within 48px
- */
-function wallBehind(s, room, pin, target) {
-  const speed = Math.hypot(pin.vx, pin.vy) || 1;
-  const ux = pin.vx / speed;
-  const uy = pin.vy / speed;
-  let x = target.x;
-  let y = target.y;
-  for (let d = 1; d <= PIN_CARRY_RANGE; d++) {
-    const nx2 = target.x + ux * d;
-    const ny2 = target.y + uy * d;
-    const box = { x: nx2, y: ny2, w: target.w, h: target.h };
-    if (boxHitsSolid(room, box)) {
-      const verdict = frontVerdict(s, room, box, ux, uy);
-      return verdict === 'embed' ? { x, y } : null;
-    }
-    x = nx2;
-    y = ny2;
+  if (verdict === 'crumble') {
+    // The tile gives way rather than holding the Pin (§G).
+    return { pin: { ...at, inert: true, vx: 0, vy: 0 }, clang: false, bounced: false, broke: [contact.tx, contact.ty] };
   }
-  return null;
-}
-
-/** @param {Room} room @param {import('./types.js').AABB} box @returns {boolean} */
-function boxHitsSolid(room, box) {
-  for (let ty = Math.floor(box.y / TILE); ty <= Math.floor((box.y + box.h - 1e-9) / TILE); ty++) {
-    for (let tx = Math.floor(box.x / TILE); tx <= Math.floor((box.x + box.w - 1e-9) / TILE); tx++) {
-      if (solidAt(room, tx, ty)) return true;
-    }
+  if (verdict === 'clang' && canBounce(pin, s.progress.abilities)) {
+    // A4 turns the one thing the Pin could never do into a bank shot. Range keeps
+    // counting through the bounce, so it is a throw and not a free second one.
+    return { pin: bounce(at, contact.nx, contact.ny), clang: false, bounced: true, broke: null };
   }
-  return false;
-}
-
-/**
- * @param {GameState} s @param {Room} room @param {import('./types.js').AABB} box
- * @param {number} ux @param {number} uy
- * @returns {ReturnType<typeof surfaceVerdict>} the verdict of the tile the box ran into
- */
-function frontVerdict(s, room, box, ux, uy) {
-  const px = box.x + box.w / 2 + ux * (box.w / 2 + 1);
-  const py = box.y + box.h / 2 + uy * (box.h / 2 + 1);
-  return surfaceVerdict(room, Math.floor(px / TILE), Math.floor(py / TILE), s.progress.abilities);
-}
-
-/**
- * Point-vs-tilemap contact for one motion slice.
- * @param {Room} room @param {number} x @param {number} y @param {number} dx @param {number} dy
- * @returns {{x:number, y:number, tx:number, ty:number, nx:number, ny:number}|null}
- */
-function terrainContact(room, x, y, dx, dy) {
-  const nx = x + dx;
-  const ny = y + dy;
-  if (dx !== 0 && solidAt(room, Math.floor(nx / TILE), Math.floor(y / TILE))) {
-    const tx = Math.floor(nx / TILE);
-    const face = dx > 0 ? tx * TILE : (tx + 1) * TILE;
-    return { x: face, y, tx, ty: Math.floor(y / TILE), nx: dx > 0 ? -1 : 1, ny: 0 };
-  }
-  if (dy !== 0 && solidAt(room, Math.floor(x / TILE), Math.floor(ny / TILE))) {
-    const ty = Math.floor(ny / TILE);
-    const face = dy > 0 ? ty * TILE : (ty + 1) * TILE;
-    return { x, y: face, tx: Math.floor(x / TILE), ty, nx: 0, ny: dy > 0 ? -1 : 1 };
-  }
-  if (solidAt(room, Math.floor(nx / TILE), Math.floor(ny / TILE))) {
-    const tx = Math.floor(nx / TILE);
-    const ty = Math.floor(ny / TILE);
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      return { x: dx > 0 ? tx * TILE : (tx + 1) * TILE, y: ny, tx, ty, nx: dx > 0 ? -1 : 1, ny: 0 };
-    }
-    return { x: nx, y: dy > 0 ? ty * TILE : (ty + 1) * TILE, tx, ty, nx: 0, ny: dy > 0 ? -1 : 1 };
-  }
-  return null;
+  // Clang is the most important readability event in the game: white flash, then
+  // straight down. Everything else non-pinnable just stops dead.
+  const stopped = verdict === 'clang'
+    ? { ...at, inert: true, vx: 0, clang: PIN_CLANG_FLASH_FRAMES }
+    : { ...at, inert: true, vx: 0 };
+  const landed = contact.ny < 0
+    ? { ...stopped, state: /** @type {import('./types.js').PinState} */ ('dropped'), y: contact.y - 2, vy: 0 }
+    : stopped;
+  return { pin: landed, clang: verdict === 'clang' && !pin.inert, bounced: false, broke: null };
 }
 
 /**

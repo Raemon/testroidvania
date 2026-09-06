@@ -24,6 +24,7 @@ import { pinPlatform } from '../pin-geometry.js';
 import { damageEntity, entityBox } from '../entities/index.js';
 import { hangAnchor } from '../grip.js';
 import { stepJab } from '../jab.js';
+import { releaseBody } from '../player.js';
 import { emit } from '../events.js';
 
 /** @typedef {import('../types.js').AbilityId} AbilityId */
@@ -90,16 +91,13 @@ function maybeStart(s) {
   return {
     ...s,
     player: {
-      ...p,
+      ...releaseBody(p),
       zipFrames: 1,
       zipVx: ((to.x - from.x) / dist) * ZIP_SPEED,
       zipVy: ((to.y - from.y) / dist) * ZIP_SPEED,
       vx: 0,
       vy: 0,
       grounded: false,
-      perch: false,
-      hang: false,
-      hangBelow: false,
       jumpFrames: 0,
       jumpBuffer: 0,
       coyote: 0,

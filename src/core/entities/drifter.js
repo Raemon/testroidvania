@@ -6,9 +6,7 @@
  * whole threat, and its path is a sine wave you can read a second in advance.
  */
 
-import {
-  DRIFTER_W, DRIFTER_H, DRIFTER_SPEED, DRIFTER_PERIOD, DRIFTER_AMPLITUDE, DRIFTER_HP,
-} from '../constants.js';
+
 import { createEntity } from './base.js';
 import { overlapsSolid } from '../collision.js';
 
@@ -16,6 +14,16 @@ import { overlapsSolid } from '../collision.js';
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'drifter';
+export const rig = 'jelly';
+
+const DRIFTER_W = 12;
+const DRIFTER_H = 12;
+const DRIFTER_SPEED = 0.6;
+/** Sine period in frames, and half-amplitude in world units. */
+const DRIFTER_PERIOD = 90;
+const DRIFTER_AMPLITUDE = 14;
+/** One hit kills it. Anything at all: a jab, a recall passing through, a zip. */
+const DRIFTER_HP = 1;
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

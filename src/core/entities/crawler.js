@@ -11,6 +11,7 @@ import { createEntity, moveEntity, blockedAhead } from './base.js';
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'crawler';
+export const rig = 'tick';
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

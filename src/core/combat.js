@@ -8,8 +8,9 @@
  */
 
 import {
-  ENEMY_CONTACT_DAMAGE, BOSS_CONTACT_DAMAGE, JAB_DAMAGE, JAB_CRIT_MULT, JAB_KNOCKBACK,
-  HITSTOP_HIT, HITSTOP_KILL, DEATH_RESPAWN_FRAMES, PLAYER_MAX_HP, MAX_ENTITIES,
+  ENEMY_CONTACT_DAMAGE, JAB_DAMAGE, JAB_CRIT_MULT, JAB_KNOCKBACK,
+  HITSTOP_HIT, HITSTOP_HEAVY, HITSTOP_KILL, DEATH_RESPAWN_FRAMES, MAX_ENTITIES,
+  SHAKE_HIT, SHAKE_KILL, SHAKE_HURT, SHAKE_BOSS,
 } from './constants.js';
 import { damagePlayer } from './player.js';
 import { jabBox, jabIsActive } from './jab.js';
@@ -20,6 +21,7 @@ import { createPin, handAt } from './pin.js';
 import { createPlayer } from './player.js';
 import { spawnProps } from './props/index.js';
 import { isBoss } from './bosses/index.js';
+import { BOSS_CONTACT_DAMAGE } from './bosses/base.js';
 import { emit } from './events.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
@@ -60,7 +62,15 @@ export function stageEntities(s) {
     }
   }
   const reaped = reap(s, [...stepped, ...born]);
-  return { ...s, entities: reaped.entities, progress: reaped.progress, nextEntityId };
+  // A slam or a boss death shakes the screen. The sim owns how long, never how big.
+  const loud = s.events.some((ev) => ev.kind === 'boss.stomp' || ev.kind === 'boss.death');
+  return {
+    ...s,
+    entities: reaped.entities,
+    progress: reaped.progress,
+    nextEntityId,
+    shake: loud ? Math.max(s.shake, SHAKE_BOSS) : s.shake,
+  };
 }
 
 /**
@@ -106,6 +116,7 @@ function applyJab(s) {
   if (!box) return s;
   let hits = 0;
   let hitstop = 0;
+  let shake = 0;
   const entities = s.entities.map((e) => {
     if (e.hp <= 0 || e.hitLockout > 0 || !overlaps(box, entityBox(e))) return e;
     // A pinned enemy is helpless, so the jab that frees it counts double.
@@ -115,7 +126,8 @@ function applyJab(s) {
     if (armoured(e, p.x + p.w / 2, p.y + p.h / 2)) return hurt;
     hits++;
     emit(s.events, hurt.hp <= 0 ? 'enemy.death' : 'hit', e.x + e.w / 2, e.y + e.h / 2, { id: e.id });
-    hitstop = Math.max(hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT);
+    hitstop = Math.max(hitstop, hurt.hp <= 0 ? HITSTOP_KILL : (e.mass === 1 ? HITSTOP_HEAVY : HITSTOP_HIT));
+    shake = Math.max(shake, hurt.hp <= 0 ? SHAKE_KILL : SHAKE_HIT);
     return { ...hurt, vx: hurt.pinned ? 0 : Math.sign(hurt.vx || p.facing) * JAB_KNOCKBACK };
   });
   if (hits === 0) return s;
@@ -124,6 +136,7 @@ function applyJab(s) {
     entities,
     player: { ...p, jabHits: p.jabHits + hits },
     hitstop: Math.max(s.hitstop, hitstop),
+    shake: Math.max(s.shake, shake),
   };
 }
 
@@ -140,11 +153,12 @@ function applyHazards(s) {
     if (!overlaps(box, hz)) continue;
     const hurt = damagePlayer(p, 1, hz.x + hz.w / 2, s.roomData.hazards);
     emit(s.events, hurt.hp <= 0 ? 'player.death' : 'player.hurt', p.x + p.w / 2, p.y + p.h / 2);
-    if (hurt.hp <= 0) return { ...s, player: hurt, hitstop: Math.max(s.hitstop, HITSTOP_KILL) };
+    if (hurt.hp <= 0) return { ...s, player: hurt, hitstop: Math.max(s.hitstop, HITSTOP_KILL), shake: Math.max(s.shake, SHAKE_HURT) };
     return {
       ...s,
       player: { ...hurt, x: p.safeGround.x, y: p.safeGround.y, vx: 0, vy: 0 },
       hitstop: Math.max(s.hitstop, HITSTOP_HIT),
+      shake: Math.max(s.shake, SHAKE_HURT),
     };
   }
   return s;
@@ -165,7 +179,12 @@ function applyContact(s) {
     const damage = isBoss(e.kind) ? BOSS_CONTACT_DAMAGE : ENEMY_CONTACT_DAMAGE;
     const hurt = damagePlayer(p, damage, e.x + e.w / 2, s.roomData.hazards);
     emit(s.events, hurt.hp <= 0 ? 'player.death' : 'player.hurt', p.x + p.w / 2, p.y + p.h / 2, { id: e.id });
-    return { ...s, player: hurt, hitstop: Math.max(s.hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT) };
+    return {
+      ...s,
+      player: hurt,
+      hitstop: Math.max(s.hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT),
+      shake: Math.max(s.shake, SHAKE_HURT),
+    };
   }
   return s;
 }
@@ -180,11 +199,13 @@ function applyDeath(s) {
   if (p.deadFrames < DEATH_RESPAWN_FRAMES) return s;
   const room = getRoom(s.respawn.room) ?? s.roomData;
   emit(s.events, 'respawn', s.respawn.x, s.respawn.y);
-  const fresh = createPlayer(s.respawn.x, s.respawn.y);
+  // Shards raise maxHp, so a respawn restores the *player's* meter, not the default
+  // one. Rebuilding from createPlayer() here would silently eat every shard taken.
+  const fresh = { ...createPlayer(s.respawn.x, s.respawn.y), maxHp: p.maxHp };
   const revived = {
     ...s, room: room.id, roomData: room,
     entities: spawnFor(room), nextEntityId: room.spawns.length + 1, props: spawnProps(room),
-    player: { ...fresh, hp: PLAYER_MAX_HP },
+    player: { ...fresh, hp: fresh.maxHp },
   };
   const home = { ...createPin(), ...handAt(revived) };
   return {

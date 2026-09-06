@@ -9,18 +9,24 @@
  * not exist until frame 32.
  */
 
-import {
-  TURRET_W, TURRET_H, TURRET_SIGHT, TURRET_TELEGRAPH, TURRET_WINDUP, TURRET_RECOVER,
-  ENEMY_HP_HEAVY, BOLT_SPEED,
-} from '../constants.js';
+import { ENEMY_HP_HEAVY } from '../constants.js';
 import { createEntity, entityEye } from './base.js';
 import { nearestVisibleLight } from '../los.js';
-import { make as makeBolt } from './bolt.js';
+import { make as makeBolt, BOLT_SPEED } from './bolt.js';
 
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'turret';
+export const rig = 'tick';
+
+const TURRET_W = 16;
+const TURRET_H = 16;
+const TURRET_SIGHT = 220;
+/** Heavy class: 20 + 12 = 32 frames before the bolt exists (03-game-feel §2.7). */
+const TURRET_TELEGRAPH = 20;
+const TURRET_WINDUP = 12;
+const TURRET_RECOVER = 30;
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

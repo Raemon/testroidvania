@@ -89,7 +89,6 @@ export const PIN_RECALL_SPEED = 13;
 export const PIN_CATCH_RADIUS = 10;
 /** Frames after a catch before the next throw is allowed; keeps recall-spam honest. */
 export const PIN_THROW_LOCK = 4;
-export const PIN_EMBED_DEPTH = 8;
 /** Flying hitbox, oriented along travel. */
 export const PIN_HIT_W = 12;
 export const PIN_HIT_H = 4;
@@ -117,8 +116,6 @@ export const PIN_CARRY_RANGE = 48;
 /** Terminal sink speed in water; the Pin stays recallable and stays lit. */
 export const PIN_WATER_SINK = 0.5;
 
-/** Perch (§D1.1): the player is centred on a wall pin and stops sliding off it. */
-export const PERCH_SNAP_X = 6;
 /** Hang (§D1.2): falling this close to an embedded wall pin grabs it. */
 export const HANG_GRAB_DIST = 8;
 export const HANG_KICK_VX = 3.0;
@@ -158,6 +155,17 @@ export const KNOCKBACK_HAZARD_MULT = 0.5;
 export const KNOCKBACK_LOOKAHEAD_FRAMES = 8;
 export const DEATH_RESPAWN_FRAMES = 60;
 
+/**
+ * Screenshake, 03-game-feel §2.3. Frames, not amplitude: the renderer owns how big
+ * a shake looks, the sim owns how long it lasts. Two sources at once take the max,
+ * never the sum, which is what `Math.max` at every call site is doing.
+ */
+export const SHAKE_HIT = 4;
+export const SHAKE_KILL = 6;
+export const SHAKE_HURT = 10;
+export const SHAKE_BOSS = 14;
+export const SHAKE_MAX = 24;
+
 // --- Enemies ----------------------------------------------------------------
 
 export const CRAWLER_SPEED = 1.0;
@@ -188,9 +196,6 @@ export const LIGHT_LANTERN_R = 120;
 /** Terrain already seen stays visible at this alpha; 0.12 was a rumour. */
 export const DISCOVERED_ALPHA = 0.25;
 export const DARKNESS_ALPHA_CAP = 0.55;
-
-/** Frames a crumble tile survives after the Pin bites into it. */
-export const CRUMBLE_FRAMES = 12;
 
 /** Distance walked between footsteps, from 05-aesthetic §4 (foot phase = distance / 28). */
 export const STRIDE_LENGTH = 28;
@@ -227,79 +232,3 @@ export const REEL_FRAMES = 90;
 
 /** One mirror-bounce, and only one. Range keeps counting through it. */
 export const RICOCHET_BOUNCES = 1;
-
-// --- Rail platforms (props) -------------------------------------------------
-
-export const RAIL_SPEED = 0.8;
-
-// --- Enemies, phase 3 (03-game-feel §2.7 telegraph budgets) -----------------
-
-export const HOPPER_W = 14;
-export const HOPPER_H = 14;
-export const HOPPER_SIGHT = 160;
-/** Light class: 10 telegraph + 6 windup = 16 frames before it can touch you. */
-export const HOPPER_TELEGRAPH = 10;
-export const HOPPER_WINDUP = 6;
-export const HOPPER_LAND_WAIT = 14;
-export const HOPPER_JUMP_VY = -4.6;
-export const HOPPER_JUMP_VX = 2.0;
-
-export const TURRET_W = 16;
-export const TURRET_H = 16;
-export const TURRET_SIGHT = 220;
-/** Heavy class: 20 telegraph + 12 windup = 32 frames before the bolt exists. */
-export const TURRET_TELEGRAPH = 20;
-export const TURRET_WINDUP = 12;
-export const TURRET_RECOVER = 30;
-export const BOLT_W = 6;
-export const BOLT_H = 6;
-export const BOLT_SPEED = 2.4;
-export const BOLT_LIFE = 120;
-
-export const DRIFTER_W = 12;
-export const DRIFTER_H = 12;
-export const DRIFTER_SPEED = 0.6;
-/** Sine period in frames, and half-amplitude in world units. */
-export const DRIFTER_PERIOD = 90;
-export const DRIFTER_AMPLITUDE = 14;
-export const DRIFTER_HP = 1;
-
-export const SHELL_W = 20;
-export const SHELL_H = 18;
-export const SHELL_SPEED = 0.5;
-/** The armoured arc, measured from straight ahead. Outside it the shell is open. */
-export const SHELL_ARMOUR_DOT = 0.2;
-
-// --- Bosses (02-world-structure §2, 06-revision-1 §C) -----------------------
-
-/** Boss heavies do 2, so 03 §2.7 demands >= 24 frames of telegraph for them. */
-export const BOSS_HEAVY_TELEGRAPH = 24;
-export const BOSS_LIGHT_TELEGRAPH = 14;
-export const BOSS_CONTACT_DAMAGE = 1;
-export const BOSS_PART_HP = 6;
-
-export const STOKER_HP = 18;
-export const STOKER_W = 40;
-export const STOKER_H = 32;
-export const STOKER_SLAM_WINDUP = 14;
-export const STOKER_SLAM_ACTIVE = 10;
-export const STOKER_RECOVER = 40;
-export const STOKER_WAVE_SPEED = 1.6;
-
-export const DIVER_HP = 18;
-export const DIVER_W = 32;
-export const DIVER_H = 26;
-export const DIVER_SUBMERGE_FRAMES = 50;
-export const DIVER_GEYSER_ACTIVE = 12;
-export const DIVER_RECOVER = 36;
-
-export const SENTINEL_HP = 14;
-export const SENTINEL_W = 34;
-export const SENTINEL_H = 30;
-
-export const ANCHOR_HP = 24;
-export const ANCHOR_W = 44;
-export const ANCHOR_H = 36;
-/** Phase 2 begins here; phase 3 was cut (06-revision-1 §C), the Ascent is the finale. */
-export const ANCHOR_PHASE2_AT = 0.5;
-export const ANCHOR_CHASE_SPEED = 1.4;

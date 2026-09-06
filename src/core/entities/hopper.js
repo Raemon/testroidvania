@@ -6,10 +6,7 @@
  * which is the floor for anything in this game that can touch you.
  */
 
-import {
-  HOPPER_W, HOPPER_H, HOPPER_SIGHT, HOPPER_TELEGRAPH, HOPPER_WINDUP,
-  HOPPER_LAND_WAIT, HOPPER_JUMP_VY, HOPPER_JUMP_VX, ENEMY_HP_LIGHT,
-} from '../constants.js';
+import { ENEMY_HP_LIGHT } from '../constants.js';
 import { createEntity, moveEntity } from './base.js';
 import { hasLineOfSight } from '../los.js';
 
@@ -17,6 +14,17 @@ import { hasLineOfSight } from '../los.js';
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'hopper';
+export const rig = 'tick';
+
+const HOPPER_W = 14;
+const HOPPER_H = 14;
+const HOPPER_SIGHT = 160;
+/** 10 telegraph + 6 windup = the 16-frame floor from 03-game-feel §2.7. */
+const HOPPER_TELEGRAPH = 10;
+const HOPPER_WINDUP = 6;
+const HOPPER_LAND_WAIT = 14;
+const HOPPER_JUMP_VY = -4.6;
+const HOPPER_JUMP_VX = 2.0;
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

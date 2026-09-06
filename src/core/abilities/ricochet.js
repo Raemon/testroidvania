@@ -7,7 +7,8 @@
  * unbuildable — bouncing off a wall does not get you up it — and is gone.
  */
 
-import { RICOCHET_BOUNCES } from '../constants.js';
+/** One mirror-bounce, and only one. */
+const RICOCHET_BOUNCES = 1;
 
 /** @typedef {import('../types.js').AbilityId} AbilityId */
 /** @typedef {import('../types.js').Pin} Pin */

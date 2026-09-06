@@ -10,6 +10,7 @@ import { createInitialState } from '../../src/core/state.js';
 import { createPlayer } from '../../src/core/player.js';
 import { createPin } from '../../src/core/pin.js';
 import { spawnFor } from '../../src/core/combat.js';
+import { spawnProps } from '../../src/core/props/index.js';
 import { computeLights } from '../../src/core/light.js';
 import { standOn } from '../../src/core/rooms.js';
 import { step } from '../../src/core/step.js';
@@ -24,6 +25,8 @@ import { PLAYER_W, PLAYER_H, PIN_HAND_OFFSET } from '../../src/core/constants.js
  * @param {object} [options]
  * @param {string} [options.id]
  * @param {{kind:string, at:[number,number]}[]} [options.spawns]
+ * @param {{kind:string, at:[number,number], to:[number,number]}[]} [options.rails]
+ * @param {{id:string, kind:string, at:[number,number], ability?:import('../../src/core/types.js').AbilityId, afterBoss?:string}[]} [options.pickups]
  * @returns {Room}
  */
 export function roomFrom(art, options = {}) {
@@ -32,7 +35,8 @@ export function roomFrom(art, options = {}) {
     tiles: art,
     doors: [],
     spawns: options.spawns ?? [],
-    pickups: [],
+    rails: options.rails ?? [],
+    pickups: options.pickups ?? [],
     hints: { route: [] },
     macro: null,
   });
@@ -55,7 +59,10 @@ export function stateIn(room, tx, ty) {
     roomData: room,
     player: { ...createPlayer(pos.x, pos.y), grounded: true },
     entities: spawnFor(room),
+    nextEntityId: room.spawns.length + 1,
+    props: spawnProps(room),
     pin: { ...createPin(), x: pos.x + PLAYER_W / 2, y: pos.y + PIN_HAND_OFFSET },
+    pinB: { ...createPin(), x: pos.x + PLAYER_W / 2, y: pos.y + PIN_HAND_OFFSET },
     respawn: { room: room.id, x: pos.x, y: pos.y },
     discovered: {},
     brokenTiles: [],

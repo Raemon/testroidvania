@@ -9,7 +9,7 @@ import './harness/trap.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TILE } from '../src/core/constants.js';
-import { GLYPHS, tileAt } from '../src/content/tiles.js';
+import { GLYPHS, tileAt, isDoorGlyph } from '../src/content/tiles.js';
 import { ROOM_IDS, ROOM_MODULES, getRoom } from '../src/content/rooms/index.js';
 import { START, worldEdges, findDoor } from '../src/content/world.js';
 import { ROUTE } from '../src/content/routes.js';
@@ -45,7 +45,7 @@ test('every room is walled: the only non-solid border tiles are doors', () => {
         if (tx !== 0 && ty !== 0 && tx !== room.w - 1 && ty !== room.h - 1) continue;
         const glyph = room.grid[ty]?.[tx] ?? '';
         assert.ok(
-          solidAt(room, tx, ty) || glyph === 'D',
+          solidAt(room, tx, ty) || isDoorGlyph(glyph),
           `${room.id} border tile (${tx},${ty}) is '${glyph}' — a border must be solid or a door`,
         );
       }
@@ -62,7 +62,7 @@ test('every room is enclosed: a flood fill from every open tile never escapes', 
     // space outside the walls would otherwise never be visited.
     for (let ty = 0; ty < room.h; ty++) {
       for (let tx = 0; tx < room.w; tx++) {
-        if (!solidAt(room, tx, ty) && (room.grid[ty]?.[tx] ?? '') !== 'D') queue.push([tx, ty]);
+        if (!solidAt(room, tx, ty) && !isDoorGlyph(room.grid[ty]?.[tx] ?? '')) queue.push([tx, ty]);
       }
     }
     assert.ok(queue.length > 0, `${room.id} has no open tile at all`);
@@ -84,7 +84,7 @@ test('every room is enclosed: a flood fill from every open tile never escapes', 
           assert.fail(`${room.id} is open to the outside at (${tx},${ty}) -> (${nx},${ny})`);
         }
         if (solidAt(room, nx, ny)) continue;
-        if ((room.grid[ny]?.[nx] ?? '') === 'D') continue;
+        if ((room.grid[ny]?.[nx] ?? '') ) continue;
         queue.push([nx, ny]);
       }
     }
@@ -102,7 +102,7 @@ test('every door sits on the border, resolves, and its partner points back', () 
       const [tx, ty] = door.at;
       const onBorder = tx === 0 || ty === 0 || tx === room.w - 1 || ty === room.h - 1;
       assert.ok(onBorder, `${key} at (${tx},${ty}) is not on the border of ${room.w}x${room.h}`);
-      assert.equal(room.grid[ty]?.[tx], 'D', `${key} at (${tx},${ty}) is not a 'D' tile`);
+      assert.ok(isDoorGlyph(room.grid[ty]?.[tx] ?? ''), `${key} at (${tx},${ty}) is not a door tile`);
 
       const [toRoomId = '', toDoorId = ''] = door.to.split(':');
       const partnerRoom = getRoom(toRoomId);

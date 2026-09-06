@@ -11,8 +11,8 @@
  * wait for the thing it is dragging, so nothing about Reel can strand the player.
  */
 
-import { TILE, REEL_SPEED, REEL_FRAMES } from '../constants.js';
-import { solidAt } from '../collision.js';
+import { REEL_SPEED, REEL_FRAMES } from '../constants.js';
+import { overlapsSolid } from '../collision.js';
 
 /** @typedef {import('../types.js').AbilityId} AbilityId */
 /** @typedef {import('../types.js').GameState} GameState */
@@ -76,16 +76,6 @@ function dragEntity(room, e) {
   const nx = e.x + (dx / dist) * REEL_SPEED;
   const ny = e.y + (dy / dist) * REEL_SPEED;
   // Stops at the first obstacle. It does not squeeze, and it does not push.
-  if (hitsSolid(room, { x: nx, y: ny, w: e.w, h: e.h })) return { ...e, reel: 0, vx: 0, vy: 0 };
+  if (overlapsSolid(room, { x: nx, y: ny, w: e.w, h: e.h })) return { ...e, reel: 0, vx: 0, vy: 0 };
   return { ...e, x: nx, y: ny, vx: 0, vy: 0, reel: e.reel - 1 };
-}
-
-/** @param {Room} room @param {import('../types.js').AABB} box @returns {boolean} */
-function hitsSolid(room, box) {
-  for (let ty = Math.floor(box.y / TILE); ty <= Math.floor((box.y + box.h - 1e-9) / TILE); ty++) {
-    for (let tx = Math.floor(box.x / TILE); tx <= Math.floor((box.x + box.w - 1e-9) / TILE); tx++) {
-      if (solidAt(room, tx, ty)) return true;
-    }
-  }
-  return false;
 }

@@ -72,6 +72,32 @@ export function createPlayer(x, y) {
 }
 
 /**
+ * Everything that has to be let go of when the body changes mode: a hit, a room
+ * transition, a death, the start of a Zip.
+ *
+ * It is one function because it was four, and the four had already drifted apart —
+ * which is the failure mode where a room transition leaves you perched on a Pin in
+ * the room you just left. Anything that takes control of the body calls this.
+ *
+ * @param {Player} p
+ * @returns {Player}
+ */
+export function releaseBody(p) {
+  return {
+    ...p,
+    perch: false,
+    hang: false,
+    hangBelow: false,
+    hangCooldown: 0,
+    zipFrames: 0,
+    zipVx: 0,
+    zipVy: 0,
+    jabFrames: 0,
+    jabHits: 0,
+  };
+}
+
+/**
  * @param {Player} p
  * @returns {PlayerAnimState}
  */
@@ -100,14 +126,9 @@ export function stepPlayer(room, player, input, prevInput, pin, events, platform
   };
   if (ticked.hp <= 0) {
     return {
-      ...ticked,
+      ...releaseBody(ticked),
       vx: 0,
       vy: 0,
-      perch: false,
-      hang: false,
-      hangBelow: false,
-      zipFrames: 0,
-      jabFrames: 0,
       deadFrames: ticked.deadFrames + 1,
       state: /** @type {PlayerAnimState} */ ('dead'),
     };
@@ -137,19 +158,12 @@ export function damagePlayer(player, amount, fromX, hazards = []) {
   const full = away * PLAYER_KNOCKBACK_VX;
   const vx = knockbackIntoHazard(player, full, hazards) ? full * KNOCKBACK_HAZARD_MULT : full;
   return {
-    ...player,
+    ...releaseBody(player),
     hp,
     iframes: PLAYER_IFRAMES,
     hurtFrames: hp > 0 ? HURT_CONTROL_LOSS : 0,
     vx: hp > 0 ? vx : 0,
     vy: hp > 0 ? PLAYER_KNOCKBACK_VY : 0,
-    perch: false,
-    hang: false,
-    hangBelow: false,
-    zipFrames: 0,
-    zipVx: 0,
-    zipVy: 0,
-    jabFrames: 0,
     state: hp > 0 ? 'hurt' : 'dead',
   };
 }

@@ -34,6 +34,14 @@ export function oneWayAt(room, tx, ty) {
   return tileAt(glyphAt(room, tx, ty)).oneWay;
 }
 
+/**
+ * @param {Room} room @param {number} x @param {number} y world units
+ * @returns {boolean} true if this point is inside a water volume
+ */
+export function inWater(room, x, y) {
+  return tileAt(glyphAt(room, Math.floor(x / TILE), Math.floor(y / TILE))).water;
+}
+
 /** @param {number} v @returns {number} */
 function tileIndex(v) {
   return Math.floor(v / TILE);

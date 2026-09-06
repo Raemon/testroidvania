@@ -9,19 +9,25 @@
  * The two **wooden bellows** are the only thing on it the Pin will bite.
  */
 
-import {
-  STOKER_HP, STOKER_W, STOKER_H, STOKER_SLAM_WINDUP, STOKER_SLAM_ACTIVE,
-  STOKER_RECOVER, STOKER_WAVE_SPEED, BOSS_HEAVY_TELEGRAPH, TILE,
-} from '../constants.js';
+import { TILE } from '../constants.js';
 import { moveEntity } from '../entities/index.js';
 import { make as makeBolt } from '../entities/bolt.js';
-import { spawnBoss, hatchParts, tick, enter, facePlayer } from './base.js';
+import { spawnBoss, hatchParts, tick, enter, facePlayer, BOSS_HEAVY_TELEGRAPH } from './base.js';
 import { emit } from '../events.js';
 
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'stoker';
+export const rig = 'knight';
+
+const STOKER_HP = 18;
+const STOKER_W = 40;
+const STOKER_H = 32;
+const STOKER_SLAM_WINDUP = 14;
+export const STOKER_SLAM_ACTIVE = 10;
+const STOKER_RECOVER = 40;
+export const STOKER_WAVE_SPEED = 1.6;
 
 /** @type {import('./index.js').BossDef} */
 export const boss = { id: 'stoker', name: 'Stoker', maxHp: STOKER_HP, grants: 'deepPin' };

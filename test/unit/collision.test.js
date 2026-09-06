@@ -3,17 +3,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TILE, PLAYER_W, PLAYER_H, LEDGE_NUDGE } from '../../src/core/constants.js';
 import { sweepX, sweepY, moveBox, overlapsSolid, solidAt, oneWayAt } from '../../src/core/collision.js';
+import { roomFrom } from '../harness/sim.js';
 
 /**
  * Build a throwaway room from ASCII, so each test states its geometry inline.
+ * It goes through the real compiler rather than a hand-built literal: a fixture that
+ * spells out `Room` by hand is a fixture that goes stale the next time the schema
+ * grows a field, and it grew three this phase.
  * @param {string[]} rows
  * @returns {import('../../src/core/types.js').Room}
  */
 function room(rows) {
-  return {
-    id: 'test', w: rows[0]?.length ?? 0, h: rows.length, grid: rows,
-    doors: [], hazards: [], spawns: [], rails: [], pickups: [], lanterns: [], route: [], macro: null,
-  };
+  return roomFrom(rows.join('\n'), { id: 'test' });
 }
 
 const FLAT = room([

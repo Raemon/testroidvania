@@ -12,19 +12,25 @@
  * that phase 2 does not otherwise give you.
  */
 
-import {
-  ANCHOR_HP, ANCHOR_W, ANCHOR_H, ANCHOR_PHASE2_AT, ANCHOR_CHASE_SPEED,
-  BOSS_HEAVY_TELEGRAPH, STOKER_SLAM_ACTIVE, STOKER_WAVE_SPEED, TILE,
-} from '../constants.js';
+import { TILE } from '../constants.js';
 import { moveEntity } from '../entities/index.js';
 import { make as makeBolt } from '../entities/bolt.js';
-import { spawnBoss, hatchParts, tick, enter, facePlayer } from './base.js';
+import { spawnBoss, hatchParts, tick, enter, facePlayer, BOSS_HEAVY_TELEGRAPH } from './base.js';
+import { STOKER_SLAM_ACTIVE, STOKER_WAVE_SPEED } from './stoker.js';
 import { emit } from '../events.js';
 
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'anchor';
+export const rig = 'knight';
+
+const ANCHOR_HP = 24;
+const ANCHOR_W = 44;
+const ANCHOR_H = 36;
+/** Phase 2 begins here; phase 3 was cut (06-revision-1 §C). */
+const ANCHOR_PHASE2_AT = 0.5;
+const ANCHOR_CHASE_SPEED = 1.4;
 
 /** @type {import('./index.js').BossDef} */
 export const boss = { id: 'anchor', name: 'Anchor', maxHp: ANCHOR_HP, grants: null };

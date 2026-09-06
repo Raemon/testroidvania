@@ -7,7 +7,7 @@
  * but it carries the registry's `spawn` so the registry stays one shape.
  */
 
-import { TILE, BOLT_W, BOLT_H, BOLT_LIFE } from '../constants.js';
+import { TILE } from '../constants.js';
 import { solidAt } from '../collision.js';
 import { createEntity } from './base.js';
 
@@ -15,6 +15,13 @@ import { createEntity } from './base.js';
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'bolt';
+export const rig = 'jelly';
+
+const BOLT_W = 6;
+const BOLT_H = 6;
+export const BOLT_SPEED = 2.4;
+/** It expires rather than flying forever, so a room can never fill up with bolts. */
+const BOLT_LIFE = 120;
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

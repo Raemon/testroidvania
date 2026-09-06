@@ -332,3 +332,11 @@ addCheck(({ next, report }) => {
     report('BOSS_SEALED', `${e.kind} ${e.id} is guarded with no pinnable part left`);
   }
 });
+
+// 29. A stage failed *this frame*. Rule 16's version watches the `errors` array
+//     grow, which stops happening once it hits its cap — and a stage that throws
+//     every frame forever is exactly the case that must not go quiet.
+addCheck(({ next, report }) => {
+  const last = next.errors[next.errors.length - 1];
+  if (last && last.tick === next.tick) report('SIM_ERROR', `${last.where}: ${last.message}`);
+});

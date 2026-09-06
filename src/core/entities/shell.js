@@ -7,13 +7,20 @@
  * answer is to get an angle, which is what makes it the enemy that teaches Zip.
  */
 
-import { SHELL_W, SHELL_H, SHELL_SPEED, ENEMY_HP_HEAVY } from '../constants.js';
+import { ENEMY_HP_HEAVY } from '../constants.js';
 import { createEntity, moveEntity, blockedAhead } from './base.js';
 
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'shell';
+export const rig = 'knight';
+
+const SHELL_W = 20;
+const SHELL_H = 18;
+const SHELL_SPEED = 0.5;
+/** It only bothers turning to face you inside this range. */
+const SHELL_NOTICE = 96;
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty
@@ -36,7 +43,7 @@ export function update(e, s) {
   // It turns to face the player when they are close: the armour is only useful if
   // it is pointed at you, and a shell that never turns is a shell you walk around.
   const cx = s.player.x + s.player.w / 2;
-  const near = Math.abs(cx - (e.x + e.w / 2)) < 96;
+  const near = Math.abs(cx - (e.x + e.w / 2)) < SHELL_NOTICE;
   const want = /** @type {-1|1} */ (near ? (cx < e.x + e.w / 2 ? -1 : 1) : e.facing);
   const facing = blockedAhead(s.roomData, e, want) ? /** @type {-1|1} */ (-want) : want;
   return { ...moveEntity(s.roomData, { ...e, facing }, facing * SHELL_SPEED), facing };

@@ -15,6 +15,11 @@ import { createEntity } from '../entities/index.js';
 import { make as makePart } from '../entities/part.js';
 import { emit } from '../events.js';
 
+/** 03-game-feel §2.7 telegraph budgets, shared by every boss in the game. */
+export const BOSS_HEAVY_TELEGRAPH = 24;
+export const BOSS_LIGHT_TELEGRAPH = 14;
+export const BOSS_CONTACT_DAMAGE = 1;
+
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 /** @typedef {import('../types.js').Material} Material */

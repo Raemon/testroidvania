@@ -1,32 +1,19 @@
 /**
  * THE contract: `step(state, input) -> newState`. Pure, total, deterministic.
  *
- * Subsystem order is fixed and documented, because "which subsystem saw the frame
- * first" is exactly the kind of thing that silently changes a replay:
+ * The subsystem order is `STAGES`, below. It is an array rather than a paragraph of
+ * comment plus a sequence of calls because the two had already drifted apart: the
+ * comment said ten stages while the code ran fourteen. The list *is* the
+ * documentation now, and each entry carries the reason it sits where it does.
  *
- *   1. input      — roll `input` into `prevInput`, advance `tick`
- *   2. hitstop    — if the world is frozen for impact, only the clock moves
- *   3. player     — physics integration, jab timers and the collision sweep
- *   4. pin        — throw, flight, embed, recall (06-revision-1 §G)
- *   4b. grip      — a Pin that left drops whoever was perched on or hanging off it
- *   5. light      — the light list, which the next stage reads
- *   6. entities   — enemies; Chargers aim at the lights, not at the player (§D2)
- *   7. combat     — jab, hazards, contact damage, i-frames, death
- *   8. rooms      — door transitions
- *   9. progress   — save-lanterns and discovered-tile memory
- *  10. liveness   — the softlock fingerprint window
- *
- * Light before entities is load-bearing: a Charger must be able to acquire a Pin
- * thrown this frame, because "the Pin is a decoy" is a mechanic, not a coincidence.
- *
- * Every subsystem runs inside `runStage`, so a throw becomes a `SimError` in the
+ * Every stage runs inside `runStage`, so a throw becomes a `SimError` in the
  * returned state rather than a dead loop (AGENTS.md rule 2). A failed stage leaves
  * its slice of the state untouched and the rest of the frame still runs.
  */
 
 import { SOFTLOCK_WINDOW, DOOR_LEAD } from './constants.js';
 import { emit } from './events.js';
-import { stepPlayer } from './player.js';
+import { stepPlayer, releaseBody } from './player.js';
 import { snapPinToHand } from './pin.js';
 import { pinPlatforms } from './pin-geometry.js';
 import { stagePins } from './abilities/twinPin.js';
@@ -68,7 +55,8 @@ function runStage(state, where, fn, errors) {
  */
 export function step(state, input) {
   /** @type {SimError[]} */
-  const errors = state.errors.slice(0, 64);
+  // Newest kept, not oldest: a stage that throws every frame must stay visible.
+  const errors = state.errors.slice(-63);
   // Rebuilt from scratch every frame: `events` is what happened *this* step, so it
   // stays a pure function of the frame and a replay hashes identically.
   /** @type {import('./types.js').SimEvent[]} */
@@ -111,22 +99,40 @@ export function step(state, input) {
     events,
   };
 
-  s = runStage(s, 'player', stagePlayer, errors);
-  s = runStage(s, 'pin', stagePins, errors);
-  s = runStage(s, 'zip', stageZip, errors);
-  s = runStage(s, 'grip', stageGrip, errors);
-  s = runStage(s, 'props', stageProps, errors);
-  s = runStage(s, 'light', stageLight, errors);
-  s = runStage(s, 'entities', stageEntities, errors);
-  s = runStage(s, 'reel', stageReel, errors);
-  s = runStage(s, 'combat', stageCombat, errors);
-  s = runStage(s, 'pickups', stagePickups, errors);
-  s = runStage(s, 'rooms', (x) => stageRooms(x, state), errors);
-  s = runStage(s, 'lanterns', stageLanterns, errors);
-  s = runStage(s, 'discovery', stageDiscovery, errors);
-  s = runStage(s, 'liveness', stageLiveness, errors);
+  for (const [name, fn] of STAGES) s = runStage(s, name, fn, errors);
   return s;
 }
+
+/**
+ * The frame, in order. "Which subsystem saw the frame first" is exactly the kind of
+ * thing that silently changes a replay, so each entry says why it is here.
+ * @type {[string, (s: GameState) => GameState][]}
+ */
+const STAGES = [
+  // Physics, the jab clock and the collision sweep. Stands aside during a Zip.
+  ['player', stagePlayer],
+  // Throw, flight, embed, recall, for both Pins (06-revision-1 §G, §C).
+  ['pin', stagePins],
+  // After the Pin, so a recall pressed this frame has already released the anchor.
+  ['zip', stageZip],
+  // After Zip: a Pin that left drops whoever was perched on or hanging off it.
+  ['grip', stageGrip],
+  // Rails move once the Pins have decided which of them is frozen.
+  ['props', stageProps],
+  // Before entities, and load-bearing: a Charger must be able to acquire a Pin
+  // thrown *this* frame, because "the Pin is a decoy" is a mechanic (§D2).
+  ['light', stageLight],
+  ['entities', stageEntities],
+  // After entities, so a drag overrides whatever the body wanted to do itself.
+  ['reel', stageReel],
+  ['combat', stageCombat],
+  ['pickups', stagePickups],
+  // Last of the world stages: a transition rebuilds the room out from under it.
+  ['rooms', stageRooms],
+  ['lanterns', stageLanterns],
+  ['discovery', stageDiscovery],
+  ['liveness', stageLiveness],
+];
 
 /**
  * The Zip stage owns the body outright while it is flying, so the ordinary physics
@@ -162,16 +168,17 @@ function stageDiscovery(s) {
  *
  * `door.open` fires while the player is still walking *at* the door, not as they
  * cross it: a transition is instantaneous, so anything with a wind-up needs the
- * approach rather than the arrival.
- * @param {GameState} s @param {Readonly<GameState>} prev @returns {GameState}
+ * approach rather than the arrival. Nothing else in the frame writes `nearDoor`, so
+ * the value still on the player here is last frame's.
+ * @param {GameState} s @returns {GameState}
  */
-function stageRooms(s, prev) {
+function stageRooms(s) {
   const p = s.player;
   if (p.hp <= 0) return s;
   const box = { x: p.x, y: p.y, w: p.w, h: p.h };
   const approaching = doorUnder(s.roomData, { ...box, x: box.x - DOOR_LEAD, w: box.w + DOOR_LEAD * 2 }, s.progress.abilities);
   const nearDoor = approaching?.id ?? '';
-  if (nearDoor && nearDoor !== prev.player.nearDoor) {
+  if (nearDoor && nearDoor !== p.nearDoor) {
     emit(s.events, 'door.open', box.x + box.w / 2, box.y + box.h / 2);
   }
   s = { ...s, player: { ...p, nearDoor } };
@@ -195,10 +202,8 @@ function stageRooms(s, prev) {
     props: spawnProps(partner.room),
     brokenTiles: [],
     player: {
-      ...p,
-      x: at.x, y: at.y, vy: 0, grounded: false, coyote: 0,
-      perch: false, hang: false, hangBelow: false, hangCooldown: 0,
-      zipFrames: 0, zipVx: 0, zipVy: 0, jabFrames: 0, nearDoor: '',
+      ...releaseBody(p),
+      x: at.x, y: at.y, vy: 0, grounded: false, coyote: 0, nearDoor: '',
       iframes: Math.max(p.iframes, 20), safeGround: at,
     },
   };

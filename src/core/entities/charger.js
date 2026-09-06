@@ -18,6 +18,7 @@ import { nearestVisibleLight } from '../los.js';
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'charger';
+export const rig = 'tick';
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

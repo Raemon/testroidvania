@@ -10,7 +10,7 @@
  * core and stops it dead. That is A2's traversal use (§G).
  */
 
-import { TILE, RAIL_SPEED, REEL_SPEED } from '../constants.js';
+import { TILE, REEL_SPEED } from '../constants.js';
 
 /** @typedef {import('../types.js').Prop} Prop */
 /** @typedef {import('../types.js').GameState} GameState */
@@ -21,6 +21,8 @@ export const kind = 'rail';
 /** Two tiles wide, a quarter tile thick: the same read as a Pin's shelf. */
 const RAIL_W = TILE * 2;
 const RAIL_H = 4;
+/** Slow enough to time, fast enough that waiting for one is a decision. */
+const RAIL_SPEED = 0.8;
 
 /**
  * @param {number} id

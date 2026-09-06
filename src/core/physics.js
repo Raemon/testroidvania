@@ -16,7 +16,7 @@ import {
   DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_COOLDOWN, STRIDE_LENGTH, TILE,
 } from './constants.js';
 import { IN, axisX, isDown, justPressed } from './input.js';
-import { moveBox, isSupported, materialUnder, glyphAt } from './collision.js';
+import { moveBox, isSupported, materialUnder, inWater } from './collision.js';
 import { emit } from './events.js';
 import { grabbableHang, hangAnchor, perchCentre, stillHanging, stillHangingBelow } from './grip.js';
 
@@ -177,9 +177,9 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
     stride -= STRIDE_LENGTH;
     emit(events, 'footstep', box.x + box.w / 2, box.y + box.h, { material: materialUnder(room, box) });
   }
-  const inWater = glyphAt(room, Math.floor((box.x + box.w / 2) / TILE), Math.floor((box.y + box.h / 2) / TILE)) === '~';
-  if (inWater !== p.inWater) {
-    emit(events, inWater ? 'water.enter' : 'water.exit', box.x + box.w / 2, box.y + box.h / 2);
+  const wet = inWater(room, box.x + box.w / 2, box.y + box.h / 2);
+  if (wet !== p.inWater) {
+    emit(events, wet ? 'water.enter' : 'water.exit', box.x + box.w / 2, box.y + box.h / 2);
   }
   const safeGround = grounded ? { x: moved.x, y: moved.y } : p.safeGround;
   const hangCooldown = Math.max(0, p.hangCooldown - 1);
@@ -233,7 +233,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
     hangCooldown,
     throwFreeze: Math.max(0, p.throwFreeze - 1),
     stride,
-    inWater,
+    inWater: wet,
   };
 }
 

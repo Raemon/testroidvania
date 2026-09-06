@@ -145,7 +145,10 @@ function bakeRoom(room, region, scale) {
         ctx.globalAlpha = 1;
       }
 
-      if (!up) facePattern(ctx, rnd, look, x, y);
+      // Any exposed face, not just the top. A wall's *face* is the surface the
+      // player throws the Pin at, so if only ledges are hatched, wood and stone
+      // are indistinguishable exactly where telling them apart decides the throw.
+      if (!up || !left || !right) facePattern(ctx, rnd, look, x, y);
 
       if (!up) {
         // Top light: a bevel plus a short gradient down the face, which is what

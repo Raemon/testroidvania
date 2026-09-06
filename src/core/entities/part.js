@@ -9,13 +9,16 @@
  * put in `timers` when it hatched, so this file has no per-boss knowledge at all.
  */
 
-import { BOSS_PART_HP } from '../constants.js';
 import { createEntity } from './base.js';
+
+/** A part is armour, not a health bar, so this number is never the fight's length. */
+const BOSS_PART_HP = 6;
 
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'part';
+export const rig = 'knight';
 
 /**
  * @param {number} id @param {string} roomId @param {number} tx @param {number} ty

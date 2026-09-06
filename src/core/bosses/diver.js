@@ -8,18 +8,23 @@
  * A2 used offensively, which is the whole reason its parts are stone and not wood.
  */
 
-import {
-  DIVER_HP, DIVER_W, DIVER_H, DIVER_SUBMERGE_FRAMES, DIVER_GEYSER_ACTIVE,
-  DIVER_RECOVER, BOSS_LIGHT_TELEGRAPH, BOLT_SPEED, TILE,
-} from '../constants.js';
+import { TILE } from '../constants.js';
 import { moveEntity } from '../entities/index.js';
-import { make as makeBolt } from '../entities/bolt.js';
-import { spawnBoss, hatchParts, tick, enter, facePlayer } from './base.js';
+import { make as makeBolt, BOLT_SPEED } from '../entities/bolt.js';
+import { spawnBoss, hatchParts, tick, enter, facePlayer, BOSS_LIGHT_TELEGRAPH } from './base.js';
 
 /** @typedef {import('../types.js').Entity} Entity */
 /** @typedef {import('../types.js').GameState} GameState */
 
 export const kind = 'diver';
+export const rig = 'jelly';
+
+const DIVER_HP = 18;
+const DIVER_W = 32;
+const DIVER_H = 26;
+const DIVER_SUBMERGE_FRAMES = 50;
+const DIVER_GEYSER_ACTIVE = 12;
+const DIVER_RECOVER = 36;
 
 /** @type {import('./index.js').BossDef} */
 export const boss = { id: 'diver', name: 'Diver', maxHp: DIVER_HP, grants: 'ricochet' };
