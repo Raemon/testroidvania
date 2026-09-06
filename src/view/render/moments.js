@@ -73,7 +73,7 @@ let prompt = null;
 /** @type {{x: number, y: number, frames: number}|null} */
 let ember = null;
 let bloom = 0;
-/** @type {{x:number, y:number, dx:number, dy:number, frames:number, taught:boolean}|null} */
+/** @type {{x:number, y:number, dx:number, dy:number, frames:number}|null} */
 let bank = null;
 /** One showing each: the bounce that happened, and the bounce that could have. */
 let bouncedShown = false;
@@ -115,14 +115,14 @@ export function observeMoments(prev, next) {
     }
     if (e.kind === 'pin.ricochet' && !bouncedShown) {
       bouncedShown = true;
-      bank = { x: e.x, y: e.y, dx: next.pin.vx, dy: next.pin.vy, frames: BANK_FRAMES, taught: false };
+      bank = { x: e.x, y: e.y, dx: next.pin.vx, dy: next.pin.vy, frames: BANK_FRAMES };
     }
     if (e.kind === 'pin.clang' && !clangShown && owned.includes('ricochet')) {
       clangShown = true;
       // The Pin has already gone inert by now, so the throw that just happened is
       // the one in the *previous* frame's Pin.
       const mirror = reflect(prev.pin.vx, prev.pin.vy);
-      bank = { x: e.x, y: e.y, dx: mirror.x, dy: mirror.y, frames: BANK_FRAMES, taught: true };
+      bank = { x: e.x, y: e.y, dx: mirror.x, dy: mirror.y, frames: BANK_FRAMES };
     }
   }
 }
@@ -150,11 +150,10 @@ export function bloomAmount() {
  * The world-space half: the ember's flight and the bank line. Drawn with the
  * world transform, before the darkness lands.
  * @param {CanvasRenderingContext2D} ctx
- * @param {Readonly<GameState>} state
  * @param {Region} region
  * @param {{x:number, y:number}} hand  where the player's light actually is
  */
-export function drawWorldMoments(ctx, state, region, hand) {
+export function drawWorldMoments(ctx, region, hand) {
   if (bank) {
     const k = bank.frames / BANK_FRAMES;
     const len = Math.hypot(bank.dx, bank.dy) || 1;

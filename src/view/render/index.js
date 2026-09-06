@@ -142,7 +142,7 @@ export function render(ctx, state, cam, target) {
   drawEntities(ctx, state, region, t, hand);
   drawPins(ctx, state, region, t);
   drawPlayer(ctx, state, rig, region, t);
-  drawWorldMoments(ctx, state, region, hand);
+  drawWorldMoments(ctx, region, hand);
   drawHazardGlow(ctx, state.roomData, view);
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
