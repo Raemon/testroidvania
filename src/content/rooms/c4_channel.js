@@ -37,7 +37,7 @@ export const doors = [
 export const spawns = [{ kind: 'drifter', at: [15, 7] }, { kind: 'drifter', at: [24, 6] }];
 
 /** @type {{kind:string, at:[number,number], to:[number,number]}[]} */
-export const rails = [];
+export const rails = [{ kind: 'rail', at: [17, 12], to: [21, 12] }];
 
 /** @type {{id:string, kind:string, at:[number,number], ability?:import('../../core/types.js').AbilityId, afterBoss?:string}[]} */
 export const pickups = [];
