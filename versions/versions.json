@@ -1,0 +1,28 @@
+{
+  "versions": [
+    {
+      "id": "v1",
+      "title": "Foundation",
+      "notes": [
+        "Deterministic simulation core with the full game-feel physics",
+        "Three test rooms: a flat run, a 4-tile gap, a ceiling corridor",
+        "Playthrough verified by a bot driving a real browser"
+      ],
+      "commit": "d8de430",
+      "date": "2026-09-06"
+    },
+    {
+      "id": "v2",
+      "title": "The Pin",
+      "notes": [
+        "The Pin: throw it, stand on it, pin enemies to walls, recall it through anything",
+        "It is also your only light — throwing it sends your light away with it",
+        "Lantern & Ink rendering: layered silhouettes, procedural terrain, a rigged player",
+        "Fully synthesized WebAudio: reverb, 21 SFX and an adaptive Cistern score",
+        "The six-room opening that teaches the Pin without a word of text"
+      ],
+      "commit": "2a42ed0",
+      "date": "2026-09-06"
+    }
+  ]
+}

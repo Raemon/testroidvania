@@ -1,0 +1,74 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, claude/metroidvania-webgame-overnight-ax4sjd]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Assemble site
+        run: node tools/build-site.mjs
+
+      # Boot every page in a real browser. A working copy that throws must not
+      # replace a deploy that works; the previous deploy simply stays live.
+      - name: Check every page boots
+        run: node tools/check-site.mjs
+
+      # Published two ways so that either GitHub Pages source setting works:
+      # "GitHub Actions" consumes the artifact below, "Deploy from a branch"
+      # serves the gh-pages branch. Pages still has to be switched on once by
+      # hand — the workflow token is not allowed to create the site.
+      - name: Publish to gh-pages branch
+        run: |
+          cd _site
+          touch .nojekyll
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7}"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # Fails until Pages is enabled in Settings. The gh-pages branch above is
+      # already published by then, so this failing does not lose the deploy.
+      - uses: actions/configure-pages@v5
+        continue-on-error: true
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
