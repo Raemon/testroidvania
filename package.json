@@ -11,7 +11,8 @@
     "play": "node tools/serve.mjs",
     "goldens": "node tools/goldens.mjs",
     "fuzz": "node tools/fuzz.mjs",
-    "check-head": "node tools/check-head.mjs"
+    "check-head": "node tools/check-head.mjs",
+    "playthrough:full": "node tools/playthrough-full.mjs"
   },
   "devDependencies": {
     "playwright": "1.56.1",

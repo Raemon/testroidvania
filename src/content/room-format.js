@@ -25,6 +25,10 @@ import { tileAt } from './tiles.js';
  *   own route uses; the room test grants exactly these and no more, which is what
  *   makes a traversal test double as a proof that the gate opens with its own key
  * @property {{route:import('../core/types.js').Waypoint[]}} hints
+ * @property {import('../core/types.js').RouteVariant[]} [variants] alternative
+ *   routes for the times the room is entered again with a different job to do. A
+ *   Spine tier is walked through two or three times in one run — in to the region,
+ *   out of it, and again on the Ascent — and each visit leaves by a different door.
  * @property {number[]|null} macro
  */
 
@@ -62,6 +66,7 @@ export function compileRoom(mod) {
     pickups: mod.pickups,
     lanterns,
     route: mod.hints.route,
+    variants: mod.variants ?? [],
     macro: mod.macro,
   };
 }

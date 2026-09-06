@@ -25,7 +25,7 @@
  *    is a checkpoint — 20 seconds, not the sequence.
  */
 
-import { TILE, ASCENT_TIER_FRAMES, ASCENT_VOID_LEAD, SHAKE_HURT, HITSTOP_KILL } from './constants.js';
+import { TILE, ASCENT_TIER_FRAMES, ASCENT_RISE, SHAKE_HURT, HITSTOP_KILL } from './constants.js';
 import { getRoom, standOn } from './rooms.js';
 import { emit } from './events.js';
 import { enterRoom } from './step.js';
@@ -37,6 +37,9 @@ import { SPINE_TIERS, ENDING_ROOM, ASCENT_FLAG, COMPLETE_FLAG, spineTier } from 
 
 /** The boss whose death starts the clock. */
 const ANCHOR = 'anchor';
+
+/** How far along the hull counts as out the far edge. */
+const HULL_END = 0.88;
 
 /**
  * @param {GameState} s
@@ -114,16 +117,16 @@ function stageAscent(s) {
 }
 
 /**
- * How high the void has climbed in this room. It starts a little below the floor so
- * a tier opens with room to breathe, and it eats the room in `ASCENT_TIER_FRAMES`.
+ * How high the void has climbed in this tier. It starts flush with the floor, which
+ * is exactly not-lethal — a body standing on the floor has its feet *at* the top of
+ * the void, not in it — and holds there for the grace period before it climbs.
  * @param {Room} room
  * @param {number} frames
  * @returns {number} world y of the top of the void
  */
 export function voidTop(room, frames) {
-  const floor = room.h * TILE + ASCENT_VOID_LEAD;
-  const t = Math.min(1, frames / ASCENT_TIER_FRAMES);
-  return floor - t * (room.h * TILE + ASCENT_VOID_LEAD);
+  const floor = (room.h - 1) * TILE;
+  return floor - Math.max(0, frames - ASCENT_TIER_FRAMES) * ASCENT_RISE;
 }
 
 /**
@@ -134,6 +137,7 @@ export function voidTop(room, frames) {
 function withVoid(room, top) {
   const base = withoutVoid(room);
   if (top >= room.h * TILE) return base;
+
   /** @type {Hazard} */
   const band = { x: 0, y: Math.max(0, top), w: room.w * TILE, h: room.h * TILE - Math.max(0, top), kind: 'void' };
   return { ...base, hazards: [...base.hazards, band] };
@@ -155,7 +159,9 @@ function withoutVoid(room) {
 function stageHull(s) {
   const width = s.roomData.w * TILE;
   const reached = Math.min(1, Math.max(0, (s.player.x + s.player.w / 2) / width));
-  const lit = s.progress.lanternsLit;
+  // The Hull's own beacons do not count as exploration: they are the regions
+  // saluting, and folding them in would make every ending look equally thorough.
+  const lit = s.progress.lanternsLit.filter((id) => !id.startsWith(`${ENDING_ROOM}@`));
   const shown = Math.floor(reached * lit.length);
 
   /** @type {import('./types.js').Light[]} */
@@ -168,7 +174,7 @@ function stageHull(s) {
   }
 
   const done = s.progress.flags[COMPLETE_FLAG] === true;
-  if (done || reached < 0.94) {
+  if (done || reached < HULL_END) {
     return { ...s, lights: [...s.lights, ...trail] };
   }
   emit(s.events, 'game.complete', s.player.x + s.player.w / 2, s.player.y + s.player.h / 2);

@@ -43,6 +43,9 @@ import * as x3_buttress from './x3_buttress.js';
 import * as x4_shrine from './x4_shrine.js';
 import * as x5_plunge from './x5_plunge.js';
 import * as k1_seal from './k1_seal.js';
+import * as k4_threshold from './k4_threshold.js';
+import * as k5_anchor from './k5_anchor.js';
+import * as e1_hull from './e1_hull.js';
 
 /** @type {Record<string, import('../room-format.js').RoomModule>} */
 export const ROOM_MODULES = {
@@ -85,6 +88,9 @@ export const ROOM_MODULES = {
   x4_shrine,
   x5_plunge,
   k1_seal,
+  k4_threshold,
+  k5_anchor,
+  e1_hull,
 };
 
 export const ROOM_IDS = Object.keys(ROOM_MODULES).sort();

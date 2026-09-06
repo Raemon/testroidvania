@@ -20,7 +20,7 @@
  */
 
 import { ROOM_IDS, ROOM_MODULES } from '../src/content/rooms/index.js';
-import { START } from '../src/content/world.js';
+import { START, ENDING_ROOM } from '../src/content/world.js';
 import { ABILITY_IDS, ABILITY_ORDER } from '../src/core/abilities/index.js';
 
 /** Bit per ability, in ladder order, so a set is one integer. */
@@ -73,6 +73,10 @@ function exits(roomId, bits) {
   const out = [];
   for (const door of ROOM_MODULES[roomId]?.doors ?? []) {
     if (door.requires && !(bits & (BIT.get(door.requires) ?? 0))) continue;
+    // A door sealed on a flag is treated as open. Flags are set by events on the
+    // critical path, not by keys the player carries, so they order the run rather
+    // than gate it — and modelling them here would mean modelling the boss fight
+    // that sets them, which is what the playthrough is for.
     const [toRoom] = door.to.split(':');
     if (toRoom) out.push({ room: toRoom, bits: collect(toRoom, bits) });
   }
@@ -161,11 +165,14 @@ function canReach(from, goal, universe) {
 }
 
 /**
- * The room the run has to end in: the one behind the last rung of the ladder. If no
- * door names the last ability, the goal is whichever room holds the last pickup.
+ * The room the run has to end in. The world names it, because "the deepest room
+ * behind the last ability" stopped being the answer the moment the Core acquired
+ * rooms past its own gate: Twin Pin opens the Seal, and the ending is three rooms
+ * further on.
  * @returns {string}
  */
 function goalRoom() {
+  if (ROOM_IDS.includes(ENDING_ROOM)) return ENDING_ROOM;
   const last = ABILITY_ORDER[ABILITY_ORDER.length - 1];
   for (const roomId of ROOM_IDS) {
     for (const door of ROOM_MODULES[roomId]?.doors ?? []) {

@@ -49,7 +49,21 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = ['deepPin', 'reel'];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[26, 12], [23, 12, 'throw:l'], [23, 12, 'recall'], [20, 11], [20, 11, 'ride:11'], [6, 12], [0, 12]]) };
+// Arriving from S2 the job is the Cistern's door, up the two steps on the east
+// wall; the Gap gate is the way back through, with Reel.
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[26, 12], [29, 9], [30, 7], [31, 7]]) };
+
+/**
+ * @type {import('../../core/types.js').RouteVariant[]}
+ */
+export const variants = [
+  {
+    needs: ['reel'],
+    route: /** @type {import('../../core/types.js').Waypoint[]} */ (
+      [[26, 12], [23, 12, 'throw:l'], [23, 12, 'recall'], [20, 11], [20, 11, 'ride:11'], [6, 12], [0, 12]]
+    ),
+  },
+];
 
 /** @type {number[]|null} */
 export const macro = null;

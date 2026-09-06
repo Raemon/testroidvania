@@ -193,7 +193,25 @@
  * @property {{id:string, kind:string, at:[number,number], ability?:AbilityId, afterBoss?:string}[]} pickups
  * @property {{at:[number,number], x:number, y:number}[]} lanterns save-lanterns, compiled from the grid
  * @property {Waypoint[]} route     waypoints in tile coords, for the servo
+ * @property {RouteVariant[]} variants  routes for later visits; see RouteVariant
  * @property {number[]|null} macro  RLE input tape, only if the servo cannot solve the room
+ */
+
+/**
+ * An alternative route through a room, and what has to be true to take it.
+ *
+ * A Spine tier is not one room with one job: S2 is "the way to the Foundry" on the
+ * first visit, "the way up to S3" on the second, and "the way up, faster" on the
+ * Ascent. The route the bot walks therefore has to be a function of what the player
+ * is carrying and what has already happened, not a constant.
+ *
+ * The **last** matching variant wins, so the list reads bottom-of-the-game-last:
+ * the base route first, then each later visit in the order the run makes them.
+ *
+ * @typedef {object} RouteVariant
+ * @property {AbilityId[]} [needs]  every one of these must be held
+ * @property {string[]} [flags]     every one of these `progress.flags` must be set
+ * @property {Waypoint[]} route
  */
 
 /**

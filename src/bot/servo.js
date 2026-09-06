@@ -115,6 +115,16 @@ export function servo(obs, mem) {
     return { input: 0, mem: next, done: false };
   }
 
+  const dir = p.cx < targetX ? 1 : -1;
+
+  // Perched on a Pin's shelf, with somewhere else to be. Perch ignores horizontal
+  // input by design (§D1.1), so the only way off it is Jump or Down — and a bot
+  // that presses neither stands on a 16px shelf until its budget runs out.
+  if (p.perch && Math.abs(p.cx - targetX) > ARRIVE_X) {
+    next.still = 0;
+    return { input: (dir > 0 ? IN.RIGHT : IN.LEFT) | (obs.tick % 4 === 0 ? IN.JUMP : 0), mem: next, done: false };
+  }
+
   // Hanging off the Pin with the route still above us: **mantle**. Jump with no
   // direction climbs onto the shelf; Jump with one is the wall-kick, which is a
   // way back down from a ledge the bot was trying to get onto. Pulsed, because
@@ -149,7 +159,6 @@ export function servo(obs, mem) {
     }
   }
 
-  const dir = p.cx < targetX ? 1 : -1;
   let input = 0;
   if (next.wiggle > 0) {
     next.wiggle--;

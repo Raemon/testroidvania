@@ -249,14 +249,21 @@ export const REEL_FRAMES = 90;
 // --- The Ascent (02-world-structure §6 beat 2) ------------------------------
 
 /**
- * How long the void takes to swallow one Spine tier. 02 §6: "a fixed, deterministic
- * rate tuned to a competent pace +30%". The bot climbs a tier in roughly 300 frames,
- * so 480 is that pace with the margin on top — fast enough to be a chase, slow
- * enough that the climb is the thing you are thinking about.
+ * The finale's clock, in two numbers rather than one, because a Spine tier's exit
+ * is sometimes at the top of the room (S1) and sometimes on the floor (S2, S3). A
+ * void that simply fills the room over N frames swallows a floor-level door almost
+ * at once, so instead:
+ *
+ *  - for `ASCENT_TIER_FRAMES` the void sits level with the floor — visible, moving,
+ *    and not yet in the way;
+ *  - after that it climbs at `ASCENT_RISE` px/frame and eats the tier.
+ *
+ * 02 §6 asks for "a competent pace +30%". The bot crosses the slowest tier in about
+ * 300 frames and 03's own note puts a first-timer at ~1.7x that, so ten seconds of
+ * level and then half a pixel a frame is that pace with the margin on top.
  */
-export const ASCENT_TIER_FRAMES = 480;
-/** The void starts this far below the floor, so a tier opens with room to breathe. */
-export const ASCENT_VOID_LEAD = 32;
+export const ASCENT_TIER_FRAMES = 600;
+export const ASCENT_RISE = 0.5;
 
 // --- A4 Ricochet ------------------------------------------------------------
 

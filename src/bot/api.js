@@ -57,6 +57,24 @@ function bossIn(state) {
 }
 
 /**
+ * Which way through this room, this time. See `RouteVariant`: a Spine tier is a
+ * different room on the way out than it was on the way in, and the ability ladder
+ * plus the run's flags are exactly what tells the two apart.
+ * @param {import('../core/types.js').Room} room
+ * @param {Readonly<import('../core/types.js').Progress>} progress
+ * @returns {import('../core/types.js').Waypoint[]}
+ */
+export function routeFor(room, progress) {
+  let route = room.route;
+  for (const variant of room.variants) {
+    if ((variant.needs ?? []).some((id) => !progress.abilities.includes(id))) continue;
+    if ((variant.flags ?? []).some((f) => !progress.flags[f])) continue;
+    route = variant.route;
+  }
+  return route;
+}
+
+/**
  * @param {Readonly<GameState>} state
  * @returns {Observation}
  */
@@ -96,7 +114,7 @@ export function observe(state) {
     })),
     boss: bossIn(state),
     hazards: room.hazards.map((h) => ({ x: h.x, y: h.y, w: h.w, h: h.h, kind: h.kind })),
-    route: room.route,
+    route: routeFor(room, state.progress),
     solidAt: (tx, ty) => solidAt(room, tx, ty),
     oneWayAt: (tx, ty) => oneWayAt(room, tx, ty),
     progress: { bossesKilled: state.progress.bossesKilled.slice(), flags: { ...state.progress.flags } },

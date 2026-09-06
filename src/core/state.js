@@ -31,7 +31,8 @@ export function createProgress() {
  */
 const VOID_ROOM = {
   id: '__void__', w: 3, h: 3, grid: ['###', '#.#', '###'],
-  doors: [], hazards: [], spawns: [], rails: [], pickups: [], lanterns: [], route: [], macro: null,
+  doors: [], hazards: [], spawns: [], rails: [], pickups: [], lanterns: [],
+  route: [], variants: [], macro: null,
 };
 
 /**

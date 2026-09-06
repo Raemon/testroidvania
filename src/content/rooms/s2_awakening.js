@@ -50,7 +50,18 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = ['deepPin'];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[28, 12], [12, 12, 'throw:l'], [12, 12, 'recall'], [4, 12], [0, 12]]) };
+// The first visit is a walk up two steps to the Foundry's door; the Barrier gate is
+// the *second* visit, on the way back from it (06-revision-1 §A3).
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[28, 12], [24, 12], [27, 9], [30, 7], [31, 7]]) };
+
+/**
+ * With Deep Pin in hand the tier's own gate is the job: pin the slag, recall, and
+ * the whole block goes. The Ascent walks the same line, faster.
+ * @type {import('../../core/types.js').RouteVariant[]}
+ */
+export const variants = [
+  { needs: ['deepPin'], route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[28, 12], [12, 12, 'throw:l'], [12, 12, 'recall'], [4, 12], [0, 12]]) },
+];
 
 /** @type {number[]|null} */
 export const macro = null;

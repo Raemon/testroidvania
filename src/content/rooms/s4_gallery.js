@@ -49,7 +49,18 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = ['zip', 'ricochet'];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[20, 14], [20, 14, 'climb:ur'], [26, 5], [31, 5]]) };
+// Ricochet is already in hand when the player first reaches this tier — it came
+// from the Diver, two rooms ago — so the ability cannot be what tells the two
+// visits apart. The first is a flat walk west to the Apex door; the Blind gate is
+// climbed on the Ascent, which is the only time the player needs to be above it.
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[28, 14], [16, 14], [4, 14], [0, 14]]) };
+
+/**
+ * @type {import('../../core/types.js').RouteVariant[]}
+ */
+export const variants = [
+  { flags: ['ascent'], route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[20, 14], [20, 14, 'climb:ur'], [26, 5], [31, 5]]) },
+];
 
 /** @type {number[]|null} */
 export const macro = null;

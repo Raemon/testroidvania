@@ -10,8 +10,10 @@
 // pillar is in the throw lane at exactly the diagonal the reach table describes:
 // stand seven tiles out, throw up-right, and the Pin lands eight tiles up.
 //
-// The east wall is the void column down to the Core — the Hazard gate, eight tiles
-// of it, with two wood posts to chain-zip between once Twin Pin exists.
+// The east end of the floor is the hatch down to the Core. It has been visible
+// since minute one and it stays shut until Twin Pin; the void itself — fourteen
+// tiles of it, and the chain-zip that crosses it — is on the other side, in K1.
+// The two dead posts overhead are what it looks like from up here.
 
 export const id = 's1_floor';
 
@@ -34,8 +36,8 @@ D.......................W......#
 #.......................W......#
 #........................W...W.#
 #........................W...W.#
-#..............................#
-D...........L..........^^^^^^^^D
+#..............................D
+D...........L..................D
 ################################`;
 //  # stone  W wood  M metal  S slag  c crumble  . empty  = one-way  ^ spike  D door  L lantern  ~ water  o pickup
 
@@ -61,6 +63,21 @@ export const pickups = [];
 export const needs = ['zip'];
 
 export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[3, 19], [16, 19, 'climb:ur'], [10, 10], [0, 10]]) };
+/**
+ * The floor is walked three times. On the way out of the Roots it is the Height
+ * gate and the climb to S2; after the Plunge it is the hatch at the east end, which
+ * has been shut and visible since minute one; and on the Ascent it is the climb
+ * again, with the void behind it.
+ * @type {import('../../core/types.js').RouteVariant[]}
+ */
+export const variants = [
+  // The Plunge lands high on the west wall and the fall stops on the upper shelf,
+  // so this route starts up there and walks off its east lip rather than pretending
+  // the player is on the floor.
+  { needs: ['twinPin'], route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[10, 10], [20, 10], [24, 19], [28, 19], [31, 19]]) },
+  { flags: ['ascent'], route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[3, 19], [16, 19, 'climb:ur'], [10, 10], [0, 10]]) },
+];
+
 
 /** @type {number[]|null} */
 export const macro = null;
