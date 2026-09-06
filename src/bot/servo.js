@@ -12,6 +12,7 @@
 import { TILE } from '../core/constants.js';
 import { IN } from '../core/input.js';
 import { runAction } from './actions.js';
+import { policyFor } from './policies/index.js';
 
 /** @typedef {import('./api.js').Observation} Observation */
 
@@ -27,6 +28,13 @@ const WIGGLE_FRAMES = 20;
  * softlock invariant exists to prevent, and silence is worse than a red test.
  */
 export const ROOM_FRAME_BUDGET = 1800;
+/** A boss room is a fight, not a walk, so it gets its own budget. */
+export const BOSS_ROOM_FRAME_BUDGET = 7200;
+
+/** @param {Observation} obs @returns {number} */
+export function roomBudget(obs) {
+  return obs.boss ? BOSS_ROOM_FRAME_BUDGET : ROOM_FRAME_BUDGET;
+}
 
 /**
  * @typedef {object} ServoMemory
@@ -62,9 +70,10 @@ export function servo(obs, mem) {
   if (route.length === 0) return { input: 0, mem: next, done: true };
 
   next.frames++;
-  if (next.frames > ROOM_FRAME_BUDGET) {
+  const budget = roomBudget(obs);
+  if (next.frames > budget) {
     next.stuck = true;
-    next.why = `spent ${next.frames} frames in ${obs.room} without finishing its route (budget ${ROOM_FRAME_BUDGET})`;
+    next.why = `spent ${next.frames} frames in ${obs.room} without finishing its route (budget ${budget})`;
     return { input: 0, mem: next, done: false };
   }
 
@@ -101,6 +110,13 @@ export function servo(obs, mem) {
     if (next.wp >= route.length - 1) return { input: 0, mem: next, done: true };
     next.wp++;
     return { input: 0, mem: next, done: false };
+  }
+
+  // A living boss owns the room: nothing about a route is true while it is up.
+  const policy = policyFor(obs);
+  if (policy) {
+    next.still = 0;
+    return { input: policy(obs), mem: next, done: false };
   }
 
   const qx = Math.round(p.x / 4);
