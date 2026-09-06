@@ -29,6 +29,9 @@ import { tileAt } from './tiles.js';
  *   routes for the times the room is entered again with a different job to do. A
  *   Spine tier is walked through two or three times in one run — in to the region,
  *   out of it, and again on the Ascent — and each visit leaves by a different door.
+ * @property {number} [wind] constant horizontal force on an airborne body, in
+ *   `WIND_ACCEL` units and signed. A room property rather than a tile because
+ *   02 §2 makes it one: the Apex's wind is the weather, not the furniture.
  * @property {number[]|null} macro
  */
 
@@ -67,6 +70,7 @@ export function compileRoom(mod) {
     lanterns,
     route: mod.hints.route,
     variants: mod.variants ?? [],
+    wind: mod.wind ?? 0,
     macro: mod.macro,
   };
 }

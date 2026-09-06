@@ -194,6 +194,8 @@
  * @property {{at:[number,number], x:number, y:number}[]} lanterns save-lanterns, compiled from the grid
  * @property {Waypoint[]} route     waypoints in tile coords, for the servo
  * @property {RouteVariant[]} variants  routes for later visits; see RouteVariant
+ * @property {number} wind          constant horizontal force on an airborne body,
+ *   in `WIND_ACCEL` units, signed; 0 in every room that is not the Apex
  * @property {number[]|null} macro  RLE input tape, only if the servo cannot solve the room
  */
 

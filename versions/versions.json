@@ -23,6 +23,18 @@
       ],
       "commit": "2a42ed0",
       "date": "2026-09-06"
+    },
+    {
+      "id": "v3",
+      "title": "The whole game",
+      "notes": [
+        "Playable start to credits: 43 rooms, five abilities, four bosses, the Plunge and the ending",
+        "Verified by a bot playing the entire game in a real browser with zero console errors",
+        "The Pin is your weapon and your light; line-of-sight enemies chase the light, so a thrown Pin is a decoy",
+        "Lantern & Ink rendering and a fully synthesized adaptive score"
+      ],
+      "commit": "222fc07",
+      "date": "2026-09-06"
     }
   ]
 }

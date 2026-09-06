@@ -32,7 +32,7 @@ export function createProgress() {
 const VOID_ROOM = {
   id: '__void__', w: 3, h: 3, grid: ['###', '#.#', '###'],
   doors: [], hazards: [], spawns: [], rails: [], pickups: [], lanterns: [],
-  route: [], variants: [], macro: null,
+  route: [], variants: [], wind: 0, macro: null,
 };
 
 /**

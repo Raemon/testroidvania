@@ -24,6 +24,7 @@ import { stageGrip } from './grip.js';
 import { stageEntities, stageCombat, spawnFor } from './combat.js';
 import { stagePickups } from './pickups.js';
 import { stageLanterns } from './lanterns.js';
+import { stageTerrain } from './terrain.js';
 import { stageFinale } from './ascent.js';
 import { computeLights, rememberSeen } from './light.js';
 import { doorUnder, resolvePartner, doorEntry } from './rooms.js';
@@ -127,6 +128,8 @@ const STAGES = [
   // After entities, so a drag overrides whatever the body wanted to do itself.
   ['reel', stageReel],
   ['combat', stageCombat],
+  // After combat, so a heart lost to drowning is the same heart the hazards spend.
+  ['terrain', stageTerrain],
   ['pickups', stagePickups],
   // Last of the world stages: a transition rebuilds the room out from under it.
   ['rooms', stageRooms],

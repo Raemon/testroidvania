@@ -15,9 +15,11 @@ import {
   JUMP_CUT_MULT, JUMP_CUT_MIN_FRAMES, COYOTE_FRAMES, JUMP_BUFFER_FRAMES,
   DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_MANTLE_VY, HANG_COOLDOWN,
   STRIDE_LENGTH, TILE,
+  WATER_JUMP_MULT, WATER_GRAVITY_MULT, WATER_TERMINAL_VY, WATER_DRAG,
+  CURRENT_PUSH, WIND_ACCEL,
 } from './constants.js';
 import { IN, axisX, isDown, justPressed } from './input.js';
-import { moveBox, isSupported, materialUnder, inWater } from './collision.js';
+import { moveBox, isSupported, materialUnder, inWater, currentAt } from './collision.js';
 import { emit } from './events.js';
 import { grabbableHang, hangAnchor, perchCentre, stillHanging, stillHangingBelow } from './grip.js';
 
@@ -85,6 +87,11 @@ export function applyGravity(vy, fastFalling) {
  */
 export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platforms) {
   const stunned = p.hurtFrames > 0;
+  // Water is read once, at the body's centre, and then it changes four numbers:
+  // the jump, the fall, the drag and the terminal speed (02 §2). Reading it once
+  // is what keeps "am I swimming" from disagreeing with itself mid-frame.
+  const swimming = inWater(room, p.x + p.w / 2, p.y + p.h / 2);
+  const current = currentAt(room, p.x + p.w / 2, p.y + p.h / 2);
   const downHeld = isDown(input, IN.DOWN);
   const jumpHeld = isDown(input, IN.JUMP);
   const jumpPressed = justPressed(input, prevInput, IN.JUMP);
@@ -146,7 +153,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
     coyote = 0;
   } else if (!stunned && jumpBuffer > 0 && coyote > 0) {
     emit(events, 'jump', p.x + p.w / 2, p.y + p.h, { material: materialUnder(room, p) });
-    vy = JUMP_VY;
+    vy = swimming ? JUMP_VY * WATER_JUMP_MULT : JUMP_VY;
     jumpBuffer = 0;
     coyote = 0;
     jumpFrames = 1;
@@ -156,6 +163,17 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
   const airborne = !p.grounded || vy < 0;
   const fastFalling = downHeld && airborne && dropThrough === 0;
   vy = applyGravity(vy, fastFalling);
+  if (swimming) {
+    // Buoyancy, so a halved jump is a different move and not simply a worse one:
+    // you go up less and come down slower, which is what makes water read as a
+    // medium rather than as a penalty.
+    vy = Math.min(vy * WATER_GRAVITY_MULT, WATER_TERMINAL_VY);
+    vx -= vx * WATER_DRAG;
+    vx += current * CURRENT_PUSH * WATER_DRAG * 4;
+  }
+  // Wind is the Apex's weather: a constant push on anything not standing on
+  // something, so a jump is a decision about where the wind will have put you.
+  if (room.wind !== 0 && !p.grounded && !stunned) vx += room.wind * WIND_ACCEL;
 
   if (!jumpCut && jumpFrames >= JUMP_CUT_MIN_FRAMES && vy < 0 && !jumpHeld) {
     vy *= JUMP_CUT_MULT;

@@ -42,6 +42,16 @@ export function inWater(room, x, y) {
   return tileAt(glyphAt(room, Math.floor(x / TILE), Math.floor(y / TILE))).water;
 }
 
+/**
+ * @param {Room} room
+ * @param {number} x
+ * @param {number} y
+ * @returns {-1|0|1} which way the water at this point is pushing, 0 for none
+ */
+export function currentAt(room, x, y) {
+  return tileAt(glyphAt(room, Math.floor(x / TILE), Math.floor(y / TILE))).current;
+}
+
 /** @param {number} v @returns {number} */
 function tileIndex(v) {
   return Math.floor(v / TILE);

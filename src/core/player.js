@@ -67,6 +67,8 @@ export function createPlayer(x, y) {
     deadFrames: 0,
     stride: 0,
     inWater: false,
+    submerged: 0,
+    crumbleFrames: 0,
     nearDoor: '',
   };
 }

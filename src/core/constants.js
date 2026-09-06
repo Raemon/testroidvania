@@ -215,6 +215,33 @@ export const LIGHT_LANTERN_R = 120;
 export const DISCOVERED_ALPHA = 0.25;
 export const DARKNESS_ALPHA_CAP = 0.55;
 
+// --- Water, currents, wind, crumble (02-world-structure §2) -----------------
+//
+// Each region owes its identity to one hazard, and until now three of the four had
+// nothing behind them: water was implemented for the Pin and not for the player,
+// currents and wind did not exist, and a crumble tile only ever crumbled when the
+// Pin hit it. These are those four, and they are numbers rather than systems.
+
+/** Water halves the jump (02 §2) — the Cistern's whole traversal verb. */
+export const WATER_JUMP_MULT = 0.5;
+/** And it holds you up on the way down, so the halved jump is not simply worse. */
+export const WATER_GRAVITY_MULT = 0.45;
+export const WATER_TERMINAL_VY = 2.2;
+/** Per-frame drag on horizontal motion in water; swimming is slower than running. */
+export const WATER_DRAG = 0.12;
+/** Frames with the head under water before it costs a heart. Three seconds. */
+export const WATER_DROWN_FRAMES = 180;
+/** A current's push, in units per frame. Under RUN_MAX, so it steers rather than owns. */
+export const CURRENT_PUSH = 1.4;
+/** Frames a crumble tile holds a body up before it gives way. */
+export const CRUMBLE_FRAMES = 24;
+/**
+ * Wind is a room property, not a tile: 02 §2 gives the Apex "a constant horizontal
+ * force per room, which can flip mid-room". This is the unit a room's `wind` is
+ * counted in, so `wind: 2` is two of these.
+ */
+export const WIND_ACCEL = 0.09;
+
 /** Distance walked between footsteps, from 05-aesthetic §4 (foot phase = distance / 28). */
 export const STRIDE_LENGTH = 28;
 
