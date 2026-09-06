@@ -111,6 +111,17 @@ test('every door sits on the border, resolves, and its partner points back', () 
       assert.ok(partner, `${key} -> '${door.to}' names an unknown door`);
       assert.equal(partner?.to, key, `${toRoomId}:${toDoorId} must point back at ${key}, but points at '${partner?.to}'`);
 
+      // A side door is TWO tiles tall, and this is not cosmetic. The player is
+      // 20px in a 16px tile, so a body standing in a one-tile doorway has its head
+      // in the wall above — the collision sweep stops it a tile short and the door
+      // can never be walked into. It is a door that does not exist.
+      if (tx === 0 || tx === room.w - 1) {
+        assert.ok(
+          isDoorGlyph(room.grid[ty - 1]?.[tx] ?? ''),
+          `${key} is a side door with a solid tile above it at (${tx},${ty - 1}); a 20px player cannot reach it`,
+        );
+      }
+
       // Opposite edges, so walking east always arrives from the west.
       const partnerTx = partner?.at[0] ?? 0;
       if (tx === 0) assert.equal(partnerTx, (partnerRoom?.w ?? 1) - 1, `${key} is a west door; its partner must be an east door`);

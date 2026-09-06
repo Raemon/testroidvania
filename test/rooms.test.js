@@ -9,9 +9,11 @@ import './harness/trap.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ROOM_IDS, ROOM_MODULES, getRoom } from '../src/content/rooms/index.js';
-import { TILE, PLAYER_W } from '../src/core/constants.js';
+import { TILE, PLAYER_W, PLAYER_H } from '../src/core/constants.js';
+import { isDoorGlyph } from '../src/content/tiles.js';
 import { step } from '../src/core/step.js';
 import { isBoss } from '../src/core/bosses/index.js';
+import { standOn } from '../src/core/rooms.js';
 import { newRun, runBot, assertFinished } from './harness/run.js';
 
 /**
@@ -41,9 +43,18 @@ for (const id of ROOM_IDS) {
     const last = room.route[room.route.length - 1];
     const leftTheRoom = result.state.room !== id;
     if (!leftTheRoom && last) {
+      // A route that ends on a door has exactly one success condition: the bot went
+      // through it. The old 24px tolerance was wider than the 16px tile that blocks
+      // the way, so a room whose door was unreachable — a one-tile-tall side door,
+      // say — passed this test while being impassable in the game. Standing next to
+      // a door is not the same as opening it.
+      assert.ok(
+        !isDoorGlyph(room.grid[last[1]]?.[last[0]] ?? ''),
+        `${id}: the route ends on door tile (${last[0]},${last[1]}) but the bot never went through it`,
+      );
       const cx = result.state.player.x + PLAYER_W / 2;
       assert.ok(
-        Math.abs(cx - (last[0] * TILE + TILE / 2)) < 24,
+        Math.abs(cx - (last[0] * TILE + TILE / 2)) < TILE,
         `${id}: bot stopped at x=${cx.toFixed(1)}, last waypoint is x=${last[0] * TILE + TILE / 2}`,
       );
     }
@@ -59,6 +70,42 @@ for (const id of ROOM_IDS) {
       assert.equal(result.state.player.hp, result.state.player.maxHp, `${id}: the route must not cost health`);
     }
     assert.deepEqual(result.state.errors, [], `${id}: step() reported errors`);
+  });
+}
+
+/**
+ * A room with route variants is really several rooms — the tier on the way in, the
+ * tier on the way out, the tier on the Ascent — and each of them is a gate that has
+ * to open with its own key. So every variant gets its own traversal, granted
+ * exactly the abilities and flags the variant names and nothing else.
+ */
+for (const id of ROOM_IDS) {
+  const variants = ROOM_MODULES[id]?.variants ?? [];
+  variants.forEach((variant, i) => {
+    const label = [...(variant.needs ?? []), ...(variant.flags ?? [])].join('+') || `variant ${i}`;
+    test(`${id}: the servo walks its '${label}' route end to end`, () => {
+      const room = getRoom(id);
+      assert.ok(room);
+      const abilities = [...new Set([...(ROOM_MODULES[id]?.needs ?? []), ...(variant.needs ?? [])])];
+      /** @type {Record<string, boolean>} */
+      const flags = {};
+      for (const f of variant.flags ?? []) flags[f] = true;
+
+      const start = newRun(1, id);
+      const at = variant.route[0] ?? [1, room.h - 2];
+      const pos = standOn(at[0], at[1], PLAYER_W, PLAYER_H);
+      const result = runBot(
+        {
+          ...start,
+          progress: { ...start.progress, abilities, flags },
+          player: { ...start.player, x: pos.x, y: pos.y },
+        },
+        { maxFrames: 1800, until: (s) => s.room !== id },
+      );
+      assertFinished(result, `${id} '${label}'`);
+      assert.equal(result.state.player.hp, result.state.player.maxHp, `${id} '${label}': the route must not cost health`);
+      assert.deepEqual(result.state.errors, [], `${id} '${label}': step() reported errors`);
+    });
   });
 }
 
