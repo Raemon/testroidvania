@@ -16,6 +16,11 @@ import * as s2_awakening from './s2_awakening.js';
 import * as s3_throat from './s3_throat.js';
 import * as s4_gallery from './s4_gallery.js';
 import * as s5_crown from './s5_crown.js';
+import * as r1_gate from './r1_gate.js';
+import * as r2_trunk from './r2_trunk.js';
+import * as r3_canopy from './r3_canopy.js';
+import * as r4_vinerun from './r4_vinerun.js';
+import * as r5_hollow from './r5_hollow.js';
 import * as f1_stoker from './f1_stoker.js';
 import * as c1_diver from './c1_diver.js';
 import * as x1_sentinel from './x1_sentinel.js';
@@ -35,6 +40,11 @@ export const ROOM_MODULES = {
   s3_throat,
   s4_gallery,
   s5_crown,
+  r1_gate,
+  r2_trunk,
+  r3_canopy,
+  r4_vinerun,
+  r5_hollow,
   f1_stoker,
   c1_diver,
   x1_sentinel,

@@ -36,7 +36,7 @@ D.................WW....########
 /** @type {import('../../core/types.js').Door[]} */
 export const doors = [
   { id: 'd_w', at: [0, 12], to: 'o5_ladder:d_e', requires: null },
-  { id: 'd_e', at: [31, 8], to: 'o7_shrine:d_w', requires: null },
+  { id: 'd_e', at: [31, 8], to: 'r1_gate:d_w', requires: null },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */

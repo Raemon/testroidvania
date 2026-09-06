@@ -41,7 +41,7 @@ D...........L..........^^^^^^^^D
 
 /** @type {import('../../core/types.js').Door[]} */
 export const doors = [
-  { id: 'd_w', at: [0, 19], to: 'o7_shrine:d_e', requires: null },
+  { id: 'd_w', at: [0, 19], to: 'r5_hollow:d_e', requires: null },
   { id: 'd_up', at: [0, 10], to: 's2_awakening:d_down', requires: 'zip' },
   { id: 'd_core', at: [31, 19], to: 'k1_seal:d_w', requires: 'twinPin' },
 ];

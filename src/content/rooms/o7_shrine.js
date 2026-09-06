@@ -25,8 +25,8 @@ D.......WW...........o..L......D
 
 /** @type {import('../../core/types.js').Door[]} */
 export const doors = [
-  { id: 'd_w', at: [0, 9], to: 'o6_weapon:d_e', requires: null },
-  { id: 'd_e', at: [31, 9], to: 's1_floor:d_w', requires: null },
+  { id: 'd_w', at: [0, 9], to: 'r2_trunk:d_e', requires: null },
+  { id: 'd_e', at: [31, 9], to: 'r3_canopy:d_w', requires: null },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */
