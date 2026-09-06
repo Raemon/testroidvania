@@ -9,7 +9,7 @@
 
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { startServer } from './server.js';
 
 const ARTIFACTS = join(import.meta.dirname, '../../artifacts/failure');
@@ -72,6 +72,7 @@ function installPump() {
  * @property {() => Promise<PixelProbe>} probe
  * @property {() => Promise<void>} assertHudMatchesState
  * @property {(name: string) => Promise<void>} dumpFailure
+ * @property {(path: string) => Promise<void>} screenshot
  * @property {() => Promise<void>} close
  */
 
@@ -247,6 +248,17 @@ export async function launchGame(options = {}) {
       } catch {
         // A dump is a courtesy; never let it mask the real failure.
       }
+    },
+
+    /**
+     * A picture of the canvas as it stands, for a human to look at. Separate from
+     * `dumpFailure` because the interesting frames of a run are not only its
+     * failures — the finale has to be *seen* to be reviewed.
+     * @param {string} path
+     */
+    async screenshot(path) {
+      await mkdir(dirname(path), { recursive: true });
+      await page.screenshot({ path });
     },
 
     close: shutdown,

@@ -65,6 +65,47 @@ export function runBot(start, options = {}) {
 }
 
 /**
+ * Drive a run from the world's start until the game is over, across every room,
+ * with the invariants on. Unlike `runBot` it does not stop when a room's route
+ * finishes — the whole point is the rooms it strings together — so the only exits
+ * are the ending, a stuck servo, a broken invariant, or the budget.
+ *
+ * @param {object} [options]
+ * @param {number} [options.seed]
+ * @param {number} [options.maxFrames]
+ * @param {(s: GameState) => boolean} [options.until] the finish line
+ * @returns {{ state: GameState, frames: number, rooms: string[], done: boolean, why: string }}
+ */
+export function runGame(options = {}) {
+  const maxFrames = options.maxFrames ?? 30000;
+  const until = options.until ?? ((s) => s.progress.flags.gameComplete === true);
+  let state = newRun(options.seed ?? 1);
+  let mem = createServo();
+  /** @type {string[]} */
+  const rooms = [state.room];
+
+  for (let f = 0; f < maxFrames; f++) {
+    const result = servo(observe(state), mem);
+    mem = result.mem;
+    const prev = state;
+    state = step(state, result.input);
+
+    const violations = check(prev, state, result.input);
+    if (violations.length) {
+      const v = violations[0];
+      return { state, frames: f + 1, rooms, done: false, why: v ? formatViolation(v) : 'unknown violation' };
+    }
+    if (state.room !== rooms[rooms.length - 1]) rooms.push(state.room);
+    if (mem.stuck) return { state, frames: f + 1, rooms, done: false, why: mem.why };
+    if (until(state)) return { state, frames: f + 1, rooms, done: true, why: '' };
+  }
+  return {
+    state, frames: maxFrames, rooms, done: false,
+    why: `ran out of the ${maxFrames}-frame budget in ${state.room}`,
+  };
+}
+
+/**
  * Assert a bot run finished, with a message that names where it stopped. Callers
  * use this instead of a bare `assert.ok(result.done)` so a failure says *why*.
  * @param {ReturnType<typeof runBot>} result

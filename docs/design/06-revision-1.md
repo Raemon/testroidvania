@@ -219,3 +219,46 @@ the reason Roots exists.
 
 **The invariant behind all of these: the player can never be stranded, and Recall is
 never disabled.** Any future feature must preserve that.
+
+---
+
+## H. THE DARKNESS: MEASURED, AND SETTLED
+
+Two independent measured reviews and one implementation pass have now put numbers
+on the darkness, so this is settled rather than re-litigated.
+
+**The arithmetic bug (fixed).** The overlay washed with `#091217` (L6) at alpha
+0.55 over terrain `#070B10` (L5), producing L5 — *zero effect on the terrain it
+was supposed to hide*. It only dimmed the background the light cannot reach, and
+in doing so crushed the far/mid/terrain separation the cut-paper look depends on.
+Fixed by compositing the light `source-atop` the world only, filling the distance
+in behind with a flat dim, and carrying the difference in hue rather than value.
+
+**The remaining limit (accepted, not a bug).** With the Pin in hand the light hole
+is r=260 in a 480x270 view — a 520px diameter across a 480px-wide screen. **The
+light is larger than the viewport**, so there is almost nothing left for the
+overlay to darken. Measured mean |ΔL| between "overlay on" and "overlay off" went
+from 2.01 to 3.06 against a target of ~8, and it cannot reach 8 by tuning the
+wash.
+
+What did improve, and is what actually matters:
+
+| | before | after |
+|---|---|---|
+| floor falloff (0/60/120/200/300 px from the light) | 25 / 13 / 12 / 10 / 9 | **36 / 24 / 18 / 15 / 10** |
+| lit-to-unlit range along the floor | 16 L-points | **26 L-points** |
+| distance reacting to the Pin being thrown | -0.38 L | **+0.02 L** (inert, correct) |
+
+**The decision.** The darkness stays a *feel layer*, exactly as §D5 says. We do not
+chase a dramatic number, because the only ways to get one are all worse:
+
+- **Shrinking the radii** is forbidden (§D5) and produces the version players hate,
+  where you want the Pin thrown and held at once.
+- **Raising the overlay alpha** past 0.55 makes Apex-style precision rooms hostile.
+- **Zooming the camera out** so the light covers proportionally less would work
+  arithmetically, but it rescales every tuned number in the game.
+
+**What makes the light a decision instead is §D2, not the overlay**: line-of-sight
+enemies track *the light*, so a thrown Pin is a decoy. That is the mechanic; the
+overlay is atmosphere. Anyone tempted to "make the darkness matter" should
+strengthen D2 and leave the radii alone.

@@ -9,11 +9,11 @@ import './harness/trap.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TILE } from '../src/core/constants.js';
-import { GLYPHS, tileAt } from '../src/content/tiles.js';
+import { GLYPHS, tileAt, isDoorGlyph } from '../src/content/tiles.js';
 import { ROOM_IDS, ROOM_MODULES, getRoom } from '../src/content/rooms/index.js';
 import { START, worldEdges, findDoor } from '../src/content/world.js';
 import { ROUTE } from '../src/content/routes.js';
-import { isAbilityId } from '../src/core/abilities/index.js';
+import { isAbilityId, ABILITY_IDS } from '../src/core/abilities/index.js';
 import { isEntityKind } from '../src/core/entities/index.js';
 import { isKnownAction } from '../src/bot/actions.js';
 import { solidAt } from '../src/core/collision.js';
@@ -45,7 +45,7 @@ test('every room is walled: the only non-solid border tiles are doors', () => {
         if (tx !== 0 && ty !== 0 && tx !== room.w - 1 && ty !== room.h - 1) continue;
         const glyph = room.grid[ty]?.[tx] ?? '';
         assert.ok(
-          solidAt(room, tx, ty) || glyph === 'D',
+          solidAt(room, tx, ty) || isDoorGlyph(glyph),
           `${room.id} border tile (${tx},${ty}) is '${glyph}' — a border must be solid or a door`,
         );
       }
@@ -62,7 +62,7 @@ test('every room is enclosed: a flood fill from every open tile never escapes', 
     // space outside the walls would otherwise never be visited.
     for (let ty = 0; ty < room.h; ty++) {
       for (let tx = 0; tx < room.w; tx++) {
-        if (!solidAt(room, tx, ty) && (room.grid[ty]?.[tx] ?? '') !== 'D') queue.push([tx, ty]);
+        if (!solidAt(room, tx, ty) && !isDoorGlyph(room.grid[ty]?.[tx] ?? '')) queue.push([tx, ty]);
       }
     }
     assert.ok(queue.length > 0, `${room.id} has no open tile at all`);
@@ -84,7 +84,7 @@ test('every room is enclosed: a flood fill from every open tile never escapes', 
           assert.fail(`${room.id} is open to the outside at (${tx},${ty}) -> (${nx},${ny})`);
         }
         if (solidAt(room, nx, ny)) continue;
-        if ((room.grid[ny]?.[nx] ?? '') === 'D') continue;
+        if (isDoorGlyph(room.grid[ny]?.[nx] ?? '')) continue;
         queue.push([nx, ny]);
       }
     }
@@ -102,7 +102,7 @@ test('every door sits on the border, resolves, and its partner points back', () 
       const [tx, ty] = door.at;
       const onBorder = tx === 0 || ty === 0 || tx === room.w - 1 || ty === room.h - 1;
       assert.ok(onBorder, `${key} at (${tx},${ty}) is not on the border of ${room.w}x${room.h}`);
-      assert.equal(room.grid[ty]?.[tx], 'D', `${key} at (${tx},${ty}) is not a 'D' tile`);
+      assert.ok(isDoorGlyph(room.grid[ty]?.[tx] ?? ''), `${key} at (${tx},${ty}) is not a door tile`);
 
       const [toRoomId = '', toDoorId = ''] = door.to.split(':');
       const partnerRoom = getRoom(toRoomId);
@@ -110,6 +110,17 @@ test('every door sits on the border, resolves, and its partner points back', () 
       const partner = findDoor(toRoomId, toDoorId);
       assert.ok(partner, `${key} -> '${door.to}' names an unknown door`);
       assert.equal(partner?.to, key, `${toRoomId}:${toDoorId} must point back at ${key}, but points at '${partner?.to}'`);
+
+      // A side door is TWO tiles tall, and this is not cosmetic. The player is
+      // 20px in a 16px tile, so a body standing in a one-tile doorway has its head
+      // in the wall above — the collision sweep stops it a tile short and the door
+      // can never be walked into. It is a door that does not exist.
+      if (tx === 0 || tx === room.w - 1) {
+        assert.ok(
+          isDoorGlyph(room.grid[ty - 1]?.[tx] ?? ''),
+          `${key} is a side door with a solid tile above it at (${tx},${ty - 1}); a 20px player cannot reach it`,
+        );
+      }
 
       // Opposite edges, so walking east always arrives from the west.
       const partnerTx = partner?.at[0] ?? 0;
@@ -212,6 +223,36 @@ test('the game is completable: every room reachable, every gate openable', () =>
   assert.ok(ROOM_IDS.includes(START.room), `start room '${START.room}' does not exist`);
   assert.deepEqual(r.unreachable, [], `unreachable rooms: ${r.unreachable.join(', ')}`);
   assert.deepEqual(r.blockedDoors, [], r.blockedDoors.join('\n'));
+  assert.ok(ROOM_IDS.includes(r.goal), `the solver's goal room '${r.goal}' does not exist`);
+});
+
+test('no ability is required before it is obtainable', () => {
+  const r = solve();
+  assert.deepEqual(r.owned.slice().sort(), ABILITY_IDS.slice().sort(), 'some ability is never obtainable');
+  assert.deepEqual(r.outOfOrder, [], r.outOfOrder.join('\n'));
+});
+
+test('no one-way drop strands the player', () => {
+  // Exhaustive over (room x ability set): from every state a run can actually be
+  // in, the ending must still be reachable. That is what "never stranded" means.
+  const r = solve();
+  assert.deepEqual(r.stranded, [], r.stranded.join('\n'));
+});
+
+test('every room declares abilities its own route can actually have', () => {
+  for (const id of ROOM_IDS) {
+    for (const need of ROOM_MODULES[id]?.needs ?? []) {
+      assert.ok(isAbilityId(need), `${id} needs unknown ability '${need}'`);
+    }
+  }
+});
+
+test('every gate kind in the reach table has a door that opens with it', () => {
+  const gated = new Set();
+  for (const edge of worldEdges()) if (edge.requires) gated.add(edge.requires);
+  for (const id of ABILITY_IDS) {
+    assert.ok(gated.has(id), `no door anywhere is opened by '${id}' — its gate kind is unbuilt`);
+  }
 });
 
 test('the route only names rooms that exist', () => {

@@ -18,7 +18,10 @@ import { newRun, replay } from './harness/run.js';
 
 /** Global budget: past this the bot is wandering, which is nearly always a game bug. */
 const FRAME_BUDGET = Math.ceil(ROUTE_EXPECTED_FRAMES * 1.5);
-const BATCH = 30;
+// Frames per round trip. Every batch costs five page evaluations at ~35ms, so the
+// batch size — not the frame count — is what the route's length costs in wall
+// clock. 60 is still well inside the shortest room the bot can pass through.
+const BATCH = 60;
 
 test('the bot plays the whole route in the browser, and Node agrees frame for frame', async () => {
   const game = await launchGame({ query: 'seed=1&debug=1&lockstep=1&bot=1' });
@@ -68,12 +71,14 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
       beats.push({ intent: goal, tick: await game.call('tick') });
     }
 
-    // Let the bot finish the last room's route rather than stopping at its door.
-    await game.pumpUntil('botDone', { batch: BATCH, maxFrames: FRAME_BUDGET - pumped, label: 'bot finishes the final room' });
+    // The bot does not stop here — the world continues past the route's last
+    // intent — so the run ends where the route ends. That the bot keeps going,
+    // unaided, all the way to the slag gate is asserted in `rooms.test.js`, in
+    // Node, where the frames are free.
 
     const finalTick = await game.call('tick');
     assert.ok(finalTick <= FRAME_BUDGET, `route took ${finalTick} frames, budget is ${FRAME_BUDGET}`);
-    assert.equal(await game.call('room'), 'o6_weapon');
+    assert.equal(await game.call('room'), 'r2_trunk', 'the route ends where routes.js says it ends');
     assert.deepEqual(await game.call('violations'), []);
     assert.deepEqual(await game.call('errors'), []);
     game.assertClean();

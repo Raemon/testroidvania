@@ -31,7 +31,10 @@ function scriptedTape(length = 600) {
 }
 
 const scripted = replayWithCheckpoints(newRun(SEED), scriptedTape(), EVERY);
-const bot = runBot(newRun(SEED), { maxFrames: 2400 });
+// Generous: the unaided route grows with every region, and a cap that bites
+// silently refuses to write goldens rather than failing loudly.
+const BOT_ROUTE_MAX_FRAMES = 20000;
+const bot = runBot(newRun(SEED), { maxFrames: BOT_ROUTE_MAX_FRAMES });
 if (!bot.done) {
   process.stderr.write(`goldens: the bot did not finish the route — ${bot.violation ?? bot.why}\n`);
   process.exit(1);
