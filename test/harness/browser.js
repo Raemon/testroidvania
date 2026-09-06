@@ -14,6 +14,9 @@ import { startServer } from './server.js';
 
 const ARTIFACTS = join(import.meta.dirname, '../../artifacts/failure');
 
+/** Boot must succeed inside this, or the failure is reported rather than waited on. */
+const BOOT_TIMEOUT_MS = 8000;
+
 /**
  * Replaces rAF before any page script runs. Errors thrown inside a frame callback
  * are annotated with the frame number and room, then re-thrown so they surface in
@@ -99,9 +102,30 @@ export async function launchGame(options = {}) {
   });
   page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}\n${err.stack ?? ''}`));
 
+  // Everything here is bounded. A page that fails to boot must produce a named
+  // error in a second or two, never a test that hangs until someone notices.
+  context.setDefaultTimeout(BOOT_TIMEOUT_MS);
+  const shutdown = async () => {
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+    await server.close().catch(() => {});
+  };
+
   const query = options.query ?? 'seed=1&debug=1&lockstep=1';
-  await page.goto(`${server.origin}/?${query}`, { waitUntil: 'load' });
-  await page.waitForFunction(() => Boolean(/** @type {{__HARNESS__?: unknown}} */ (globalThis).__HARNESS__));
+  try {
+    await page.goto(`${server.origin}/?${query}`, { waitUntil: 'load' });
+    await page.waitForFunction(
+      () => Boolean(/** @type {{__HARNESS__?: unknown}} */ (globalThis).__HARNESS__),
+      undefined,
+      { timeout: BOOT_TIMEOUT_MS },
+    );
+  } catch (bootFailure) {
+    // Give the console/pageerror sinks a moment to deliver what actually broke.
+    await page.waitForTimeout(100).catch(() => {});
+    const detail = errors.length ? errors.join('\n') : String(bootFailure);
+    await shutdown();
+    throw new Error(`the game never published window.__HARNESS__ — it threw while loading:\n${detail}`);
+  }
 
   /** @type {Harness} */
   const harness = {
@@ -225,11 +249,7 @@ export async function launchGame(options = {}) {
       }
     },
 
-    async close() {
-      await context.close();
-      await browser.close();
-      await server.close();
-    },
+    close: shutdown,
   };
 
   return harness;

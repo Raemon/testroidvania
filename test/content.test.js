@@ -37,13 +37,30 @@ test('every room is a rectangle of known glyphs', () => {
   }
 });
 
-test('every room is enclosed: a flood fill from any open tile never escapes', () => {
+test('every room is walled: the only non-solid border tiles are doors', () => {
+  for (const room of rooms) {
+    for (let ty = 0; ty < room.h; ty++) {
+      for (let tx = 0; tx < room.w; tx++) {
+        if (tx !== 0 && ty !== 0 && tx !== room.w - 1 && ty !== room.h - 1) continue;
+        const glyph = room.grid[ty]?.[tx] ?? '';
+        assert.ok(
+          solidAt(room, tx, ty) || glyph === 'D',
+          `${room.id} border tile (${tx},${ty}) is '${glyph}' — a border must be solid or a door`,
+        );
+      }
+    }
+  }
+});
+
+test('every room is enclosed: a flood fill from every open tile never escapes', () => {
   for (const room of rooms) {
     const seen = new Set();
     /** @type {[number, number][]} */
     const queue = [];
-    for (let ty = 0; ty < room.h && queue.length === 0; ty++) {
-      for (let tx = 0; tx < room.w && queue.length === 0; tx++) {
+    // Seed from *every* open tile, not just the first: a sealed-off pocket of open
+    // space outside the walls would otherwise never be visited.
+    for (let ty = 0; ty < room.h; ty++) {
+      for (let tx = 0; tx < room.w; tx++) {
         if (!solidAt(room, tx, ty) && (room.grid[ty]?.[tx] ?? '') !== 'D') queue.push([tx, ty]);
       }
     }

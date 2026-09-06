@@ -83,8 +83,6 @@ function onRender() {
 }
 
 const loop = createLoop({ onStep, onRender, lockstep });
-onRender();
-loop.start();
 
 /**
  * Advance `n` frames. Under the test harness's turbo rAF pump this drives the real
@@ -182,3 +180,8 @@ const harness = {
 };
 
 /** @type {Window & { __HARNESS__?: typeof harness }} */ (window).__HARNESS__ = harness;
+
+// Drawing starts only once the harness exists, so a render bug on frame one is
+// reported as a frame error with its stack, not as "the page never booted".
+onRender();
+loop.start();
