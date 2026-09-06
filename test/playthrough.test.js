@@ -71,12 +71,14 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
       beats.push({ intent: goal, tick: await game.call('tick') });
     }
 
-    // Let the bot finish the last room's route rather than stopping at its door.
-    await game.pumpUntil('botDone', { batch: BATCH, maxFrames: FRAME_BUDGET - pumped, label: 'bot finishes the final room' });
+    // The bot does not stop here — the world continues past the route's last
+    // intent — so the run ends where the route ends. That the bot keeps going,
+    // unaided, all the way to the slag gate is asserted in `rooms.test.js`, in
+    // Node, where the frames are free.
 
     const finalTick = await game.call('tick');
     assert.ok(finalTick <= FRAME_BUDGET, `route took ${finalTick} frames, budget is ${FRAME_BUDGET}`);
-    assert.equal(await game.call('room'), 's2_awakening', 'an unaided run ends at the slag gate');
+    assert.equal(await game.call('room'), 'r3_canopy', 'the route ends one room past the shrine');
     assert.deepEqual(await game.call('violations'), []);
     assert.deepEqual(await game.call('errors'), []);
     game.assertClean();

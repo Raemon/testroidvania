@@ -78,6 +78,23 @@ test('the opening is one connected chain the bot walks end to end, unaided', () 
   assert.ok(result.frames < 1800, `the opening took ${result.frames} frames`);
 });
 
+test('the unaided run reaches the Spine gate that Deep Pin opens, and nothing else stops it', () => {
+  // The browser playthrough is bounded by render cost (see routes.js), so the
+  // whole first act is proved here instead: one bot, no abilities granted, from
+  // the first frame to the one door in the world it cannot open yet.
+  const result = runBot(newRun(1), { maxFrames: 6000 });
+  assertFinished(result, 'the unaided run');
+  assert.equal(result.state.room, 's2_awakening', 'the run must end at the slag gate, holding Zip and not Deep Pin');
+  assert.deepEqual(result.state.progress.abilities, ['zip'], 'exactly one ability is earnable without Deep Pin');
+  assert.equal(result.state.player.hp, result.state.player.maxHp, 'the first act must cost no health');
+  assert.equal(result.state.progress.deaths, 0, 'and no deaths');
+  assert.ok(
+    result.state.progress.lanternsLit.length >= 4,
+    `only ${result.state.progress.lanternsLit.length} lanterns lit; the checkpoint density is every 2-3 rooms`,
+  );
+  assert.deepEqual(result.state.errors, []);
+});
+
 test('the bot uses the Pin: it throws, stands on it, jabs an enemy and recalls', () => {
   const seen = new Set();
   let killed = false;
