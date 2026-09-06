@@ -22,7 +22,15 @@ const TEST_GLOB = 'test/**/*.test.js';
 const started = process.hrtime.bigint();
 const child = spawn(
   process.execPath,
-  ['--test', `--test-timeout=${TEST_TIMEOUT_MS}`, ...process.argv.slice(2), TEST_GLOB],
+  [
+    '--test',
+    `--test-timeout=${TEST_TIMEOUT_MS}`,
+    // Belt and braces: a leaked handle (a listening socket, a browser) must cost
+    // zero seconds, not four minutes. --test-timeout only bounds a test *body*.
+    '--test-force-exit',
+    ...process.argv.slice(2),
+    TEST_GLOB,
+  ],
   { stdio: 'inherit' },
 );
 

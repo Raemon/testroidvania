@@ -32,6 +32,15 @@ export async function startServer() {
   const port = typeof addr === 'object' && addr ? addr.port : 0;
   return {
     origin: `http://127.0.0.1:${port}`,
-    close: () => new Promise((done) => server.close(() => done(undefined))),
+    /**
+     * `close()` alone waits for in-flight keep-alive sockets, and the browser
+     * always leaves one open — which used to hold the event loop open long after
+     * the last assertion passed. Killing the connections is what makes the
+     * process actually exit.
+     */
+    close: () => new Promise((done) => {
+      server.closeAllConnections();
+      server.close(() => done(undefined));
+    }),
   };
 }
