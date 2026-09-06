@@ -114,6 +114,15 @@ export function updatePlayerRig(rig, state, dt, fx) {
     for (let i = 0; i < Math.max(1, Math.round(dt)); i++) {
       stepChain(rig.scarf, ax, ay, SCARF_SEG, 1.35, -p.facing * 0.05, 0, 0.9, 0.85);
     }
+    // The scarf is the only part of the rig with no collision, and with the body
+    // lying at floor level it would otherwise hang straight through the ground.
+    // Pinned at the feet's line and its velocity killed: cloth settling, not a
+    // pendulum swinging inside the terrain.
+    if (p.grounded) {
+      for (const q of rig.scarf) {
+        if (q.y > fy0) { q.y = fy0; q.py = fy0; }
+      }
+    }
     rig.hand = deadPts.flame;
     rig.lastTick = state.tick;
     // The flame gutters out into smoke over the same twelve frames.
