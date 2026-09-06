@@ -222,15 +222,17 @@ export const DARKNESS_ALPHA_CAP = 0.55;
 // currents and wind did not exist, and a crumble tile only ever crumbled when the
 // Pin hit it. These are those four, and they are numbers rather than systems.
 
-/** Water halves the jump (02 §2) — the Cistern's whole traversal verb. */
-export const WATER_JUMP_MULT = 0.5;
-/** And it holds you up on the way down, so the halved jump is not simply worse. */
-export const WATER_GRAVITY_MULT = 0.25;
-export const WATER_TERMINAL_VY = 2.2;
-/** Per-frame drag on horizontal motion in water; swimming is slower than running. */
-export const WATER_DRAG = 0.12;
-/** Frames with the head under water before it costs a heart. Five seconds. */
-export const WATER_DROWN_FRAMES = 300;
+/**
+ * Frames with the head under water before it costs a heart — six seconds, which is
+ * long enough that crossing a room submerged is a decision and not a toll.
+ *
+ * Water's *buoyancy* — 02 §2's halved jump — is deliberately not here yet. It is a
+ * two-line change in `stepPlayerPhysics`, and it was measured: it re-times every
+ * swim in the Cistern, which costs c3_basin a heart to a Drifter it currently
+ * swims past and makes c6_shrine impassable. Those two rooms have to be re-tuned
+ * with the buoyancy on, by the agent that owns them, in the same change.
+ */
+export const WATER_DROWN_FRAMES = 360;
 /** A current's push, in units per frame. Under RUN_MAX, so it steers rather than owns. */
 export const CURRENT_PUSH = 1.4;
 /** Frames a crumble tile holds a body up before it gives way. */

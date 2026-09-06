@@ -15,7 +15,6 @@ import {
   JUMP_CUT_MULT, JUMP_CUT_MIN_FRAMES, COYOTE_FRAMES, JUMP_BUFFER_FRAMES,
   DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_MANTLE_VY, HANG_COOLDOWN,
   STRIDE_LENGTH, TILE,
-  WATER_JUMP_MULT, WATER_GRAVITY_MULT, WATER_TERMINAL_VY, WATER_DRAG,
   CURRENT_PUSH, WIND_ACCEL,
 } from './constants.js';
 import { IN, axisX, isDown, justPressed } from './input.js';
@@ -87,10 +86,9 @@ export function applyGravity(vy, fastFalling) {
  */
 export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platforms) {
   const stunned = p.hurtFrames > 0;
-  // Water is read once, at the body's centre, and then it changes four numbers:
-  // the jump, the fall, the drag and the terminal speed (02 §2). Reading it once
-  // is what keeps "am I swimming" from disagreeing with itself mid-frame.
-  const swimming = inWater(room, p.x + p.w / 2, p.y + p.h / 2);
+  // A current pushes whatever is standing in it, every frame, at less than a run —
+  // so it steers rather than takes over, and swimming against one is slow rather
+  // than impossible (02 §2).
   const current = currentAt(room, p.x + p.w / 2, p.y + p.h / 2);
   const downHeld = isDown(input, IN.DOWN);
   const jumpHeld = isDown(input, IN.JUMP);
@@ -153,7 +151,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
     coyote = 0;
   } else if (!stunned && jumpBuffer > 0 && coyote > 0) {
     emit(events, 'jump', p.x + p.w / 2, p.y + p.h, { material: materialUnder(room, p) });
-    vy = swimming ? JUMP_VY * WATER_JUMP_MULT : JUMP_VY;
+    vy = JUMP_VY;
     jumpBuffer = 0;
     coyote = 0;
     jumpFrames = 1;
@@ -162,18 +160,8 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
 
   const airborne = !p.grounded || vy < 0;
   const fastFalling = downHeld && airborne && dropThrough === 0;
-  if (swimming) {
-    // Buoyancy is a weaker *gravity*, not a scaled velocity: scaling vy would eat
-    // the jump impulse on the frame it is given and leave a stroke that barely
-    // clears a step. You go up less and come down slower — a different move, not a
-    // worse one, which is what makes water read as a medium rather than a penalty.
-    const pull = applyGravity(vy, fastFalling) - vy;
-    vy = Math.min(vy + pull * WATER_GRAVITY_MULT, WATER_TERMINAL_VY);
-    vx -= vx * WATER_DRAG;
-    vx += current * CURRENT_PUSH * WATER_DRAG * 4;
-  } else {
-    vy = applyGravity(vy, fastFalling);
-  }
+  vy = applyGravity(vy, fastFalling);
+  if (current !== 0 && !stunned) vx += current * CURRENT_PUSH * 0.25;
   // Wind is the Apex's weather: a constant push on anything not standing on
   // something, so a jump is a decision about where the wind will have put you.
   if (room.wind !== 0 && !p.grounded && !stunned) vx += room.wind * WIND_ACCEL;
