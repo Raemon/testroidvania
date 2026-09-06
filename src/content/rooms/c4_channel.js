@@ -1,10 +1,15 @@
 // C3 CHANNEL — the Cistern's horizontal verb, stated once and plainly.
 //
-// Four sluices in the floor, none of them deep enough to cost more than two
-// seconds, and drifters holding station five tiles above the run. The drifters are
-// the reason the sluices matter: the room can be walked, but it cannot be walked
-// *slowly*, because a drifter that has finished its approach is standing exactly
-// where the next jump starts.
+// Three sluices in the floor and drifters holding station four tiles above the
+// run, which is a tile *inside* the arc of a full jump. That is the room: it can
+// be walked, but it cannot be walked slowly and it cannot be jumped lazily,
+// because a drifter that has finished its approach is hanging exactly where the
+// top of the next jump is.
+//
+// The Shell stands in the second sluice, on its floor, and it is what a mistimed
+// jump now costs. A sluice used to be two seconds; this one is armour facing the
+// way you fell in, in a pit two tiles deep, and the answer is the Shell's own
+// answer — get above it, or do not be down there at all.
 
 export const id = 'c4_channel';
 
@@ -34,7 +39,7 @@ export const doors = [
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */
-export const spawns = [{ kind: 'drifter', at: [15, 7] }, { kind: 'drifter', at: [24, 6] }];
+export const spawns = [{ kind: 'drifter', at: [15, 8] }, { kind: 'drifter', at: [24, 8] }, { kind: 'shell', at: [19, 14] }];
 
 /** @type {{kind:string, at:[number,number], to:[number,number]}[]} */
 export const rails = [{ kind: 'rail', at: [17, 12], to: [21, 12] }];

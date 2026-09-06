@@ -28,18 +28,22 @@ const RAIL_SPEED = 1.2;
  * @param {number} id
  * @param {[number, number]} at   track end A, in tile coords
  * @param {[number, number]} to   track end B, in tile coords
+ * @param {boolean} [running]     already under power; see below
  * @returns {Prop}
  */
-export function spawn(id, at, to) {
+export function spawn(id, at, to, running = false) {
   const ax = at[0] * TILE;
   const ay = at[1] * TILE;
   return {
     id, kind,
     x: ax, y: ay, w: RAIL_W, h: RAIL_H,
     ax, ay, bx: to[0] * TILE, by: to[1] * TILE,
-    // Parked. A rail that is already running is a free ride, and the Gap gate has
-    // to be opened by A3 and not by waiting: the reel is the shove that starts it.
-    t: 0, dir: 1, speed: 0,
+    // Parked, unless the room says otherwise. A *gate* rail must stay parked: a
+    // rail that is already running is a free ride, and the Gap gate has to be
+    // opened by A3 and not by waiting. But a rail that gates nothing and is parked
+    // for ever is scenery, and the Foundry is supposed to be the region you time
+    // things against — so a room may hand one of its conveyors its power back.
+    t: 0, dir: 1, speed: running ? RAIL_SPEED : 0,
     frozen: false, reel: 0, material: 'metal',
   };
 }

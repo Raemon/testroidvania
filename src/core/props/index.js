@@ -18,7 +18,7 @@ import { overlapsSolid } from '../collision.js';
 /**
  * @typedef {object} PropKind
  * @property {string} kind
- * @property {(id: number, at: [number,number], to: [number,number]) => Prop} spawn
+ * @property {(id: number, at: [number,number], to: [number,number], running?: boolean) => Prop} spawn
  * @property {(p: Prop, s: Readonly<GameState>) => Prop} update
  */
 
@@ -55,7 +55,7 @@ export function spawnProps(room) {
   const out = [];
   room.rails.forEach((spec, i) => {
     const kindDef = PROP_KINDS[spec.kind];
-    if (kindDef) out.push(kindDef.spawn(i + 1, spec.at, spec.to));
+    if (kindDef) out.push(kindDef.spawn(i + 1, spec.at, spec.to, spec.running === true));
   });
   return out;
 }

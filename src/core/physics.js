@@ -56,6 +56,26 @@ export function accelerate(vx, ax, grounded) {
 }
 
 /**
+ * Weather — a current or the Apex's wind — added to this frame's velocity.
+ *
+ * It is a *steer*, and the clamp is what makes that true. `accelerate()` caps only
+ * the direction the stick is pushing, so that a zip or a knockback can carry the
+ * body faster than a run; a push added every single frame walks straight through
+ * that hole, and a run downstream in a long current lane reaches 17px/frame — the
+ * body stops being a body and becomes a projectile. So weather may carry you past a
+ * run, but only by its own push, and it never adds to a bigger impulse it did not
+ * cause.
+ *
+ * @param {number} vx
+ * @param {number} push signed, in units per frame
+ * @returns {number}
+ */
+function weather(vx, push) {
+  const cap = RUN_MAX + Math.abs(push);
+  return push > 0 ? Math.min(vx + push, Math.max(cap, vx)) : Math.max(vx + push, Math.min(-cap, vx));
+}
+
+/**
  * @param {number} vy
  * @param {boolean} fastFalling
  * @returns {number} vy after one frame of gravity, terminal-clamped
@@ -161,10 +181,10 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
   const airborne = !p.grounded || vy < 0;
   const fastFalling = downHeld && airborne && dropThrough === 0;
   vy = applyGravity(vy, fastFalling);
-  if (current !== 0 && !stunned) vx += current * CURRENT_PUSH * 0.25;
+  if (current !== 0 && !stunned) vx = weather(vx, current * CURRENT_PUSH * 0.25);
   // Wind is the Apex's weather: a constant push on anything not standing on
   // something, so a jump is a decision about where the wind will have put you.
-  if (room.wind !== 0 && !p.grounded && !stunned) vx += room.wind * WIND_ACCEL;
+  if (room.wind !== 0 && !p.grounded && !stunned) vx = weather(vx, room.wind * WIND_ACCEL);
 
   if (!jumpCut && jumpFrames >= JUMP_CUT_MIN_FRAMES && vy < 0 && !jumpHeld) {
     vy *= JUMP_CUT_MULT;

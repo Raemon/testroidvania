@@ -7,6 +7,12 @@
 // Diver, and the four-tile hole in its floor is there so that the walk out is
 // spent looking down at the water you crossed on the way in.
 //
+// The floor of the basin runs east, and so does the water in it. The current is
+// the Cistern's second hazard (02 §2) and this is the room that states it: the
+// swim in is a shove, you arrive at the far door carrying more speed than you
+// chose, and the same lane read backwards is why the way out is the gallery
+// nineteen tiles up rather than this floor again.
+//
 // The ledge halfway up the east wall carries an unlit lantern. It is visible from
 // the water, it is a Zip climb off the wood below it, and nothing needs it.
 
@@ -35,9 +41,9 @@ D..............................D
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-#~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~#
-D~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~D
-D~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~D
+#>>>>>>>>>WW>>>>>>>>>>>>>>>>>>>#
+D>>>>>>>>>WW>>>>>>>>>>>>>>>>>>>D
+D>>>>>>>>>WW>>>>>>>>>>>>>>>>>>>D
 ################################`;
 //  # stone  W wood  M metal  S slag  c crumble  . empty  = one-way  ^ spike  D door  L lantern  ~ water  o pickup
 

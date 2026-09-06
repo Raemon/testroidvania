@@ -19,7 +19,7 @@ import { tileAt } from './tiles.js';
  * @property {string} tiles
  * @property {Door[]} doors
  * @property {{kind:string, at:[number,number]}[]} spawns
- * @property {{kind:string, at:[number,number], to:[number,number]}[]} [rails]
+ * @property {{kind:string, at:[number,number], to:[number,number], running?:boolean}[]} [rails]
  * @property {{id:string, kind:string, at:[number,number], ability?:import('../core/types.js').AbilityId, afterBoss?:string}[]} pickups
  * @property {import('../core/types.js').AbilityId[]} [needs] abilities this room's
  *   own route uses; the room test grants exactly these and no more, which is what

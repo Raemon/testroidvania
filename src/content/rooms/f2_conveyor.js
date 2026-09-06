@@ -45,9 +45,13 @@ export const doors = [
 /** @type {{kind:string, at:[number,number]}[]} */
 export const spawns = [{ kind: 'turret', at: [6, 6] }];
 
-/** A conveyor with nothing driving it. It is a ledge now and a ferry after A3. */
-/** @type {{kind:string, at:[number,number], to:[number,number]}[]} */
-export const rails = [{ kind: 'rail', at: [19, 12], to: [24, 12] }];
+/**
+ * The one conveyor in the Foundry with its power still on. It sweeps the six tiles
+ * over the second spike pair, which is what makes this room a *timing* room rather
+ * than a room about a gun: the bolt says go, and the conveyor says when.
+ */
+/** @type {{kind:string, at:[number,number], to:[number,number], running?:boolean}[]} */
+export const rails = [{ kind: 'rail', at: [19, 13], to: [24, 13], running: true }];
 
 /** @type {{id:string, kind:string, at:[number,number], ability?:import('../../core/types.js').AbilityId, afterBoss?:string}[]} */
 export const pickups = [];

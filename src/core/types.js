@@ -191,7 +191,7 @@
  * @property {Door[]} doors
  * @property {Hazard[]} hazards
  * @property {{kind:string, at:[number,number]}[]} spawns
- * @property {{kind:string, at:[number,number], to:[number,number]}[]} rails
+ * @property {{kind:string, at:[number,number], to:[number,number], running?:boolean}[]} rails
  * @property {{id:string, kind:string, at:[number,number], ability?:AbilityId, afterBoss?:string}[]} pickups
  * @property {{at:[number,number], x:number, y:number}[]} lanterns save-lanterns, compiled from the grid
  * @property {Waypoint[]} route     waypoints in tile coords, for the servo

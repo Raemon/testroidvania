@@ -66,6 +66,27 @@ test('a current pushes a standing body, and is slower than a run so you can swim
   assert.ok(CURRENT_PUSH < RUN_MAX, 'a current that outruns a run is terrain, not weather');
 });
 
+test('weather steers and never owns: a run downstream stays a run', () => {
+  // `accelerate()` only caps the direction being pushed, so an impulse may carry a
+  // body faster than a run — and a current, which pushes on every single frame,
+  // used to walk straight through that hole and reach 17px/frame down a long lane.
+  const lane = roomFrom(`##############################
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>#
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>#
+##############################`);
+  let s = stateIn(lane, 2, 2);
+  let fastest = 0;
+  for (let f = 0; f < 120; f++) {
+    s = step(s, IN.RIGHT);
+    fastest = Math.max(fastest, s.player.vx);
+  }
+  assert.ok(fastest > RUN_MAX, 'a body running downstream must be faster than one on dry land');
+  assert.ok(
+    fastest <= RUN_MAX + CURRENT_PUSH,
+    `running downstream reached ${fastest.toFixed(2)}px/frame; a current may add its own push and no more`,
+  );
+});
+
 test('wind is a room property, and it only pushes what is off the ground', () => {
   const art = `
 ##############
