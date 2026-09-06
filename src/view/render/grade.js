@@ -28,6 +28,10 @@ import { cosmeticRng, seedFrom } from './rng.js';
  */
 const VARIANTS = 3;
 
+/** The grade is built at world resolution and rides the darkness overlay up. */
+export const GRADE_W = 480;
+export const GRADE_H = 270;
+
 /** @type {{key:string, surfaces:Surface[]}|null} */
 let gradeSurfaces = null;
 
@@ -72,24 +76,42 @@ function gradeLayers(region, w, h) {
 }
 
 /**
- * @param {CanvasRenderingContext2D} ctx  in view space
- * @param {Readonly<GameState>} state
+/**
+ * The constant part of the grade — region tint, vignette and film grain — as one
+ * pre-baked image for this frame. The darkness overlay composites it and carries
+ * it up to the device in the same blit, so the whole grade costs no full-screen
+ * pass of its own.
+ *
+ * It stops at the view's edges: grain spilled into the letterbox bars would make
+ * every bar pixel unique, which both looks wrong and destroys the "what colour
+ * is the background" assumption the harness's pixel probe depends on.
  * @param {import('./palette.js').Region} region
  * @param {number} frame
- * @param {{width:number, height:number}} target
+ * @returns {Surface|null}
  */
-export function drawGrade(ctx, state, region, frame, target) {
+export function gradeLayer(region, frame) {
+  const layers = gradeLayers(region, GRADE_W, GRADE_H);
+  return layers[Math.abs(frame) % layers.length] ?? layers[0] ?? null;
+}
+
+/**
+ * The parts of the grade that are *events* rather than a constant look. These
+ * are rare, so they stay as their own full-screen fills rather than costing a
+ * pass every frame.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Readonly<GameState>} state
+ * @param {number} frame
+ * @param {{x:number, y:number, w:number, h:number}} rect
+ */
+export function drawGrade(ctx, state, frame, rect) {
   const p = state.player;
   const lowHealth = p.maxHp > 0 && p.hp / p.maxHp < 0.25 && p.hp > 0;
-  const w = target.width;
-  const h = target.height;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-  const layers = gradeLayers(region, w, h);
-  const layer = layers[Math.abs(frame) % layers.length] ?? layers[0];
-  ctx.globalAlpha = lowHealth ? 0.85 + 0.15 * Math.sin(frame * 0.126) : 0.72;
-  if (layer) ctx.drawImage(layer.canvas, 0, 0);
-  ctx.globalAlpha = 1;
+  const w = rect.w;
+  const h = rect.h;
+  const flash = state.flash ?? 0;
+  const hurt = p.iframes > 54 ? (p.iframes - 54) / 6 : 0;
+  if (!lowHealth && hurt <= 0 && flash <= 0) return;
+  ctx.setTransform(1, 0, 0, 1, rect.x, rect.y);
 
   if (lowHealth) {
     ctx.globalAlpha = 0.10 + 0.06 * Math.sin(frame * 0.126);
@@ -100,8 +122,6 @@ export function drawGrade(ctx, state, region, frame, target) {
 
   // Hit flash and the metal "clang" both read as a bright edge, so they share a
   // pass; only their colour and their source timer differ.
-  const flash = state.flash ?? 0;
-  const hurt = p.iframes > 54 ? (p.iframes - 54) / 6 : 0;
   if (hurt > 0 || flash > 0) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = Math.min(0.4, hurt * 0.35 + (flash / 6) * 0.3);
@@ -110,5 +130,4 @@ export function drawGrade(ctx, state, region, frame, target) {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
   }
-
 }

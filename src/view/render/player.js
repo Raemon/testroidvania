@@ -129,7 +129,7 @@ export function updatePlayerRig(rig, state, dt, fx) {
   // at running speed reads as a rigid stick, not cloth. It should lag and sag.
   const wind = -p.vx * 0.16 - p.facing * 0.12;
   for (let i = 0; i < Math.max(1, Math.round(dt)); i++) {
-    stepChain(rig.scarf, anchorX, anchorY, SCARF_SEG, 0.5, wind, p.vy * -0.05, 0.9);
+    stepChain(rig.scarf, anchorX, anchorY, SCARF_SEG, 0.45, wind, p.vy * -0.05, 0.9, 0.85);
   }
   rig.hand = pts.flame;
   if (fx && p.grounded && Math.abs(p.vx) > 2.1 && state.tick % 8 === 0) fx.runDust(fx0, fy0, p.facing);

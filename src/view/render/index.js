@@ -8,8 +8,8 @@
  *   void gradient -> parallax skylines + fog planes  (view space, no camera)
  *   terrain -> props -> fluids -> hazards -> particles -> entities -> Pin -> player
  *   warm light casts                                                       (world, additive)
- *   the darkness overlay, incl. remembered terrain                        (view)
- *   vignette, region tint, flash, grain                                    (view)
+ *   darkness overlay + remembered terrain + the constant grade, in one blit
+ *   hit flash and the low-health tint, when they are happening             (view)
  *   HUD                                                                    (view)
  *
  * The renderer holds mutable animation state (rigs, particles, cached canvases).
@@ -29,7 +29,7 @@ import { createPlayerRig, updatePlayerRig, drawPlayer, handLight } from './playe
 import { drawEntities, updateEntities } from './entities.js';
 import { drawPin } from './pin.js';
 import { Particles } from './particles.js';
-import { drawGrade } from './grade.js';
+import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
 import { drawGlow } from './glow.js';
 
@@ -141,10 +141,18 @@ export function render(ctx, state, cam, target) {
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   updateMemoryMask(state.roomData, state.discovered?.[state.room] ?? [], DISCOVERED_ALPHA, v);
-  drawDarkness(ctx, region, lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY })), region.darkness);
+  const low = state.player.maxHp > 0 && state.player.hp / state.player.maxHp < 0.25 && state.player.hp > 0;
+  const grade = gradeLayer(region, state.tick);
+  drawDarkness(
+    ctx, region,
+    lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY })),
+    region.darkness,
+    grade ? grade.canvas : null,
+    low ? 0.85 + 0.15 * Math.sin(state.tick * 0.126) : 0.72,
+  );
 
 
-  drawGrade(ctx, state, region, state.tick, target);
+  drawGrade(ctx, state, state.tick, { x: offsetX, y: offsetY, w: VIEW_W * scale, h: VIEW_H * scale });
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawHudOverlay(ctx, state, state.tick, dt);
   drawRoomLabel(ctx, state.room);

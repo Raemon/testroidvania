@@ -89,8 +89,10 @@ export function flicker(t) {
  * @param {Region} region
  * @param {Light[]} lights
  * @param {number} alpha  requested overlay strength, clamped to the §D5 cap
+ * @param {HTMLCanvasElement|null} grade  the constant grade image to carry up
+ * @param {number} gradeAlpha
  */
-export function drawDarkness(ctx, region, lights, alpha) {
+export function drawDarkness(ctx, region, lights, alpha, grade, gradeAlpha) {
   const s = overlay();
   const o = s.ctx;
   o.setTransform(1, 0, 0, 1, 0, 0);
@@ -125,6 +127,14 @@ export function drawDarkness(ctx, region, lights, alpha) {
     o.globalAlpha = 1;
   }
   o.globalCompositeOperation = 'source-over';
+
+  // The constant grade (region tint, vignette, grain) rides up with the overlay
+  // rather than costing a second full-screen composite of its own.
+  if (grade) {
+    o.globalAlpha = gradeAlpha;
+    o.drawImage(grade, 0, 0, s.w, s.h);
+    o.globalAlpha = 1;
+  }
 
   // Same reasoning as the parallax composite: a filtered upscale of a full
   // screen is the single most expensive draw available, and this surface is

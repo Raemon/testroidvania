@@ -50,8 +50,12 @@ export function makeChain(n, x, y) {
  * @param {number} windX
  * @param {number} windY
  * @param {number} damping
+ * @param {number} [taper]  how much the wind falls off along the chain. An
+ *   inextensible chain under a *uniform* force hangs perfectly straight, which is
+ *   the difference between cloth and a stick; tapering the force is what curves it.
  */
-export function stepChain(pts, ax, ay, segLen, gravity, windX, windY, damping) {
+export function stepChain(pts, ax, ay, segLen, gravity, windX, windY, damping, taper = 0) {
+  const n = Math.max(1, pts.length - 1);
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
     if (!p) continue;
@@ -60,10 +64,11 @@ export function stepChain(pts, ax, ay, segLen, gravity, windX, windY, damping) {
       p.x = ax; p.y = ay;
       continue;
     }
-    const vx = (p.x - p.px) * damping + windX;
-    const vy = (p.y - p.py) * damping + gravity;
+    const k = 1 - taper * (i / n);
+    const vx = (p.x - p.px) * damping + windX * k;
+    const vy = (p.y - p.py) * damping + gravity * (1 + taper * (i / n));
     p.px = p.x; p.py = p.y;
-    p.x += vx; p.y += vy;
+    p.x += vx; p.y += vy + windY * k;
   }
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 1; i < pts.length; i++) {
