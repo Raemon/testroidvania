@@ -10,6 +10,7 @@
 import { PLAYER_MAX_HP } from './constants.js';
 import { overlaps } from './geometry.js';
 import { lanternId } from './light.js';
+import { emit } from './events.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
 
@@ -25,6 +26,7 @@ export function stageLanterns(s) {
     const id = lanternId(s.roomData.id, lantern.at);
     if (s.progress.lanternsLit.includes(id)) continue;
     if (!overlaps(box, { x: lantern.x - 8, y: lantern.y - 8, w: 16, h: 16 })) continue;
+    emit(s.events, 'lantern.light', lantern.x, lantern.y);
     return {
       ...s,
       player: { ...p, hp: Math.max(p.hp, Math.min(p.maxHp, PLAYER_MAX_HP)) },

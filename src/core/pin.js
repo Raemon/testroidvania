@@ -25,6 +25,7 @@ import { overlaps, pointToSegment } from './geometry.js';
 import { pinHitbox } from './pin-geometry.js';
 import { damageEntity, entityBox } from './entities/index.js';
 import { breakTile } from './rooms.js';
+import { emit } from './events.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
 /** @typedef {import('./types.js').Pin} Pin */
@@ -103,6 +104,7 @@ export function stagePin(s) {
       };
       // §D1.3: freeze horizontal velocity for the startup, so "stand three tiles
       // out and throw diagonal" lands in the same place every time.
+      emit(s.events, 'pin.throw', hand.x, hand.y);
       return { ...s, pin, flash, player: { ...s.player, throwFreeze: PIN_THROW_STARTUP, vx: 0 } };
     }
     if (pin.startup > 0) {
@@ -114,12 +116,14 @@ export function stagePin(s) {
 
   // Recall: available from every other state, on every frame, with no condition.
   if (pressed && pin.state !== 'returning') {
+    emit(s.events, 'pin.recall', pin.x, pin.y);
     entities = releaseHost(entities, pin);
     pin = { ...pin, state: 'returning', inert: false, away: 0, hostId: null, hostTimer: 0, surface: null, nx: 0, ny: 0 };
   }
 
   if (pin.state === 'returning') {
     const result = stepReturning(s, pin, entities);
+    if (result.pin.state === 'held') emit(s.events, 'pin.catch', result.pin.x, result.pin.y);
     return { ...s, pin: result.pin, entities: result.entities, hitstop: Math.max(s.hitstop, result.hitstop), flash };
   }
 
@@ -128,11 +132,21 @@ export function stagePin(s) {
     pin = moved.pin;
     entities = moved.entities;
     hitstop = moved.hitstop;
-    if (moved.clang) flash = PIN_CLANG_FLASH_FRAMES;
+    if (moved.clang) {
+      flash = PIN_CLANG_FLASH_FRAMES;
+      emit(s.events, 'pin.clang', pin.x, pin.y, { material: 'metal' });
+    }
+    if (pin.state === 'embedded' && s.pin.state !== 'embedded') {
+      emit(s.events, 'pin.embed', pin.x, pin.y, { material: pin.surface });
+    }
+    if (pin.state === 'pinned' && s.pin.state !== 'pinned') {
+      emit(s.events, 'pin.enemy', pin.x, pin.y, { id: pin.hostId ?? undefined });
+    }
     if (moved.broke) {
       const broken = breakTile(roomData, brokenTiles, moved.broke[0], moved.broke[1]);
       roomData = broken.room;
       brokenTiles = broken.brokenTiles;
+      emit(s.events, 'crumble.break', (moved.broke[0] + 0.5) * TILE, (moved.broke[1] + 0.5) * TILE, { material: 'wood' });
     }
   } else if (pin.state === 'pinned') {
     const host = entities.find((e) => e.id === pin.hostId);
@@ -149,6 +163,7 @@ export function stagePin(s) {
     const box = { x: s.player.x, y: s.player.y, w: s.player.w, h: s.player.h };
     if (s.player.hp > 0 && overlaps(box, { x: pin.x - 6, y: pin.y - 4, w: 12, h: 8 })) {
       pin = { ...createPin(), lock: PIN_THROW_LOCK };
+      emit(s.events, 'pin.catch', pin.x, pin.y);
     }
   }
 

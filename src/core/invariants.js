@@ -13,6 +13,7 @@ import { TILE, VMAX, MAX_ENTITIES, SOFTLOCK_WINDOW, PIN_AUTO_RECALL_FRAMES } fro
 import { overlapsSolid } from './collision.js';
 import { hash, NonFiniteError } from './hash.js';
 import { IN, justPressed } from './input.js';
+import { EVENT_KINDS } from './events.js';
 
 /** @type {import('./types.js').PinState[]} */
 const PIN_STATES = ['held', 'flying', 'embedded', 'pinned', 'dropped', 'returning'];
@@ -251,4 +252,14 @@ addCheck(({ next, report }) => {
     if (e.pinned && e.mass !== 0) report('ENEMY_PINNED', `heavy ${e.kind} ${e.id} is pinned to a wall`);
     if (e.pinned && next.pin.hostId !== e.id) report('ENEMY_PINNED', `${e.kind} ${e.id} thinks it is pinned but the Pin is ${next.pin.state}`);
   }
+});
+
+// 23. Events are a description of the frame, not a growing log: the list is
+//     rebuilt every step, and every kind in it is one the view knows about.
+addCheck(({ next, report }) => {
+  for (const e of next.events) {
+    if (!EVENT_KINDS.includes(e.kind)) report('EVENT_KIND', `unknown event kind '${e.kind}'`);
+    if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) report('EVENT_KIND', `event '${e.kind}' has no position`);
+  }
+  if (next.events.length > 64) report('EVENT_FLOOD', `${next.events.length} events in one frame`);
 });

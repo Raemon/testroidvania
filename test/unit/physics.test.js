@@ -8,14 +8,29 @@ import { newRun } from '../harness/run.js';
 import { step } from '../../src/core/step.js';
 
 /**
+ * A settled standing start. The run opens with a two-tile drop (beat 0), so
+ * "wait ten frames" is not the same thing as "standing still" — every measurement
+ * below is relative to the floor, and taking it mid-fall silently halves it.
+ * @param {number} [seed]
+ * @returns {import('../../src/core/types.js').GameState}
+ */
+function standing(seed = 1) {
+  let s = newRun(seed);
+  for (let i = 0; i < 120; i++) {
+    s = step(s, 0);
+    if (s.player.grounded && s.player.vy === 0 && s.player.vx === 0) return s;
+  }
+  assert.fail('the player never settled on the ground');
+}
+
+/**
  * Hold `input` for `frames` from a settled standing start.
  * @param {number} frames
  * @param {number | ((frame: number) => number)} input
  * @param {number} [seed]
  */
 function drive(frames, input, seed = 1) {
-  let s = newRun(seed);
-  for (let i = 0; i < 10; i++) s = step(s, 0);
+  let s = standing(seed);
   const start = { x: s.player.x, y: s.player.y };
   let minY = start.y;
   for (let i = 0; i < frames; i++) {
@@ -65,8 +80,7 @@ test('a tapped jump clears about 1.4 tiles (22px), proving jump-cut works', () =
 });
 
 test('a full-speed jump carries about 7 tiles horizontally', () => {
-  let s = newRun(1);
-  for (let i = 0; i < 10; i++) s = step(s, 0);
+  let s = standing();
   for (let i = 0; i < 20; i++) s = step(s, IN.RIGHT);
   const x0 = s.player.x;
   s = step(s, IN.RIGHT | IN.JUMP);
@@ -81,16 +95,13 @@ test('a full-speed jump carries about 7 tiles horizontally', () => {
 });
 
 test('coyote time lets a jump fire after walking off a ledge', () => {
-  const withCoyote = newRun(1);
-  let s = withCoyote;
-  for (let i = 0; i < 10; i++) s = step(s, 0);
+  const s = standing();
   assert.ok(s.player.grounded);
   assert.equal(s.player.coyote, C.COYOTE_FRAMES);
 });
 
 test('a jump press 4 frames early fires on the landing frame', () => {
-  let airborne = newRun(1);
-  for (let i = 0; i < 10; i++) airborne = step(airborne, 0);
+  let airborne = standing();
   airborne = step(airborne, IN.JUMP);
 
   let probe = airborne;
@@ -113,7 +124,7 @@ test('a jump press 4 frames early fires on the landing frame', () => {
 });
 
 test('velocity never exceeds the invariant ceiling over a long run', () => {
-  let s = newRun(1);
+  let s = standing();
   for (let i = 0; i < 600; i++) {
     s = step(s, i % 7 === 0 ? IN.JUMP | IN.RIGHT : IN.RIGHT);
     assert.ok(Math.abs(s.player.vx) <= C.VMAX && Math.abs(s.player.vy) <= C.VMAX);

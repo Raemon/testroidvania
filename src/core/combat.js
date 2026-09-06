@@ -18,6 +18,7 @@ import { damageEntity, entityBox, ENTITY_KINDS } from './entities/index.js';
 import { getRoom } from './rooms.js';
 import { createPin, handAt } from './pin.js';
 import { createPlayer } from './player.js';
+import { emit } from './events.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
 /** @typedef {import('./types.js').Entity} Entity */
@@ -75,6 +76,7 @@ function applyJab(s) {
     const damage = JAB_DAMAGE * (e.pinned ? JAB_CRIT_MULT : 1);
     const hurt = damageEntity(e, damage, p.x + p.w / 2);
     hits++;
+    emit(s.events, hurt.hp <= 0 ? 'enemy.death' : 'hit', e.x + e.w / 2, e.y + e.h / 2, { id: e.id });
     hitstop = Math.max(hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT);
     return { ...hurt, vx: hurt.pinned ? 0 : Math.sign(hurt.vx || p.facing) * JAB_KNOCKBACK };
   });
@@ -99,6 +101,7 @@ function applyHazards(s) {
   for (const hz of s.roomData.hazards) {
     if (!overlaps(box, hz)) continue;
     const hurt = damagePlayer(p, 1, hz.x + hz.w / 2, s.roomData.hazards);
+    emit(s.events, hurt.hp <= 0 ? 'player.death' : 'player.hurt', p.x + p.w / 2, p.y + p.h / 2);
     if (hurt.hp <= 0) return { ...s, player: hurt, hitstop: Math.max(s.hitstop, HITSTOP_KILL) };
     return {
       ...s,
@@ -119,6 +122,7 @@ function applyContact(s) {
     // wall, then walk up and jab it" a safe thing for the game to teach.
     if (e.hp <= 0 || e.pinned || !overlaps(box, entityBox(e))) continue;
     const hurt = damagePlayer(p, ENEMY_CONTACT_DAMAGE, e.x + e.w / 2, s.roomData.hazards);
+    emit(s.events, hurt.hp <= 0 ? 'player.death' : 'player.hurt', p.x + p.w / 2, p.y + p.h / 2, { id: e.id });
     return { ...s, player: hurt, hitstop: Math.max(s.hitstop, hurt.hp <= 0 ? HITSTOP_KILL : HITSTOP_HIT) };
   }
   return s;
@@ -133,6 +137,7 @@ function applyDeath(s) {
   if (p.hp > 0) return s;
   if (p.deadFrames < DEATH_RESPAWN_FRAMES) return s;
   const room = getRoom(s.respawn.room) ?? s.roomData;
+  emit(s.events, 'respawn', s.respawn.x, s.respawn.y);
   const fresh = createPlayer(s.respawn.x, s.respawn.y);
   const revived = { ...s, room: room.id, roomData: room, entities: spawnFor(room), player: { ...fresh, hp: PLAYER_MAX_HP } };
   return {
