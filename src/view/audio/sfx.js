@@ -82,7 +82,10 @@ export const RECIPES = {
     const impact = Math.max(0.35, Math.min(1, (o.speed ?? 4) / 6));
     return [
       sub(g, { time: t, freq: 90 * b.vary, to: 45 * b.vary, sweep: 0.06, attack: 0.002, decay: 0.12, gain: 0.55 * impact * b.gain, pan: b.pan, bus: b.bus }),
-      tick(g, { time: t, freq: 180 * b.vary, to: 120 * b.vary, sweep: 0.05, decay: 0.07, gain: 0.2 * impact * b.gain, pan: b.pan, bus: b.bus, reverb: 0.1 }),
+      // 0.4, not the 0.2 the arithmetic suggested: measured against the sub it
+      // sits under, 0.2 moved the 120-250 Hz band by 1 dB and the centroid by 6 Hz,
+      // which is not a sound arriving anywhere. 0.4 moves them 4 dB and 30 Hz.
+      tick(g, { time: t, freq: 180 * b.vary, to: 120 * b.vary, sweep: 0.05, decay: 0.07, gain: 0.4 * impact * b.gain, pan: b.pan, bus: b.bus, reverb: 0.1 }),
       breath(g, { time: t, freq: 400 * b.vary, q: 0.8, attack: 0.002, decay: 0.06, gain: 0.22 * impact * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
     ];
   },
