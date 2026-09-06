@@ -18,8 +18,8 @@ export const tiles = `
 #..............................#
 #..............................#
 #..............................#
-#..............................D
-#..............................D
+D..............................D
+D..............................D
 #...........................####
 #..............................#
 #.......S.................######
@@ -32,7 +32,9 @@ D.......S...........L..........D
 export const doors = [
   { id: 'd_down', at: [31, 12], to: 's1_floor:d_up', requires: null },
   { id: 'd_up', at: [0, 12], to: 's3_throat:d_down', requires: 'deepPin' },
-  { id: 'd_foundry', at: [31, 7], to: 'f1_stoker:d_w', requires: null },
+  { id: 'd_foundry', at: [31, 7], to: 'f1_vestibule:d_w', requires: null },
+  // The Foundry loop comes back out onto this floor, beside the gate A2 opens.
+  { id: 'd_out', at: [0, 7], to: 'f8_flue:d_e', requires: null },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */

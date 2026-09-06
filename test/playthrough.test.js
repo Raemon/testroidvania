@@ -18,7 +18,10 @@ import { newRun, replay } from './harness/run.js';
 
 /** Global budget: past this the bot is wandering, which is nearly always a game bug. */
 const FRAME_BUDGET = Math.ceil(ROUTE_EXPECTED_FRAMES * 1.5);
-const BATCH = 30;
+// Frames per round trip. Every batch costs five page evaluations at ~35ms, so the
+// batch size — not the frame count — is what the route's length costs in wall
+// clock. 60 is still well inside the shortest room the bot can pass through.
+const BATCH = 60;
 
 test('the bot plays the whole route in the browser, and Node agrees frame for frame', async () => {
   const game = await launchGame({ query: 'seed=1&debug=1&lockstep=1&bot=1' });
@@ -73,7 +76,7 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
 
     const finalTick = await game.call('tick');
     assert.ok(finalTick <= FRAME_BUDGET, `route took ${finalTick} frames, budget is ${FRAME_BUDGET}`);
-    assert.equal(await game.call('room'), 'o6_weapon');
+    assert.equal(await game.call('room'), 's2_awakening', 'an unaided run ends at the slag gate');
     assert.deepEqual(await game.call('violations'), []);
     assert.deepEqual(await game.call('errors'), []);
     game.assertClean();

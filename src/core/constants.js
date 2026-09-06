@@ -246,6 +246,18 @@ export const REEL_SPEED = 6;
 /** Ceiling on one drag. Past it the thing stays where it is; recall already went home. */
 export const REEL_FRAMES = 90;
 
+// --- The Ascent (02-world-structure §6 beat 2) ------------------------------
+
+/**
+ * How long the void takes to swallow one Spine tier. 02 §6: "a fixed, deterministic
+ * rate tuned to a competent pace +30%". The bot climbs a tier in roughly 300 frames,
+ * so 480 is that pace with the margin on top — fast enough to be a chase, slow
+ * enough that the climb is the thing you are thinking about.
+ */
+export const ASCENT_TIER_FRAMES = 480;
+/** The void starts this far below the floor, so a tier opens with room to breathe. */
+export const ASCENT_VOID_LEAD = 32;
+
 // --- A4 Ricochet ------------------------------------------------------------
 
 /** One mirror-bounce, and only one. Range keeps counting through it. */

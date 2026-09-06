@@ -18,8 +18,8 @@ export const id = 's1_floor';
 export const tiles = `
 ################################
 #..............................#
-#.......................W......#
-#.......................W......#
+D.......................W......#
+D.......................W......#
 #.......................W......#
 #.......................W......#
 #.......................W......#
@@ -44,6 +44,8 @@ export const doors = [
   { id: 'd_w', at: [0, 19], to: 'r5_hollow:d_e', requires: null },
   { id: 'd_up', at: [0, 10], to: 's2_awakening:d_down', requires: 'zip' },
   { id: 'd_core', at: [31, 19], to: 'k1_seal:d_w', requires: 'twinPin' },
+  // Where the Plunge lands: high on the west wall, still falling.
+  { id: 'd_plunge', at: [0, 3], to: 'x5_plunge:d_out', requires: 'twinPin' },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */

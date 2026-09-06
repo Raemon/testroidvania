@@ -77,6 +77,7 @@ export function createInitialState(seed, worldId) {
     shake: 0,
     respawn: { room: room.id, x: pos.x, y: pos.y },
     liveness: { fingerprint: 0, sameFor: 0, inputFramesInWindow: 0 },
+    ascent: { active: false, tier: 0, frames: 0, done: false },
     errors: [],
     debug: false,
   };

@@ -33,7 +33,7 @@ D.....L........................D
 export const doors = [
   { id: 'd_down', at: [31, 14], to: 's3_throat:d_up', requires: null },
   { id: 'd_up', at: [31, 5], to: 's5_crown:d_down', requires: 'ricochet' },
-  { id: 'd_apex', at: [0, 14], to: 'x1_sentinel:d_e', requires: null },
+  { id: 'd_apex', at: [0, 14], to: 'x2_stair:d_e', requires: null },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */

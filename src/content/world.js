@@ -15,6 +15,30 @@ export const START = {
 };
 
 /**
+ * The Spine, bottom to top. The Ascent is this list in order on a clock, and a
+ * checkpoint is an index into it — which is only meaningful because §A3 made every
+ * one of these tiers a climb the player has already done once, with the ability
+ * that opens it, within a minute of earning it.
+ */
+export const SPINE_TIERS = /** @type {const} */ ([
+  's1_floor', 's2_awakening', 's3_throat', 's4_gallery', 's5_crown',
+]);
+
+/** Where a run ends. The reachability solver treats this as the goal. */
+export const ENDING_ROOM = 'e1_hull';
+
+/** The flag the Crown door opens on, set when the Anchor falls. */
+export const ASCENT_FLAG = 'ascent';
+
+/** The flag set by running out the far edge of the Hull. */
+export const COMPLETE_FLAG = 'gameComplete';
+
+/** @param {string} roomId @returns {number} the Spine tier index, or -1 */
+export function spineTier(roomId) {
+  return SPINE_TIERS.indexOf(/** @type {typeof SPINE_TIERS[number]} */ (roomId));
+}
+
+/**
  * @typedef {object} WorldEdge
  * @property {string} fromRoom
  * @property {string} fromDoor

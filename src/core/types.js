@@ -140,6 +140,10 @@
  * @property {[number, number]} at  tile coordinates on the room border
  * @property {string} to            'roomId:doorId' of the partner
  * @property {AbilityId|null} requires
+ * @property {string} [sealedUntil] a `progress.flags` key that must be set. Abilities
+ *   are things you carry; this is for a door that opens because something *happened*
+ *   — the Crown, which the design seals until the finale. Kept separate from
+ *   `requires` so the reachability solver can keep treating abilities as a key ring.
  */
 
 /**
@@ -206,6 +210,21 @@
  * @property {number} y
  * @property {number} r
  * @property {'aura'|'pin'|'hazard'|'eye'|'lantern'} kind
+ */
+
+/**
+ * The finale, as one small clock (02-world-structure §6 beat 2). The Anchor's death
+ * starts it; from then on the void climbs the Spine a tier at a time and the player
+ * is climbing ahead of it, using each ability in the order they earned it.
+ *
+ * `tier` is an index into `SPINE_TIERS`, not a room id, because the whole point is
+ * that the Ascent is the Spine in order and a checkpoint is "the tier you got to".
+ *
+ * @typedef {object} Ascent
+ * @property {boolean} active   the void is rising
+ * @property {number} tier      highest Spine tier reached, 0-based; the checkpoint
+ * @property {number} frames    frames spent on this tier, the clock the void rides
+ * @property {boolean} done     the Crown was reached; the clock stops
  */
 
 /**
@@ -284,6 +303,7 @@
  * @property {number} flash                frames of screen-edge flash (the clang read)
  * @property {number} shake                frames of screenshake left
  * @property {{room:string, x:number, y:number}} respawn last lit save-lantern
+ * @property {Ascent} ascent               the finale clock; inert until the Anchor dies
  * @property {SimError[]} errors           step() reports failures here, never throws
  * @property {boolean} debug               enables invariant checking in the harness
  */

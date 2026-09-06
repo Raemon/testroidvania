@@ -1,4 +1,4 @@
-// F7 STOKER — the Foundry boss, and the room that hands over A2 Deep Pin.
+// F6 STOKER — the Foundry boss, and the room that hands over A2 Deep Pin.
 //
 // The arena is riveted metal from wall to wall: the Pin clangs off every inch of it,
 // including the Stoker itself. The only thing in here it will bite is the pair of
@@ -8,28 +8,29 @@
 // Hold a bellows open and the machine stops, the plates come down, and everything
 // hurts it. Let go and it starts slamming again.
 
-export const id = 'f1_stoker';
+export const id = 'f6_stoker';
 
 export const tiles = `
-################################
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-D..............................#
-D...L.....................o....#
-################################`;
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+M..............................M
+M..............................M
+M..............................M
+M..............................M
+M..............................M
+M..............................M
+M..............................M
+M..............................M
+M..............................M
+D..............................D
+D...L.....................o....D
+MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM`;
 //  # stone  W wood  M metal  S slag  c crumble  . empty  = one-way  ^ spike  D door  L lantern  ~ water  o pickup
 
 /** @type {import('../../core/types.js').Door[]} */
 export const doors = [
-  { id: 'd_w', at: [0, 12], to: 's2_awakening:d_foundry', requires: null },
+  { id: 'd_w', at: [0, 12], to: 'f5_antechamber:d_e', requires: null },
+  { id: 'd_e', at: [31, 12], to: 'f7_slagway:d_w', requires: null },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */
@@ -45,7 +46,7 @@ export const pickups = [{ id: 'a_deepPin', kind: 'ability', at: [26, 12], abilit
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = [];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[8, 12], [8, 12, 'fight'], [26, 12], [2, 12], [0, 12]]) };
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[8, 12], [8, 12, 'fight'], [26, 12], [31, 12]]) };
 
 /** @type {number[]|null} */
 export const macro = null;

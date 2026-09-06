@@ -53,12 +53,15 @@ export function doorEntry(room, door, w, h) {
 /**
  * @param {Room} room
  * @param {AABB} box
- * @param {AbilityId[]} abilities
+ * @param {readonly AbilityId[]} abilities
+ * @param {Readonly<Record<string, boolean>>} [flags] `progress.flags`, for a door
+ *   sealed on an event rather than on an ability
  * @returns {Door|null} the door the box is standing in, if it is passable
  */
-export function doorUnder(room, box, abilities) {
+export function doorUnder(room, box, abilities, flags = {}) {
   for (const door of room.doors) {
     if (door.requires && !abilities.includes(door.requires)) continue;
+    if (door.sealedUntil && !flags[door.sealedUntil]) continue;
     const [tx, ty] = door.at;
     if (overlaps(box, { x: tx * TILE, y: ty * TILE, w: TILE, h: TILE })) return door;
   }

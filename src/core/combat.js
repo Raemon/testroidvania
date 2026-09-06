@@ -150,6 +150,10 @@ function applyHazards(s) {
   if (p.hp <= 0 || p.iframes > 0) return s;
   const box = { x: p.x, y: p.y, w: p.w, h: p.h };
   for (const hz of s.roomData.hazards) {
+    // The rising void is a hazard the finale stage owns outright: it kills rather
+    // than costing a heart and bouncing you to safe ground, because "safe ground"
+    // during the Ascent is the tile the void just ate.
+    if (hz.kind === 'void') continue;
     if (!overlaps(box, hz)) continue;
     const hurt = damagePlayer(p, 1, hz.x + hz.w / 2, s.roomData.hazards);
     emit(s.events, hurt.hp <= 0 ? 'player.death' : 'player.hurt', p.x + p.w / 2, p.y + p.h / 2);

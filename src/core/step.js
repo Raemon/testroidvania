@@ -24,6 +24,7 @@ import { stageGrip } from './grip.js';
 import { stageEntities, stageCombat, spawnFor } from './combat.js';
 import { stagePickups } from './pickups.js';
 import { stageLanterns } from './lanterns.js';
+import { stageFinale } from './ascent.js';
 import { computeLights, rememberSeen } from './light.js';
 import { doorUnder, resolvePartner, doorEntry } from './rooms.js';
 
@@ -130,6 +131,9 @@ const STAGES = [
   // Last of the world stages: a transition rebuilds the room out from under it.
   ['rooms', stageRooms],
   ['lanterns', stageLanterns],
+  // After the rooms stage, so the finale sees the tier the player is actually
+  // standing in on the frame they arrive in it.
+  ['finale', stageFinale],
   ['discovery', stageDiscovery],
   ['liveness', stageLiveness],
 ];
@@ -176,30 +180,45 @@ function stageRooms(s) {
   const p = s.player;
   if (p.hp <= 0) return s;
   const box = { x: p.x, y: p.y, w: p.w, h: p.h };
-  const approaching = doorUnder(s.roomData, { ...box, x: box.x - DOOR_LEAD, w: box.w + DOOR_LEAD * 2 }, s.progress.abilities);
+  const approaching = doorUnder(s.roomData, { ...box, x: box.x - DOOR_LEAD, w: box.w + DOOR_LEAD * 2 }, s.progress.abilities, s.progress.flags);
   const nearDoor = approaching?.id ?? '';
   if (nearDoor && nearDoor !== p.nearDoor) {
     emit(s.events, 'door.open', box.x + box.w / 2, box.y + box.h / 2);
   }
   s = { ...s, player: { ...p, nearDoor } };
 
-  const door = doorUnder(s.roomData, box, s.progress.abilities);
+  const door = doorUnder(s.roomData, box, s.progress.abilities, s.progress.flags);
   if (!door) return s;
   const partner = resolvePartner(door);
   if (!partner) {
     s.errors.push({ tick: s.tick, where: 'rooms', message: `door ${s.room}:${door.id} -> '${door.to}' does not resolve` });
     return s;
   }
-  const at = doorEntry(partner.room, partner.door, p.w, p.h);
+  return enterRoom(s, partner.room, doorEntry(partner.room, partner.door, p.w, p.h));
+}
+
+/**
+ * Put the player into a room at a point. Every way the world can change under the
+ * player's feet — a door, and the Anchor's floor giving way into the Ascent — goes
+ * through here, because §G's "the Pin snaps to Held, always" has to be true of all
+ * of them and a second copy of this would eventually forget.
+ *
+ * @param {GameState} s
+ * @param {import('./types.js').Room} room
+ * @param {{x:number, y:number}} at
+ * @returns {GameState}
+ */
+export function enterRoom(s, room, at) {
+  const p = s.player;
   emit(s.events, 'room.enter', at.x, at.y);
   /** @type {GameState} */
   const arrived = {
     ...s,
-    room: partner.room.id,
-    roomData: partner.room,
-    entities: spawnFor(partner.room),
-    nextEntityId: partner.room.spawns.length + 1,
-    props: spawnProps(partner.room),
+    room: room.id,
+    roomData: room,
+    entities: spawnFor(room),
+    nextEntityId: room.spawns.length + 1,
+    props: spawnProps(room),
     brokenTiles: [],
     player: {
       ...releaseBody(p),

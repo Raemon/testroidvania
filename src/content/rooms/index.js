@@ -38,6 +38,10 @@ import * as c6_shrine from './c6_shrine.js';
 import * as c7_weir from './c7_weir.js';
 import * as c8_rapids from './c8_rapids.js';
 import * as x1_sentinel from './x1_sentinel.js';
+import * as x2_stair from './x2_stair.js';
+import * as x3_buttress from './x3_buttress.js';
+import * as x4_shrine from './x4_shrine.js';
+import * as x5_plunge from './x5_plunge.js';
 import * as k1_seal from './k1_seal.js';
 
 /** @type {Record<string, import('../room-format.js').RoomModule>} */
@@ -76,6 +80,10 @@ export const ROOM_MODULES = {
   c7_weir,
   c8_rapids,
   x1_sentinel,
+  x2_stair,
+  x3_buttress,
+  x4_shrine,
+  x5_plunge,
   k1_seal,
 };
 

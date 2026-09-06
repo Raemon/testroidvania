@@ -33,6 +33,8 @@ export const EVENT_KINDS = [
   'jab', 'hit', 'enemy.death', 'player.hurt', 'player.death', 'respawn',
   // World
   'crumble.break', 'lantern.light', 'door.open', 'room.enter',
+  // The finale: the void starts to rise, it takes a tier, and the run ends.
+  'ascent.start', 'ascent.tier', 'ascent.void', 'ending.region', 'game.complete',
   // Abilities
   'zip.start', 'zip.arrive', 'zip.cancel', 'pin.ricochet', 'slag.shatter', 'ability.gain', 'pickup.take',
   // Bosses
