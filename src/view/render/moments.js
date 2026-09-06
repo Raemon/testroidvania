@@ -75,7 +75,9 @@ let ember = null;
 let bloom = 0;
 /** @type {{x:number, y:number, dx:number, dy:number, frames:number, taught:boolean}|null} */
 let bank = null;
-let bankShown = 0;
+/** One showing each: the bounce that happened, and the bounce that could have. */
+let bouncedShown = false;
+let clangShown = false;
 
 /** Reset every moment. Exported so a restored save does not inherit a stale card. */
 export function clearMoments() {
@@ -83,7 +85,8 @@ export function clearMoments() {
   ember = null;
   bloom = 0;
   bank = null;
-  bankShown = 0;
+  bouncedShown = false;
+  clangShown = false;
 }
 
 /**
@@ -110,12 +113,12 @@ export function observeMoments(prev, next) {
       ember = { x: e.x, y: e.y, frames: EMBER_FRAMES };
       bloom = EMBER_FRAMES + BLOOM_FRAMES;
     }
-    if (e.kind === 'pin.ricochet' && bankShown < 2) {
-      bankShown++;
+    if (e.kind === 'pin.ricochet' && !bouncedShown) {
+      bouncedShown = true;
       bank = { x: e.x, y: e.y, dx: next.pin.vx, dy: next.pin.vy, frames: BANK_FRAMES, taught: false };
     }
-    if (e.kind === 'pin.clang' && bankShown < 2 && owned.includes('ricochet')) {
-      bankShown++;
+    if (e.kind === 'pin.clang' && !clangShown && owned.includes('ricochet')) {
+      clangShown = true;
       // The Pin has already gone inert by now, so the throw that just happened is
       // the one in the *previous* frame's Pin.
       const mirror = reflect(prev.pin.vx, prev.pin.vy);
