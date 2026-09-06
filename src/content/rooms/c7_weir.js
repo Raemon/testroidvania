@@ -22,7 +22,7 @@ export const tiles = `
 #..............................#
 #..............................#
 #..............................#
-#..............................#
+D..............................D
 D..............................D
 ##########..............########
 ##########~~~~~~W~~~~~~~########
@@ -41,7 +41,7 @@ export const doors = [
 export const spawns = [];
 
 /** @type {{kind:string, at:[number,number], to:[number,number]}[]} */
-export const rails = [{ kind: 'rail', at: [11, 11], to: [22, 11] }];
+export const rails = [{ kind: 'rail', at: [11, 12], to: [22, 12] }];
 
 /** @type {{id:string, kind:string, at:[number,number], ability?:import('../../core/types.js').AbilityId, afterBoss?:string}[]} */
 export const pickups = [];
@@ -50,7 +50,7 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = ['deepPin', 'reel'];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[3, 12], [8, 12, 'throw:r'], [8, 12, 'recall'], [11, 10], [11, 10, 'ride:22'], [26, 12], [31, 12]]) };
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[3, 12], [8, 12, 'throw:r'], [8, 12, 'recall'], [11, 11], [11, 11, 'ride:22'], [26, 12], [31, 12]]) };
 
 /** @type {number[]|null} */
 export const macro = null;

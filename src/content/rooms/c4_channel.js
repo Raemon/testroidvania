@@ -20,7 +20,7 @@ export const tiles = `
 #..............................#
 #..............................#
 #..............................#
-#..............................#
+D..............................D
 D..............................D
 #########~~~~####~~~~~####~~~~##
 #########~~~~####~~~~~####~~~~##
@@ -46,7 +46,7 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = [];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 12], [8, 12], [14, 12], [16, 12], [24, 12], [30, 12]]) };
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 12], [8, 12], [14, 12], [16, 12], [24, 12], [31, 12]]) };
 
 /** @type {number[]|null} */
 export const macro = null;

@@ -16,7 +16,7 @@ export const tiles = `
 ################################
 #..............................#
 #..............................#
-#..............................#
+D..............................D
 D..............................D
 ##############....##############
 #..............................#
@@ -36,7 +36,7 @@ D..............................D
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 #~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~#
-#~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~#
+D~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~D
 D~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~D
 ################################`;
 //  # stone  W wood  M metal  S slag  c crumble  . empty  = one-way  ^ spike  D door  L lantern  ~ water  o pickup
@@ -45,8 +45,8 @@ D~~~~~~~~~WW~~~~~~~~~~~~~~~~~~~D
 export const doors = [
   { id: 'd_w', at: [0, 24], to: 'c2_sluice:d_e', requires: null },
   { id: 'd_e', at: [31, 24], to: 'c4_channel:d_w', requires: null },
-  { id: 'd_wu', at: [0, 4], to: 'c2_sluice:d_eu', requires: null },
-  { id: 'd_eu', at: [31, 4], to: 'c1_diver:d_wu', requires: 'ricochet' },
+  { id: 'd_wu', at: [0, 4], to: 'c1_diver:d_e', requires: 'ricochet' },
+  { id: 'd_eu', at: [31, 4], to: 'c2_sluice:d_wu', requires: null },
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */
@@ -62,7 +62,7 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = [];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 24], [8, 24], [16, 24], [24, 24], [30, 24]]) };
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 24], [8, 24], [16, 24], [24, 24], [31, 24]]) };
 
 /** @type {number[]|null} */
 export const macro = null;

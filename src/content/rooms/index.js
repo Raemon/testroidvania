@@ -21,8 +21,22 @@ import * as r2_trunk from './r2_trunk.js';
 import * as r3_canopy from './r3_canopy.js';
 import * as r4_vinerun from './r4_vinerun.js';
 import * as r5_hollow from './r5_hollow.js';
-import * as f1_stoker from './f1_stoker.js';
+import * as f1_vestibule from './f1_vestibule.js';
+import * as f2_conveyor from './f2_conveyor.js';
+import * as f3_crucible from './f3_crucible.js';
+import * as f4_vents from './f4_vents.js';
+import * as f5_antechamber from './f5_antechamber.js';
+import * as f6_stoker from './f6_stoker.js';
+import * as f7_slagway from './f7_slagway.js';
+import * as f8_flue from './f8_flue.js';
 import * as c1_diver from './c1_diver.js';
+import * as c2_sluice from './c2_sluice.js';
+import * as c3_basin from './c3_basin.js';
+import * as c4_channel from './c4_channel.js';
+import * as c5_undercroft from './c5_undercroft.js';
+import * as c6_shrine from './c6_shrine.js';
+import * as c7_weir from './c7_weir.js';
+import * as c8_rapids from './c8_rapids.js';
 import * as x1_sentinel from './x1_sentinel.js';
 import * as k1_seal from './k1_seal.js';
 
@@ -45,8 +59,22 @@ export const ROOM_MODULES = {
   r3_canopy,
   r4_vinerun,
   r5_hollow,
-  f1_stoker,
+  f1_vestibule,
+  f2_conveyor,
+  f3_crucible,
+  f4_vents,
+  f5_antechamber,
+  f6_stoker,
+  f7_slagway,
+  f8_flue,
   c1_diver,
+  c2_sluice,
+  c3_basin,
+  c4_channel,
+  c5_undercroft,
+  c6_shrine,
+  c7_weir,
+  c8_rapids,
   x1_sentinel,
   k1_seal,
 };

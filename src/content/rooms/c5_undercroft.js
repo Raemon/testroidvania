@@ -3,7 +3,7 @@
 // The shells own the flooded corridor along the bottom and they own it completely:
 // eight HP, armoured everywhere but above and behind, and too heavy to nail to a
 // wall. The answer the room wants is not a fight, it is the ledge — you cross
-// above them, and the five-tile break in that ledge is the price of the crossing.
+// above them, and the four-tile break in that ledge is the price of the crossing.
 //
 // The parked raft over the corridor is the Gap gate's second tease. It sits on a
 // track it cannot start by itself, one throw away from a walkway you are standing
@@ -23,9 +23,9 @@ export const tiles = `
 #..............................#
 #..............................#
 #..............................#
-#..............................#
 D..............................D
-#############.....##############
+D..............................D
+##############....##############
 #..............................#
 #.............W................#
 #~~~~~~~~~~~~~W~~~~~~~~~~~~~~L~#
@@ -52,7 +52,7 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = [];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 12], [10, 12], [12, 12], [20, 12], [30, 12]]) };
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 12], [8, 12], [13, 12], [18, 12], [24, 12], [31, 12]]) };
 
 /** @type {number[]|null} */
 export const macro = null;
