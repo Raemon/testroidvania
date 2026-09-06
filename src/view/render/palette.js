@@ -100,6 +100,16 @@ export const CREAM_DIM = '#9C8F78';
 export const HAZARD = '#FF4D5A';
 export const HAZARD_HI = '#FFD3A0';
 
+/**
+ * The one telegraph ramp every attack in the game uses (03-game-feel §2.8):
+ * base -> WARN over the wind-up, STRIKE on the single frame before the hitbox
+ * exists, HAZARD while it is live. Region-invariant for the same reason the
+ * hazards are: "this is about to hurt" may never mean a different colour in a
+ * different room.
+ */
+export const WARN = '#FF8A3D';
+export const STRIKE = '#FFFFFF';
+
 export const PLAYER = {
   body: '#EFE4C8',
   ink: '#1A1410',
@@ -156,9 +166,31 @@ export function shade(hex, t) {
   const to = t < 0 ? 0 : 255;
   const k = Math.min(1, Math.abs(t));
   /** @param {number} c */
-  const mix = (c) => Math.round(c + (to - c) * k);
-  const r = mix((n >> 16) & 255);
-  const g = mix((n >> 8) & 255);
-  const b = mix(n & 255);
+  const toward = (c) => Math.round(c + (to - c) * k);
+  const r = toward((n >> 16) & 255);
+  const g = toward((n >> 8) & 255);
+  const b = toward(n & 255);
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+/**
+ * Mix two hex colours. Distinct from `shade`, which can only move toward black or
+ * white: the telegraph ramp (03-game-feel §2.8) is base -> orange -> white -> red,
+ * and none of those steps is a lightness change.
+ * @param {string} a
+ * @param {string} b
+ * @param {number} t  0 = a, 1 = b
+ * @returns {string}
+ */
+export function mix(a, b, t) {
+  const k = Math.max(0, Math.min(1, t));
+  const na = parseInt(a.slice(1), 16);
+  const nb = parseInt(b.slice(1), 16);
+  /** @param {number} shift */
+  const ch = (shift) => {
+    const ca = (na >> shift) & 255;
+    const cb = (nb >> shift) & 255;
+    return Math.round(ca + (cb - ca) * k);
+  };
+  return `#${((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1)}`;
 }
