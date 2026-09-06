@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PINLIGHT</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0b0d12; color: #f3e9d2;
+               font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  #stage { position: relative; flex: 1 1 auto; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: auto; }
+  #hud { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px 18px;
+         padding: 6px 10px; border-top: 1px solid rgba(243,233,210,.25); background: #0b0d12; }
+  #hud .field { display: flex; gap: 6px; }
+  #hud .label { color: #9c8f78; }
+  #hud .value { color: #f3e9d2; }
+  #help { color: #9c8f78; padding: 0 10px 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas data-testid="canvas"></canvas></div>
+  <div id="hud">
+    <span class="field"><span class="label">room</span><span class="value" data-testid="hud-room">-</span></span>
+    <span class="field"><span class="label">tick</span><span class="value" data-testid="hud-tick">-</span></span>
+    <span class="field"><span class="label">hp</span><span class="value" data-testid="hud-hp">-</span><span class="label">/</span><span class="value" data-testid="hud-maxhp">-</span></span>
+    <span class="field"><span class="label">state</span><span class="value" data-testid="hud-state">-</span></span>
+    <span class="field"><span class="label">x</span><span class="value" data-testid="hud-x">-</span></span>
+    <span class="field"><span class="label">y</span><span class="value" data-testid="hud-y">-</span></span>
+    <span class="field"><span class="label">vx</span><span class="value" data-testid="hud-vx">-</span></span>
+    <span class="field"><span class="label">vy</span><span class="value" data-testid="hud-vy">-</span></span>
+    <span class="field"><span class="label">grounded</span><span class="value" data-testid="hud-grounded">-</span></span>
+    <span class="field"><span class="label">abilities</span><span class="value" data-testid="hud-abilities">-</span></span>
+    <span class="field"><span class="label">errors</span><span class="value" data-testid="hud-errors">-</span></span>
+  </div>
+  <div id="help">arrows / WASD to move &middot; Z or space to jump &middot; down + jump drops through platforms</div>
+</div>
+<script type="module" src="/src/view/main.js"></script>
+</body>
+</html>

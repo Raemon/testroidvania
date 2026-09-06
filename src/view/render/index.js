@@ -31,15 +31,29 @@ const LAYERS = [
 ];
 
 /**
+ * The world -> device transform. Exported because the harness projects the player
+ * to a screen pixel with it; there must be exactly one copy of this arithmetic or
+ * the "is the player visible" probe can disagree with what was actually drawn.
+ * @param {RenderTarget} target
+ * @returns {{scale:number, offsetX:number, offsetY:number}}
+ */
+export function viewTransform(target) {
+  const scale = Math.min(target.width / VIEW_W, target.height / VIEW_H);
+  return {
+    scale,
+    offsetX: (target.width - VIEW_W * scale) / 2,
+    offsetY: (target.height - VIEW_H * scale) / 2,
+  };
+}
+
+/**
  * @param {CanvasRenderingContext2D} ctx
  * @param {Readonly<GameState>} state
  * @param {Camera} cam
  * @param {RenderTarget} target
  */
 export function render(ctx, state, cam, target) {
-  const scale = Math.min(target.width / VIEW_W, target.height / VIEW_H);
-  const offsetX = (target.width - VIEW_W * scale) / 2;
-  const offsetY = (target.height - VIEW_H * scale) / 2;
+  const { scale, offsetX, offsetY } = viewTransform(target);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;

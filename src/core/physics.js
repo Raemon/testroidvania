@@ -36,7 +36,11 @@ function clamp(v, lo, hi) {
 export function accelerate(vx, ax, grounded) {
   if (ax === 0) {
     const decel = grounded ? GROUND_FRICTION : AIR_DRAG;
-    return Math.abs(vx) <= decel ? 0 : vx - Math.sign(vx) * decel;
+    if (Math.abs(vx) <= decel) return 0;
+    const next = vx - Math.sign(vx) * decel;
+    // Snap the float residue away: leaving 2e-16 on the clock would make "stopped"
+    // a different state from "stopped", and every hash downstream would notice.
+    return Math.abs(next) < 1e-6 ? 0 : next;
   }
   const base = grounded ? GROUND_ACCEL : AIR_ACCEL;
   const accel = base * (vx * ax < 0 ? TURNAROUND_MULT : 1);
