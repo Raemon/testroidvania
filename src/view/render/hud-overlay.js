@@ -13,7 +13,8 @@
  */
 
 import { VIEW_W, VIEW_H } from '../../core/constants.js';
-import { CREAM, PLAYER, rgba } from './palette.js';
+import { BOSSES } from '../../core/bosses/index.js';
+import { CREAM, CREAM_DIM, HAZARD, PLAYER, WARN, mix, rgba } from './palette.js';
 import { drawGlow } from './glow.js';
 import { hashNoise } from './rng.js';
 
@@ -65,6 +66,111 @@ export function drawHudOverlay(ctx, state, frame, dt) {
     if (!id) continue;
     drawAbility(ctx, X0 + 3 + i * 26, VIEW_H - 26, id, frame);
   }
+
+  drawBossBar(ctx, state, frame);
+}
+
+const BOSS_BAR_W = 176;
+const BOSS_BAR_H = 6;
+const BOSS_BAR_Y = 16;
+/** The Anchor's second phase starts here, and every boss bar marks the halfway turn. */
+const PHASE_AT = 0.5;
+
+/**
+ * The boss strip: how much fight is left, in units of hits, plus the one piece of
+ * information the whole boss design turns on — whether the body is currently
+ * *guarded*.
+ *
+ * A guarded boss is immune, and until this existed the fight gave no sign of it:
+ * a player hitting a sealed Stoker and a player hitting an open one saw the same
+ * thing happen, which taught them that boss damage is random. So the strip is
+ * hatched and dim while the plates are up and goes bright the moment a part is
+ * held, and it says which of the two it is in words underneath.
+ *
+ * The notches are per hit point rather than decorative: "four more" is a number a
+ * player can act on, and a smooth bar is not.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Readonly<GameState>} state
+ * @param {number} frame
+ */
+function drawBossBar(ctx, state, frame) {
+  let boss = null;
+  for (const e of state.entities ?? []) {
+    if (e.roomId && e.roomId !== state.room) continue;
+    if (e.hp > 0 && Object.hasOwn(BOSSES, e.kind)) boss = e;
+  }
+  if (!boss) return;
+
+  const def = BOSSES[boss.kind];
+  const maxHp = Math.max(1, boss.maxHp || def?.maxHp || 1);
+  const open = (boss.timers.guard ?? 0) === 0;
+  const x = Math.round((VIEW_W - BOSS_BAR_W) / 2);
+  const frac = Math.max(0, Math.min(1, boss.hp / maxHp));
+
+  ctx.fillStyle = rgba('#0B0D12', 0.62);
+  ctx.beginPath();
+  ctx.roundRect(x - 3, BOSS_BAR_Y - 3, BOSS_BAR_W + 6, BOSS_BAR_H + 6, 3);
+  ctx.fill();
+
+  const fillTo = Math.round(BOSS_BAR_W * frac);
+  if (open) {
+    // Open: the fight is live, so the bar is lit and the accent says so.
+    ctx.fillStyle = mix(WARN, HAZARD, 0.35);
+    ctx.fillRect(x, BOSS_BAR_Y, fillTo, BOSS_BAR_H);
+    drawGlow(ctx, x + fillTo, BOSS_BAR_Y + BOSS_BAR_H / 2, 14, WARN, 0.35);
+  } else {
+    // Sealed: the same length of bar, hatched and desaturated. The length has not
+    // changed, because the health has not — what has changed is whether it can move.
+    ctx.fillStyle = rgba(CREAM_DIM, 0.30);
+    ctx.fillRect(x, BOSS_BAR_Y, fillTo, BOSS_BAR_H);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, BOSS_BAR_Y, fillTo, BOSS_BAR_H);
+    ctx.clip();
+    ctx.strokeStyle = rgba(CREAM, 0.22);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let d = -BOSS_BAR_H; d < fillTo + BOSS_BAR_H; d += 4) {
+      ctx.moveTo(x + d, BOSS_BAR_Y + BOSS_BAR_H);
+      ctx.lineTo(x + d + BOSS_BAR_H, BOSS_BAR_Y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // One notch per hit point, and a taller one at the phase turn.
+  ctx.strokeStyle = rgba('#0B0D12', 0.8);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 1; i < maxHp; i++) {
+    const nx = Math.round(x + (BOSS_BAR_W * i) / maxHp) + 0.5;
+    ctx.moveTo(nx, BOSS_BAR_Y);
+    ctx.lineTo(nx, BOSS_BAR_Y + BOSS_BAR_H);
+  }
+  ctx.stroke();
+  const px = Math.round(x + BOSS_BAR_W * PHASE_AT) + 0.5;
+  ctx.strokeStyle = rgba(CREAM, 0.75);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(px, BOSS_BAR_Y - 3);
+  ctx.lineTo(px, BOSS_BAR_Y + BOSS_BAR_H + 3);
+  ctx.stroke();
+
+  ctx.strokeStyle = rgba(CREAM, open ? 0.7 : 0.4);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(x - 0.5, BOSS_BAR_Y - 0.5, BOSS_BAR_W + 1, BOSS_BAR_H + 1, 2);
+  ctx.stroke();
+
+  ctx.font = '8px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = rgba(CREAM, 0.7);
+  ctx.fillText((def?.name ?? boss.kind).toUpperCase(), VIEW_W / 2, BOSS_BAR_Y + BOSS_BAR_H + 4);
+  ctx.fillStyle = open ? rgba(WARN, 0.95) : rgba(CREAM_DIM, 0.55 + 0.2 * Math.sin(frame * 0.08));
+  ctx.fillText(open ? 'OPEN' : 'PIN A PART', VIEW_W / 2, BOSS_BAR_Y + BOSS_BAR_H + 14);
+  ctx.textAlign = 'left';
 }
 
 /**
