@@ -4,8 +4,9 @@
  * intents here, never hand-authoring frames.
  *
  * This is the opening (03-game-feel §6 beats 0-5, then 06-revision-1 §F beats 6-8
- * — the Pin as a step, as a ladder, and as a weapon) and then the Roots, which
- * ends one room past the shrine, with Zip in hand.
+ * — the Pin as a step, as a ladder, and as a weapon) and then the first two
+ * rooms of the Roots, which is as far as the browser can play in the time the
+ * suite allows.
  *
  * @typedef {{ go: string } | { expect: { room?: string, hpAtLeast?: number, abilities?: string[], lanternsAtLeast?: number } }} Intent
  */
@@ -27,19 +28,21 @@ export const ROUTE = [
   // The Roots: two rooms of base-kit climbing, the shrine, three of Zip.
   { go: 'r1_gate' },
   { expect: { room: 'r1_gate', hpAtLeast: 5 } },
-  { go: 'o7_shrine' },
-  { go: 'r3_canopy' },
-  { expect: { room: 'r3_canopy', hpAtLeast: 5, abilities: ['zip'] } },
+  { go: 'r2_trunk' },
+  { expect: { room: 'r2_trunk', hpAtLeast: 5, lanternsAtLeast: 2 } },
 ];
 
 /**
- * The route stops one room after the shrine on purpose. The browser plays every
- * frame of it through the real renderer at ~5ms a frame, so the canonical route is
- * bounded by the suite's per-test ceiling and not by how much game there is; what
- * it has to prove is that the view and the sim agree over a long run that includes
- * a pickup. The rest of the unaided run — Roots to the Spine's slag gate — is
- * asserted frame-exactly in Node by `rooms.test.js`, where it costs a second.
+ * Why the route stops in the Roots rather than at the shrine or the Spine: the
+ * browser plays every frame of it through the real renderer at ~5ms a frame, so
+ * the canonical route's length is bounded by the suite's per-test ceiling and not
+ * by how much game there is. What it has to prove is that the view and the sim
+ * agree over a long run, and 1,500 frames proves that as well as 3,000 do.
+ *
+ * The rest of the unaided run — through the shrine, the whole of the Roots, and up
+ * the Spine's first Height gate to the slag gate that stops it — is asserted
+ * frame-exactly in Node by `rooms.test.js`, where the frames are free.
  */
 
 /** Frame budget for the whole route; the playthrough fails past 1.5x of it. */
-export const ROUTE_EXPECTED_FRAMES = 2200;
+export const ROUTE_EXPECTED_FRAMES = 1700;

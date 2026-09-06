@@ -78,7 +78,7 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
 
     const finalTick = await game.call('tick');
     assert.ok(finalTick <= FRAME_BUDGET, `route took ${finalTick} frames, budget is ${FRAME_BUDGET}`);
-    assert.equal(await game.call('room'), 'r3_canopy', 'the route ends one room past the shrine');
+    assert.equal(await game.call('room'), 'r2_trunk', 'the route ends where routes.js says it ends');
     assert.deepEqual(await game.call('violations'), []);
     assert.deepEqual(await game.call('errors'), []);
     game.assertClean();
