@@ -197,3 +197,109 @@ export const STRIDE_LENGTH = 28;
 
 /** How far ahead of a door the `door.open` event fires, so a grind has a wind-up. */
 export const DOOR_LEAD = 24;
+
+// --- A1 Zip (01-core-mechanic §3, 06-revision-1 §B) -------------------------
+
+export const ZIP_SPEED = 12;
+/** Close enough to the anchor to count as arrived. */
+export const ZIP_ARRIVE_DIST = 4;
+/** A zip can never outlive the Pin's own range; this is the safety stop. */
+export const ZIP_MAX_FRAMES = 60;
+/**
+ * The jump-cancel caps. Deliberately well above RUN_MAX: `accelerate()` only caps
+ * the direction being pushed, so a cancel is allowed to leave the player faster
+ * than they can run and let friction eat it. That carry is the skill ceiling.
+ */
+export const ZIP_CANCEL_VX_CAP = 6.0;
+export const ZIP_CANCEL_VY_CAP = 8.0;
+export const ZIP_PASS_DAMAGE = 1;
+/** Zip into a Pinned enemy: Skewer. */
+export const SKEWER_DAMAGE = 3;
+export const SKEWER_STUN = 20;
+
+// --- A3 Reel ----------------------------------------------------------------
+
+export const REEL_SPEED = 6;
+/** Ceiling on one drag. Past it the thing stays where it is; recall already went home. */
+export const REEL_FRAMES = 90;
+
+// --- A4 Ricochet ------------------------------------------------------------
+
+/** One mirror-bounce, and only one. Range keeps counting through it. */
+export const RICOCHET_BOUNCES = 1;
+
+// --- Rail platforms (props) -------------------------------------------------
+
+export const RAIL_SPEED = 0.8;
+
+// --- Enemies, phase 3 (03-game-feel §2.7 telegraph budgets) -----------------
+
+export const HOPPER_W = 14;
+export const HOPPER_H = 14;
+export const HOPPER_SIGHT = 160;
+/** Light class: 10 telegraph + 6 windup = 16 frames before it can touch you. */
+export const HOPPER_TELEGRAPH = 10;
+export const HOPPER_WINDUP = 6;
+export const HOPPER_LAND_WAIT = 14;
+export const HOPPER_JUMP_VY = -4.6;
+export const HOPPER_JUMP_VX = 2.0;
+
+export const TURRET_W = 16;
+export const TURRET_H = 16;
+export const TURRET_SIGHT = 220;
+/** Heavy class: 20 telegraph + 12 windup = 32 frames before the bolt exists. */
+export const TURRET_TELEGRAPH = 20;
+export const TURRET_WINDUP = 12;
+export const TURRET_RECOVER = 30;
+export const BOLT_W = 6;
+export const BOLT_H = 6;
+export const BOLT_SPEED = 2.4;
+export const BOLT_LIFE = 120;
+
+export const DRIFTER_W = 12;
+export const DRIFTER_H = 12;
+export const DRIFTER_SPEED = 0.6;
+/** Sine period in frames, and half-amplitude in world units. */
+export const DRIFTER_PERIOD = 90;
+export const DRIFTER_AMPLITUDE = 14;
+export const DRIFTER_HP = 1;
+
+export const SHELL_W = 20;
+export const SHELL_H = 18;
+export const SHELL_SPEED = 0.5;
+/** The armoured arc, measured from straight ahead. Outside it the shell is open. */
+export const SHELL_ARMOUR_DOT = 0.2;
+
+// --- Bosses (02-world-structure §2, 06-revision-1 §C) -----------------------
+
+/** Boss heavies do 2, so 03 §2.7 demands >= 24 frames of telegraph for them. */
+export const BOSS_HEAVY_TELEGRAPH = 24;
+export const BOSS_LIGHT_TELEGRAPH = 14;
+export const BOSS_CONTACT_DAMAGE = 1;
+export const BOSS_PART_HP = 6;
+
+export const STOKER_HP = 24;
+export const STOKER_W = 40;
+export const STOKER_H = 32;
+export const STOKER_SLAM_WINDUP = 14;
+export const STOKER_SLAM_ACTIVE = 10;
+export const STOKER_RECOVER = 40;
+export const STOKER_WAVE_SPEED = 1.6;
+
+export const DIVER_HP = 26;
+export const DIVER_W = 32;
+export const DIVER_H = 26;
+export const DIVER_SUBMERGE_FRAMES = 50;
+export const DIVER_GEYSER_ACTIVE = 12;
+export const DIVER_RECOVER = 36;
+
+export const SENTINEL_HP = 20;
+export const SENTINEL_W = 34;
+export const SENTINEL_H = 30;
+
+export const ANCHOR_HP = 30;
+export const ANCHOR_W = 44;
+export const ANCHOR_H = 36;
+/** Phase 2 begins here; phase 3 was cut (06-revision-1 §C), the Ascent is the finale. */
+export const ANCHOR_PHASE2_AT = 0.5;
+export const ANCHOR_CHASE_SPEED = 1.4;

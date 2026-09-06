@@ -60,7 +60,11 @@
  * @property {{x:number,y:number}} safeGround last standing position, for hazard respawn
  * @property {boolean} perch       standing on a wall pin; horizontal input is ignored
  * @property {boolean} hang        hanging off an embedded wall pin
+ * @property {boolean} hangBelow   hanging under a ceiling pin's pole (Zip arrival)
  * @property {number} hangCooldown frames before a pin may be grabbed again
+ * @property {number} zipFrames    frames elapsed in the current Zip, 0 when not zipping
+ * @property {number} zipVx        the Zip's own velocity, for the jump-cancel carry
+ * @property {number} zipVy
  * @property {number} throwFreeze  frames of frozen horizontal velocity during a throw
  * @property {number} jabFrames    frames elapsed in the current jab, 0 when idle
  * @property {number} jabHits      entities already hit by the current jab
@@ -96,6 +100,8 @@
  * @property {number} away          frames spent out of bounds or in a kill volume
  * @property {number} lock          frames before the next throw is allowed
  * @property {number} hostTimer     frames a `pinned` enemy stays helpless
+ * @property {number} bounces       mirror-bounces already spent (A4 Ricochet)
+ * @property {number|null} propId   prop this Pin is embedded in, freezing it (A2)
  */
 
 /**
@@ -121,6 +127,11 @@
  * @property {number} flash         frames of hit flash left, for the renderer
  * @property {number} targetX       what a light-tracking enemy is charging at
  * @property {number} targetY
+ * @property {Material|null} pinMaterial  the Pin embeds in this body itself, gated by
+ *   the same three-way material read as terrain: wood always, stone after Deep Pin,
+ *   metal never. This is how a boss gets "explicitly pinnable parts" (§D3).
+ * @property {number} reel          frames left being dragged home by A3 Reel
+ * @property {string} owner         boss id this body is a part of, '' for none
  */
 
 /**
@@ -141,6 +152,30 @@
  */
 
 /**
+ * A rail platform: a solid that rides a fixed track between two points. It is the
+ * one dynamic solid in the game — free-body crates were cut (06-revision-1 §C) —
+ * and it is what A2 freezes and A3 drags.
+ *
+ * @typedef {object} Prop
+ * @property {number} id
+ * @property {string} kind          key into PROP_KINDS
+ * @property {number} x
+ * @property {number} y
+ * @property {number} w
+ * @property {number} h
+ * @property {number} ax            track end A, in world units
+ * @property {number} ay
+ * @property {number} bx            track end B
+ * @property {number} by
+ * @property {number} t             position along the track, 0..1
+ * @property {-1|1} dir
+ * @property {number} speed         units per frame along the track
+ * @property {boolean} frozen       a Deep Pin is in its core
+ * @property {number} reel          frames left being dragged by A3 Reel
+ * @property {Material} material    what the Pin makes of it; rails are metal until A2
+ */
+
+/**
  * A parsed room: the compiled form of a `src/content/rooms/*.js` module.
  * @typedef {object} Room
  * @property {string} id
@@ -150,7 +185,8 @@
  * @property {Door[]} doors
  * @property {Hazard[]} hazards
  * @property {{kind:string, at:[number,number]}[]} spawns
- * @property {{id:string, kind:string, at:[number,number], ability?:AbilityId}[]} pickups
+ * @property {{kind:string, at:[number,number], to:[number,number]}[]} rails
+ * @property {{id:string, kind:string, at:[number,number], ability?:AbilityId, afterBoss?:string}[]} pickups
  * @property {{at:[number,number], x:number, y:number}[]} lanterns save-lanterns, compiled from the grid
  * @property {Waypoint[]} route     waypoints in tile coords, for the servo
  * @property {number[]|null} macro  RLE input tape, only if the servo cannot solve the room
@@ -218,6 +254,12 @@
  */
 
 /**
+ * The two Pins obey one ordering rule, checked every frame: **if either Pin is in
+ * the hand, it is `pin`.** `pinB` is the one that is out there. That is what keeps
+ * "Throw when you are holding something" and "Recall when you are not" a single
+ * unambiguous button even with A5 Twin Pin, and it is why invariant RECALL_REFUSED
+ * still reads only `pin`.
+ *
  * @typedef {object} GameState
  * @property {number} tick                 integer frames since start; the only clock
  * @property {Seed} rng                    sim RNG stream; cosmetics use a separate one
@@ -227,7 +269,10 @@
  * @property {string} room                 id of the loaded room
  * @property {Room} roomData               the compiled room; shared, never mutated
  * @property {Player} player
- * @property {Pin} pin
+ * @property {Pin} pin                     the primary Pin; see PIN_HELD_FIRST below
+ * @property {Pin} pinB                    the second Pin, dormant until A5 Twin Pin
+ * @property {'a'|'b'} pinLast             which Pin was thrown most recently; Zip aims there
+ * @property {Prop[]} props
  * @property {Entity[]} entities
  * @property {number} nextEntityId
  * @property {Progress} progress
