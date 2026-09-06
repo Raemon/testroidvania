@@ -65,8 +65,16 @@ export function stagePins(s) {
  * @returns {GameState}
  */
 function throwSecond(s) {
+  // Only `state.pin` may hold a body, so throwing the spare lets go of whatever the
+  // first Pin was holding. You cannot pin an enemy with one hand and throw with it.
+  if (s.pin.state === 'pinned') {
+    const freed = s.entities.map((e) => (e.id === s.pin.hostId ? { ...e, pinned: false } : e));
+    s = { ...s, entities: freed, pin: { ...s.pin, state: 'dropped', hostId: null, hostTimer: 0 } };
+  }
+  // The first Pin sees the press masked out so it does not answer a throw meant for
+  // the other; the spare sees the real press and launches.
   const a = stagePin({ ...s, input: s.input & ~IN.THROW });
-  const b = stagePin({ ...a, pin: a.pinB, pinB: a.pin });
+  const b = stagePin({ ...a, pin: a.pinB, pinB: a.pin, input: s.input });
   return {
     ...b,
     input: s.input,

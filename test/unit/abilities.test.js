@@ -39,6 +39,14 @@ const at = (art, tx = 3, ty = 5, o = {}) => stateIn(roomFrom(art, o), tx, ty);
 /** Throw right, wait for the embed. @param {GameState} s @returns {GameState} */
 const embedRight = (s) => until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'embed in wood');
 
+/**
+ * Let the hitstop finish. A hit freezes the world for 3-6 frames and a frozen frame
+ * deliberately does not *spend* an input edge, so a test that taps a button during
+ * one is a test that pressed nothing.
+ * @param {GameState} s @returns {GameState}
+ */
+const calm = (s) => run(s, 0, 8, 'settle');
+
 // --- A1 Zip -----------------------------------------------------------------
 
 test('zip: flies to the embedded Pin at 12 px/f and arrives in a Hang', () => {
@@ -96,7 +104,7 @@ test('zip: contact damage is suppressed in flight, and a Skewer does 3', () => {
   s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it to the wood');
   const hp = s.entities[0]?.hp ?? 0;
 
-  s = tap(s, IN.ZIP, 0, 'zip at it');
+  s = tap(calm(s), IN.ZIP, 0, 'zip at it');
   s = until(s, 0, (x) => x.player.zipFrames === 0, 'skewer', 120);
   assert.equal(s.player.hp, s.player.maxHp, 'flying through a body must not hurt the player');
   const after = s.entities[0];
@@ -145,7 +153,8 @@ test('deepPin: a rail clangs until Deep Pin, then it takes the Pin and stops dea
 #..............#
 #..............#
 ################`;
-  const rails = [{ kind: 'rail', at: /** @type {[number,number]} */ ([8, 2]), to: /** @type {[number,number]} */ ([12, 2]) }];
+  // On the throw's own line: a rail two rows up is a rail the Pin flies under.
+  const rails = [{ kind: 'rail', at: /** @type {[number,number]} */ ([8, 3]), to: /** @type {[number,number]} */ ([12, 3]) }];
   let plain = stateIn(roomFrom(TRACK, { rails }), 2, 3);
   plain = until(plain, IN.RIGHT | IN.THROW, (x) => x.pin.state !== 'held' && x.pin.state !== 'flying', 'clang off the rail');
   assert.notEqual(plain.pin.state, 'embedded', 'a rail is metal until A2');
@@ -168,13 +177,13 @@ test('reel: the recall drags a pinned body home, and only with Reel', () => {
 #............W
 ##############`, { spawns: [{ kind: 'crawler', at: [11, 3] }] });
 
-  let plain = until(stateIn(room(), 2, 3), IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it');
+  let plain = calm(until(stateIn(room(), 2, 3), IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it'));
   const wasX = plain.entities[0]?.x ?? 0;
   plain = run(tap(plain, IN.THROW, 20, 'recall'), 0, 20, 'settle');
   assert.ok(Math.abs((plain.entities[0]?.x ?? 0) - wasX) < 8, 'without Reel the body stays where it was');
 
   let s = withAbilities(stateIn(room(), 2, 3), ['reel']);
-  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it');
+  s = calm(until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it'));
   const startX = s.entities[0]?.x ?? 0;
   s = run(tap(s, IN.THROW, 1, 'recall'), 0, 10, 'drag');
   const moved = startX - (s.entities[0]?.x ?? 0);
@@ -196,19 +205,20 @@ test('reel: nothing but bodies and rails is draggable — crates were cut (§C)'
 // --- A4 Ricochet ------------------------------------------------------------
 
 test('ricochet: metal banks the Pin instead of clanging, once, and the range keeps counting', () => {
+  // Wood behind you, metal in front. Without A4 the throw clangs and lies down;
+  // with it, the Pin comes back off the rivets and lands in the wood behind.
   const BANK = `
-##################
-#................M
-#................M
-#..............WWM
-#................M
-##################`;
-  let plain = until(at(BANK, 2, 4), IN.RIGHT | IN.THROW, (x) => x.pin.inert || x.pin.state === 'dropped', 'clang');
+#############
+#...W......M#
+#...W......M#
+#...W......M#
+#############`;
+  let plain = until(at(BANK, 7, 3), IN.RIGHT | IN.THROW, (x) => x.pin.inert || x.pin.state === 'dropped', 'clang');
   assert.notEqual(plain.pin.state, 'embedded');
   assert.equal(plain.pin.bounces, 0, 'without A4 there is no bounce');
 
-  let s = withAbilities(at(BANK, 2, 4), ['ricochet']);
-  s = until(s, IN.UP | IN.RIGHT | IN.THROW, (x) => x.pin.bounces > 0, 'bank off the metal', 120);
+  let s = withAbilities(at(BANK, 7, 3), ['ricochet']);
+  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.bounces > 0, 'bank off the metal', 120);
   assert.equal(s.pin.bounces, 1, 'exactly one mirror-bounce');
   assert.ok(s.pin.travelled > 0, 'the range keeps counting through the bounce');
   s = until(s, 0, (x) => x.pin.state !== 'flying', 'it lands somewhere', 120);
@@ -223,14 +233,20 @@ test('twinPin: two Pins, two lights, and the held one is always `pin`', () => {
   assert.equal(s.pin.state, 'embedded', 'the first throw is the most recent Pin');
   assert.equal(s.pinB.state, 'held', 'and the spare is in hand');
 
-  // Throwing again throws the spare; `pin` becomes the one that just left.
-  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pinB.state === 'embedded', 'throw the second', 120);
-  assert.equal(s.pin.state === 'embedded' || s.pin.state === 'flying', true);
+  // Throwing again throws the spare, and `pin` becomes the one that just left —
+  // which is what keeps Zip aimed at the most recent Pin and Recall unambiguous.
+  s = until(
+    tap(s, IN.RIGHT | IN.THROW, 0, 'throw the second'),
+    IN.RIGHT,
+    (x) => x.pin.state === 'embedded' && x.pinB.state === 'embedded',
+    'both Pins are out',
+    120,
+  );
   const lights = s.lights.filter((l) => l.kind === 'pin');
   assert.equal(lights.length, 2, 'two Pins are two lights');
 
   // Recall now brings both home.
-  s = until(tap(s, IN.THROW, 0, 'recall both'), 0, (x) => x.pin.state === 'held' && x.pinB.state === 'held', 'both home', 200);
+  s = until(tap(calm(s), IN.THROW, 0, 'recall both'), 0, (x) => x.pin.state === 'held' && x.pinB.state === 'held', 'both home', 200);
   assert.equal(s.pin.state, 'held');
   assert.equal(s.pinB.state, 'held');
 });

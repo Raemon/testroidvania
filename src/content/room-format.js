@@ -21,6 +21,9 @@ import { tileAt } from './tiles.js';
  * @property {{kind:string, at:[number,number]}[]} spawns
  * @property {{kind:string, at:[number,number], to:[number,number]}[]} [rails]
  * @property {{id:string, kind:string, at:[number,number], ability?:import('../core/types.js').AbilityId, afterBoss?:string}[]} pickups
+ * @property {import('../core/types.js').AbilityId[]} [needs] abilities this room's
+ *   own route uses; the room test grants exactly these and no more, which is what
+ *   makes a traversal test double as a proof that the gate opens with its own key
  * @property {{route:import('../core/types.js').Waypoint[]}} hints
  * @property {number[]|null} macro
  */

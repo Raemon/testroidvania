@@ -24,6 +24,7 @@ import { START } from '../src/content/world.js';
 import { ABILITY_IDS, ABILITY_ORDER } from '../src/core/abilities/index.js';
 
 /** Bit per ability, in ladder order, so a set is one integer. */
+/** @type {Map<string, number>} */
 const BIT = new Map(ABILITY_IDS.map((id, i) => [id, 1 << i]));
 
 /**
