@@ -35,6 +35,19 @@
       ],
       "commit": "222fc07",
       "date": "2026-09-06"
+    },
+    {
+      "id": "v4",
+      "title": "Readable",
+      "notes": [
+        "Bosses look like bosses: each has its own silhouette, and a pinnable part wears a bullseye while a metal one wears rivets",
+        "Every region has its own music instead of sharing the Cistern's",
+        "The ending resolves into D major, with a coda showing your time, deaths and lanterns",
+        "Ability pickups name their key — Zip was previously unfindable",
+        "The walked line pushes back: currents, wind, a running conveyor, and enemies you can't ignore"
+      ],
+      "commit": "1aaf8db",
+      "date": "2026-09-06"
     }
   ]
 }
