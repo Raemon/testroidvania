@@ -4,6 +4,7 @@
  */
 
 import { CISTERN } from './cistern.js';
+import { ENDING } from './ending.js';
 import { FOUNDRY } from './foundry.js';
 import { OSSUARY } from './ossuary.js';
 import { SPINE } from './spine.js';
@@ -12,6 +13,7 @@ import { VERDANT } from './verdant.js';
 /** @type {Record<string, import('../sequencer.js').Region>} */
 export const REGIONS = {
   cistern: CISTERN,
+  ending: ENDING,
   foundry: FOUNDRY,
   ossuary: OSSUARY,
   spine: SPINE,
@@ -19,6 +21,9 @@ export const REGIONS = {
 };
 
 /**
+ * `ending` is deliberately absent from this table: it is not where you are, it is
+ * what has happened. `audio.js` switches to it on the `game.complete` event.
+ *
  * @param {string} roomId
  * @returns {import('../sequencer.js').Region}
  */

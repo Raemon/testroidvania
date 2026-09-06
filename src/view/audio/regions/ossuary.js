@@ -29,10 +29,16 @@ const CHORDS = [
   { name: 'Bm', bass: 47, pad: [71, 74, 78, 81], tones: [71, 74, 78, 81, 85], drone: 35 },
 ];
 
-/** The slow pluck: one note every eight 16ths, and nothing in between. */
+/**
+ * The slow pluck: one note every eight 16ths, and nothing in between.
+ * @type {Record<number, number>}
+ */
 const SLOW = { 0: 4, 8: 2 };
 
-/** Bone-dry ticks. Steps, and the pitch each one lands on. */
+/**
+ * Bone-dry ticks. Steps, and the pitch each one lands on.
+ * @type {Record<number, number>}
+ */
 const TICKS = { 2: 2400, 7: 1700, 10: 3100, 13: 1200 };
 
 /**

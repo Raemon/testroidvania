@@ -31,7 +31,10 @@ const CHORDS = [
  */
 const CALL = { 0: 0, 2: 2, 3: 4, 6: 3, 8: 5, 9: 2, 12: 6, 14: 4 };
 
-/** The response: bar two, an octave and a half lower, in the gaps the call left. */
+/**
+ * The response: bar two, lower and rounder, in the gaps the call left.
+ * @type {Record<number, number>}
+ */
 const ANSWER = { 17: 3, 20: 1, 23: 2, 26: 0, 30: 4 };
 
 /** The boss phrase, in scale degrees — up into the #4 and back down. */

@@ -53,6 +53,8 @@ export const REGION_REVERB = {
   foundry: { tail: 1.6, top: 8000, bottom: 1200, early: 0 },
   verdant: { tail: 2.2, top: 7000, bottom: 900, early: 0.06 },
   spine: { tail: 2.4, top: 6000, bottom: 800, early: 0 },
+  // The ending is the only room in the game with sky in it.
+  ending: { tail: 4, top: 7500, bottom: 1000, early: 0.04 },
 };
 
 /** 12 ms of silence in front of the tail, so the reverb reads as a room and not as a smear. */

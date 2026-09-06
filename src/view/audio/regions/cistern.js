@@ -191,6 +191,11 @@ export const CISTERN = {
       minIntensity: 1,
       gain: 1,
       loopSteps: 64,
+      // The one lead in the game still written as literal MIDI. It is the phrase
+      // 05 §6b names note for note, and D Dorian is the key it was written in, so
+      // here it is in its own harmony already; every other region states its lead
+      // as scale degrees instead of importing this one.
+      notes: LEAD,
       /** @param {StepContext} cx */
       step(cx) {
         if (cx.stepInLoop % 4 !== 0) return;

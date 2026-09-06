@@ -81,6 +81,7 @@ export function degreeLead(spec) {
     minIntensity: spec.minIntensity ?? 1,
     gain: 1,
     loopSteps: phrase.length * 4,
+    degrees: phrase,
     /** @param {StepContext} cx */
     step(cx) {
       if (cx.stepInLoop % 4 !== 0) return;

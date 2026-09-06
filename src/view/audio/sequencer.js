@@ -70,6 +70,11 @@ import { createRng } from './rng.js';
  * @property {number} [loopSteps]   defaults to one bar
  * @property {(cx: StepContext) => void} [step]
  * @property {(cx: ChordContext) => void} [chord]
+ * @property {(number|null)[]} [degrees] the layer's phrase as scale degrees, when
+ *   it plays one. Declared so `offline.js` can count how the phrase sits against
+ *   the harmony without rendering it; the sequencer never reads it.
+ * @property {(number|null)[]} [notes]   the same, for a phrase written as literal
+ *   MIDI — which after this change only the Cistern's lead is.
  */
 
 /**

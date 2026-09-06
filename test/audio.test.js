@@ -256,26 +256,56 @@ test('eight bars of the Cistern render, and intensity actually adds layers', { t
     `intensity 1 (${boss.peak}) is not louder than intensity 0 (${exploring.peak}) — layers are not being added`);
 });
 
-test('no region is a sub-bass rumble with a tune on top', { timeout: AUDIO_TIMEOUT_MS }, async () => {
+test('no region is a sub-bass rumble, and no two regions are the same music', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
   // Every region, not the default one. The sub-bass fix landed in the Cistern and
   // stayed there for four more regions because this guard called `renderMusic()`
   // with no argument, and `renderMusic`'s default region is the Cistern. Four
-  // fifths of the game measured 44-61% of its power under 120 Hz and the suite
-  // was green. A guard that checks one of five is not a guard.
-  const rendered = await page.evaluate(async (dir) => {
+  // fifths of the game measured 44-61% of its power under 120 Hz and the suite was
+  // green. A guard that checks one of five is not a guard.
+  //
+  // The second half is the other fault the same blindness hid: every region said
+  // `layers: CISTERN.layers` — the same array object — so the bells struck on the
+  // same 16ths everywhere and Verdant and the Ossuary measured 2.9 dB apart across
+  // the whole spectrum. One render sweep answers both questions, so they share a
+  // test rather than paying for the renders twice.
+  //
+  // Two bars a region, not eight: twelve renders is most of this file's 20 s
+  // ceiling, and a mix fault is a property of the arrangement, not of bar seven.
+  const { rendered, distances, shared } = await page.evaluate(async (dir) => {
     const m = await import(`${dir}offline.js`);
     const { REGIONS } = await import(`${dir}regions/index.js`);
+    const ids = Object.keys(REGIONS);
     /** @type {any[]} */
-    const out = [];
-    for (const region of Object.keys(REGIONS)) {
-      for (const intensity of [0, 1]) out.push(await m.renderMusic({ region, bars: 4, intensity, tail: 0.5 }));
+    const rendered = [];
+    /** @type {Record<string, any>} */
+    const quiet = {};
+    for (const region of ids) {
+      for (const intensity of [0, 1]) {
+        const r = { region, ...await m.renderMusic({ region, bars: 2, intensity, tail: 0.4 }) };
+        rendered.push(r);
+        if (intensity === 0) quiet[region] = r;
+      }
     }
-    return out;
+    /** @type {{a: string, b: string, db: number}[]} */
+    const distances = [];
+    /** @type {{a: string, b: string}[]} */
+    const shared = [];
+    for (const a of ids) {
+      for (const b of ids) {
+        if (a >= b) continue;
+        distances.push({ a, b, db: m.spectralDistance(quiet[a], quiet[b]) });
+        if (REGIONS[a]?.layers === REGIONS[b]?.layers) shared.push({ a, b });
+      }
+    }
+    return { rendered, distances, shared };
   }, AUDIO_DIR);
 
-  assert.equal(rendered.length, EXPECTED_REGIONS.length * 2, 'a region went missing from the sweep');
+  assert.deepEqual([...new Set(rendered.map((/** @type {any} */ r) => r.region))].sort(), EXPECTED_REGIONS,
+    'a region went missing from the sweep');
   for (const r of rendered) {
+    assert.equal(r.nan, 0, `${r.id}: ${r.nan} non-finite samples`);
+    assert.equal(r.clipped, 0, `${r.id}: ${r.clipped} samples above 0 dBFS`);
     // The D1 drone was -27 dBFS RMS against -32.3 for the entire rest of the
     // arrangement, putting 77% of the music's power under 60 Hz: inaudible on a
     // laptop, and eating the headroom of everything that is not.
@@ -285,6 +315,39 @@ test('no region is a sub-bass rumble with a tune on top', { timeout: AUDIO_TIMEO
       `${r.id}: ${(r.subShare * 100).toFixed(0)}% of the music's power is under 120 Hz`);
     assert.ok(r.centroidHz > 300,
       `${r.id}: spectral centroid ${Math.round(r.centroidHz)} Hz — the music has sunk back under the speaker`);
+  }
+
+  assert.deepEqual(shared, [], `regions sharing one layers array: ${shared.map((/** @type {any} */ x) => `${x.a}/${x.b}`).join(', ')}`);
+  for (const d of distances) {
+    assert.ok(d.db > 6,
+      `${d.a} and ${d.b} are ${d.db.toFixed(1)} dB apart across the spectrum — that is the same material twice`);
+  }
+});
+
+test("every region's boss lead is in that region's own key", { timeout: AUDIO_TIMEOUT_MS }, async () => {
+  const page = await quietPage();
+  // The Cistern's D-Dorian phrase was the `lead` layer of every region,
+  // transposed nowhere. Against the Ossuary's F# Phrygian — the Sentinel and the
+  // Anchor, the last two fights in the game — it scored 16 non-chord tones and 14
+  // semitone clashes over the progression: the final boss had the most dissonant
+  // music in the game, by accident.
+  const measured = await page.evaluate(async (dir) => {
+    const m = await import(`${dir}offline.js`);
+    const { REGIONS } = await import(`${dir}regions/index.js`);
+    return Object.keys(REGIONS).map((id) => m.leadDissonance(id));
+  }, AUDIO_DIR);
+
+  for (const r of measured) {
+    if (r.sounded === 0) continue;
+    if (r.region === 'cistern') {
+      // The Cistern's lead is 05 §6b's phrase note for note, in the key it was
+      // written in; its three clashes are passing tones and are the material.
+      assert.ok(r.clashes <= 3, `cistern: ${r.clashes} semitone clashes — the template drifted`);
+      continue;
+    }
+    assert.equal(r.clashes, 0,
+      `${r.region}: ${r.clashes} semitone clashes in ${r.sounded} lead notes — the lead is in someone else's key`);
+    assert.equal(r.nonChord, 0, `${r.region}: ${r.nonChord} non-chord tones in the lead`);
   }
 });
 

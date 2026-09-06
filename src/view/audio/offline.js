@@ -14,6 +14,7 @@ import { RECIPES, SFX_IDS } from './sfx.js';
 import { createSequencer } from './sequencer.js';
 import { REGIONS } from './regions/index.js';
 import { pad as padVoice, midiToFreq } from './voices.js';
+import { chordDegree } from './regions/material.js';
 
 /**
  * Measurements render at 22.05 kHz by default. Every voice ends in a lowpass at or
@@ -292,6 +293,83 @@ export async function renderPads(options = {}) {
     out.push(analyse(await ctx.startRendering(), chord.name));
   }
   return out;
+}
+
+/**
+ * How a region's boss lead sits against that region's own harmony.
+ *
+ * Counted symbolically rather than rendered, because the question is about notes
+ * and not about samples: for every note of the phrase, against the chord actually
+ * sounding under it, is that note in the chord, and is it a semitone away from one
+ * of the chord's tones? A semitone against a sustained pad is the harshest
+ * interval there is, and it is the one thing a lead written for another key does
+ * constantly.
+ *
+ * The phrase repeats until every chord in the progression has heard it, so a
+ * 4-bar phrase over an 8-bar progression is counted twice, once against each half.
+ *
+ * @param {string} regionId
+ * @param {object} [options]
+ * @param {(number|null)[]} [options.notes] override the phrase with literal MIDI —
+ *   how the Cistern's lead scored in the four regions that used to borrow it.
+ * @returns {{region: string, sounded: number, nonChord: number, clashes: number}}
+ */
+export function leadDissonance(regionId, options = {}) {
+  const region = REGIONS[regionId];
+  if (!region) throw new Error(`leadDissonance: no region '${regionId}'`);
+  const lead = region.layers.find((l) => l.id === 'lead');
+  const literal = options.notes ?? lead?.notes;
+  const phrase = options.notes ?? lead?.degrees ?? lead?.notes;
+  const out = { region: regionId, sounded: 0, nonChord: 0, clashes: 0 };
+  if (!lead || !phrase) return out;
+
+  const spb = region.stepsPerBar;
+  const loopSteps = lead.loopSteps ?? spb;
+  const progression = region.chords.length * region.barsPerChord * spb;
+  // Enough passes that the phrase has met every chord at least once.
+  const passes = Math.max(1, Math.ceil(progression / loopSteps));
+  for (let pass = 0; pass < passes; pass++) {
+    for (let i = 0; i < phrase.length; i++) {
+      const entry = phrase[i];
+      if (entry === null || entry === undefined) continue;
+      const absStep = pass * loopSteps + i * 4;
+      const bar = Math.floor(absStep / spb);
+      const chord = region.chords[Math.floor(bar / region.barsPerChord) % region.chords.length];
+      if (!chord) continue;
+      const note = literal ? entry : chordDegree(chord, entry);
+      if (note === undefined) continue;
+      const pc = ((note % 12) + 12) % 12;
+      const tones = new Set(chord.tones.map((m) => ((m % 12) + 12) % 12));
+      out.sounded++;
+      if (tones.has(pc)) continue;
+      out.nonChord++;
+      for (const t of tones) {
+        const d = Math.abs(pc - t) % 12;
+        if (d === 1 || d === 11) { out.clashes++; break; }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Distance between two regions' spectra: the Euclidean norm of the difference of
+ * their per-band levels, in dB.
+ *
+ * The failure this exists for: every region sharing one `layers` array, so that
+ * only tempo, chords and reverb tail differed and Verdant and the Ossuary
+ * measured 2.9 dB apart — the same music in a slightly different room.
+ * @param {{bands: Record<string, number>}} a
+ * @param {{bands: Record<string, number>}} b
+ * @returns {number}
+ */
+export function spectralDistance(a, b) {
+  let d2 = 0;
+  for (const [lo, hi] of BANDS) {
+    const key = `${lo}-${hi}`;
+    d2 += ((a.bands[key] ?? -120) - (b.bands[key] ?? -120)) ** 2;
+  }
+  return Math.sqrt(d2);
 }
 
 /**
