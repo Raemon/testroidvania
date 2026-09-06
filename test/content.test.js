@@ -84,7 +84,7 @@ test('every room is enclosed: a flood fill from every open tile never escapes', 
           assert.fail(`${room.id} is open to the outside at (${tx},${ty}) -> (${nx},${ny})`);
         }
         if (solidAt(room, nx, ny)) continue;
-        if ((room.grid[ny]?.[nx] ?? '') ) continue;
+        if (isDoorGlyph(room.grid[ny]?.[nx] ?? '')) continue;
         queue.push([nx, ny]);
       }
     }

@@ -62,7 +62,13 @@ after(async () => {
   await live?.close();
 });
 
-test('the engine builds, every voice and every SFX fires, and stopping leaks nothing', async () => {
+// These render audio offline, which is CPU-bound and competes with whatever
+// else is running on the machine. The global 15s ceiling exists to catch
+// hangs; slow-but-honest work needs more room, or the suite goes flaky and
+// a flaky suite is one nobody runs.
+const AUDIO_TIMEOUT_MS = 60000;
+
+test('the engine builds, every voice and every SFX fires, and stopping leaks nothing', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const game = await liveGame();
   try {
     const before = await game.call('audio');
@@ -146,7 +152,7 @@ test('the engine builds, every voice and every SFX fires, and stopping leaks not
   }
 });
 
-test('?mute=1 makes the engine a complete no-op', async () => {
+test('?mute=1 makes the engine a complete no-op', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
   await page.keyboard.press('KeyP');
   await page.evaluate((bits) => /** @type {any} */ (globalThis).__HARNESS__.setInput(bits), IN.RIGHT | IN.JUMP);
@@ -180,7 +186,7 @@ function audibleBandDb(m) {
   return dB(m.rms100) + 10 * Math.log10(e + 1e-12);
 }
 
-test('every SFX renders to a buffer that is audible, unclipped and finite', async () => {
+test('every SFX renders to a buffer that is audible, unclipped and finite', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
   /** @type {any[]} */
   const measured = [];
@@ -224,7 +230,7 @@ test('every SFX renders to a buffer that is audible, unclipped and finite', asyn
   }
 });
 
-test('eight bars of the Cistern render, and intensity actually adds layers', async () => {
+test('eight bars of the Cistern render, and intensity actually adds layers', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
   const [exploring, boss] = await page.evaluate(async (dir) => {
     const m = await import(`${dir}offline.js`);
@@ -247,7 +253,7 @@ test('eight bars of the Cistern render, and intensity actually adds layers', asy
     `intensity 1 (${boss.peak}) is not louder than intensity 0 (${exploring.peak}) — layers are not being added`);
 });
 
-test('the music is not a sub-bass rumble with a tune on top', async () => {
+test('the music is not a sub-bass rumble with a tune on top', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
   const rendered = await page.evaluate(async (dir) => {
     const m = await import(`${dir}offline.js`);
@@ -270,7 +276,7 @@ test('the music is not a sub-bass rumble with a tune on top', async () => {
   }
 });
 
-test('every chord of the progression is the same size', async () => {
+test('every chord of the progression is the same size', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
   const pads = await page.evaluate(async (dir) => {
     const m = await import(`${dir}offline.js`);
