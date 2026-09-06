@@ -1,5 +1,10 @@
 # THE DESIGN BIBLE — authoritative synthesis
 
+> **SUPERSEDED IN PART.** `06-revision-1.md` overrides this file wherever they
+> differ — it moves Zip to minute 3, redefines the gate kinds against a computed
+> reach table, restructures the Spine so the finale recaps climbs the player has
+> actually done, cuts the Wire and crates, and sets enemy HP. Read it first.
+
 This file **overrides** the five source design docs (01-05) wherever they conflict.
 Read this first. Read the source docs for detail on their own subject.
 
