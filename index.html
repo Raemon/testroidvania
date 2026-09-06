@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PINLIGHT — versions</title>
+<style>
+  :root {
+    --ink: #0B0D12; --ink2: #12161C; --line: #252D38;
+    --cream: #F3E9D2; --dim: #9C8F78; --flame: #FFB347; --accent: #5FE3D0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 24px 80px;
+    background:
+      radial-gradient(900px 500px at 50% -10%, #1A2029 0%, transparent 70%),
+      var(--ink);
+    color: var(--cream);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+  }
+  header { max-width: 880px; margin: 0 auto 40px; }
+  h1 {
+    margin: 0 0 8px; font-size: 40px; font-weight: 600;
+    letter-spacing: 0.22em; text-transform: uppercase;
+  }
+  .flame { color: var(--flame); }
+  .sub { color: var(--dim); max-width: 60ch; margin: 0; }
+  main {
+    max-width: 880px; margin: 0 auto;
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .card {
+    display: block; padding: 20px; text-decoration: none; color: inherit;
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 10px;
+    transition: border-color .15s, transform .15s, background .15s;
+  }
+  .card:hover { border-color: var(--flame); transform: translateY(-2px); background: #161B23; }
+  .card.live { border-color: #3A4553; }
+  .card.live:hover { border-color: var(--accent); }
+  .tag {
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 10px;
+  }
+  .card.live .tag { color: var(--accent); }
+  h2 { margin: 0 0 4px; font-size: 19px; font-weight: 600; }
+  .meta { color: var(--dim); font-size: 13px; }
+  ul { margin: 12px 0 0; padding-left: 18px; color: var(--dim); font-size: 13px; }
+  li { margin-bottom: 3px; }
+  .go { margin-top: 16px; font-size: 13px; color: var(--flame); }
+  .card.live .go { color: var(--accent); }
+  footer {
+    max-width: 880px; margin: 48px auto 0; padding-top: 20px;
+    border-top: 1px solid var(--line); color: var(--dim); font-size: 13px;
+  }
+  a.plain { color: var(--accent); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Pin<span class="flame">light</span></h1>
+    <p class="sub">
+      A metroidvania in the dark. Your only weapon is also your only light: an iron
+      Pin you throw, which stays wherever it lands. Each card below is a frozen,
+      still-playable version — newest first.
+    </p>
+  </header>
+  <main>
+
+      <a class="card live" href="latest/index.html">
+        <div class="tag">in development</div>
+        <h2>Latest</h2>
+        <div class="meta">The working copy — changes as the build continues</div>
+        
+        <div class="go">Play &rarr;</div>
+      </a>
+
+      <a class="card" href="v4/index.html">
+        <div class="tag">v4</div>
+        <h2>Readable</h2>
+        <div class="meta">2026-09-06 · 1aaf8db</div>
+        <ul><li>Bosses look like bosses: each has its own silhouette, and a pinnable part wears a bullseye while a metal one wears rivets</li><li>Every region has its own music instead of sharing the Cistern's</li><li>The ending resolves into D major, with a coda showing your time, deaths and lanterns</li><li>Ability pickups name their key — Zip was previously unfindable</li><li>The walked line pushes back: currents, wind, a running conveyor, and enemies you can't ignore</li></ul>
+        <div class="go">Play &rarr;</div>
+      </a>
+
+      <a class="card" href="v3/index.html">
+        <div class="tag">v3</div>
+        <h2>The whole game</h2>
+        <div class="meta">2026-09-06 · 222fc07</div>
+        <ul><li>Playable start to credits: 43 rooms, five abilities, four bosses, the Plunge and the ending</li><li>Verified by a bot playing the entire game in a real browser with zero console errors</li><li>The Pin is your weapon and your light; line-of-sight enemies chase the light, so a thrown Pin is a decoy</li><li>Lantern &amp; Ink rendering and a fully synthesized adaptive score</li></ul>
+        <div class="go">Play &rarr;</div>
+      </a>
+
+      <a class="card" href="v2/index.html">
+        <div class="tag">v2</div>
+        <h2>The Pin</h2>
+        <div class="meta">2026-09-06 · 2a42ed0</div>
+        <ul><li>The Pin: throw it, stand on it, pin enemies to walls, recall it through anything</li><li>It is also your only light — throwing it sends your light away with it</li><li>Lantern &amp; Ink rendering: layered silhouettes, procedural terrain, a rigged player</li><li>Fully synthesized WebAudio: reverb, 21 SFX and an adaptive Cistern score</li><li>The six-room opening that teaches the Pin without a word of text</li></ul>
+        <div class="go">Play &rarr;</div>
+      </a>
+
+      <a class="card" href="v1/index.html">
+        <div class="tag">v1</div>
+        <h2>Foundation</h2>
+        <div class="meta">2026-09-06 · d8de430</div>
+        <ul><li>Deterministic simulation core with the full game-feel physics</li><li>Three test rooms: a flat run, a 4-tile gap, a ceiling corridor</li><li>Playthrough verified by a bot driving a real browser</li></ul>
+        <div class="go">Play &rarr;</div>
+      </a>
+  </main>
+  <footer>
+    Arrow keys or WASD to move, Z to jump, X to jab, C to throw and recall the Pin.
+    &nbsp;·&nbsp;
+    <a class="plain" href="https://github.com/Raemon/testroidvania">Source</a>
+  </footer>
+</body>
+</html>

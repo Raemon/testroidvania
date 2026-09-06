@@ -1,0 +1,300 @@
+/**
+ * Every tunable number in the simulation. Verbatim from docs/design/03-game-feel.md
+ * §1.1, which 00-BIBLE.md §7 declares law. All values are in world units (px) and
+ * px/frame at a fixed 60 Hz step — there is no `dt` anywhere in the sim.
+ *
+ * Tuning the game feel is a single-file change. Any edit here moves the golden
+ * hashes; that is intended, and `npm run goldens` is the sanctioned response.
+ */
+
+export const TILE = 16;
+
+/** Internal world-space viewport. Bible §2: vector art scaled to the device. */
+export const VIEW_W = 480;
+export const VIEW_H = 270;
+
+export const PLAYER_W = 12;
+export const PLAYER_H = 20;
+
+export const RUN_MAX = 2.6;
+export const GROUND_ACCEL = 0.45;
+export const GROUND_FRICTION = 0.65;
+export const TURNAROUND_MULT = 1.6;
+export const AIR_ACCEL = 0.30;
+export const AIR_DRAG = 0.10;
+
+export const JUMP_VY = -4.70;
+export const GRAVITY_RISE = 0.195;
+export const GRAVITY_FALL = 0.31;
+
+/** Gravity is halved while |vy| is under this, giving ~5 frames of apex float. */
+export const APEX_HANG_VY = 0.6;
+export const APEX_HANG_MULT = 0.5;
+
+export const TERMINAL_VY = 6.0;
+export const FASTFALL_TERMINAL_VY = 8.0;
+export const FASTFALL_GRAVITY_MULT = 1.4;
+
+export const JUMP_CUT_MULT = 0.45;
+/** Jump-cut is ignored before this many frames so a 1-frame tap has a floor. */
+export const JUMP_CUT_MIN_FRAMES = 4;
+
+export const COYOTE_FRAMES = 6;
+export const JUMP_BUFFER_FRAMES = 8;
+
+export const CEILING_CORNER_CORRECTION = 4;
+export const LEDGE_NUDGE = 3;
+export const FALLING_EDGE_SNAP = 2;
+
+/** Frames a one-way platform is ignored after a down+jump drop-through. */
+export const DROP_THROUGH_FRAMES = 8;
+
+export const PLAYER_MAX_HP = 5;
+export const PLAYER_IFRAMES = 60;
+/** Frames of lost control after taking damage (03 §2.2). */
+export const HURT_CONTROL_LOSS = 10;
+
+/** Invariant ceiling on either velocity component; catches runaway integration. */
+export const VMAX = 32;
+
+/** Softlock detector window, 04-architecture §6 rule 17. */
+export const SOFTLOCK_WINDOW = 600;
+
+/** Entity budget, 04-architecture §6 rule 6. */
+export const MAX_ENTITIES = 256;
+
+/** Camera, 03-game-feel §3.3. */
+export const CAM = {
+  deadzoneX: 16,
+  deadzoneUp: 24,
+  deadzoneDown: 32,
+  lookahead: 40,
+  lookaheadLerp: 0.05,
+  facingHoldFrames: 6,
+  lerpX: 0.12,
+  lerpY: 0.08,
+  groundSnapY: 150,
+  fastFallFrames: 20,
+  fastFallLerpY: 0.25,
+};
+
+// --- The Pin (01-core-mechanic §Spec, 06-revision-1 §D1/§G) -----------------
+
+export const PIN_THROW_STARTUP = 4;
+export const PIN_SPEED = 9;
+export const PIN_RANGE = 176;
+/** Past its range the Pin loses force and falls until it lands as Dropped. */
+export const PIN_FALL_GRAVITY = 0.3;
+export const PIN_RECALL_SPEED = 13;
+export const PIN_CATCH_RADIUS = 10;
+/** Frames after a catch before the next throw is allowed; keeps recall-spam honest. */
+export const PIN_THROW_LOCK = 4;
+/** Flying hitbox, oriented along travel. */
+export const PIN_HIT_W = 12;
+export const PIN_HIT_H = 4;
+/** A wall pin's one-way platform, protruding perpendicular from the surface. */
+export const PIN_PLATFORM_W = 16;
+export const PIN_PLATFORM_H = 4;
+/** A floor/ceiling pin's pole. */
+export const PIN_POLE_W = 4;
+export const PIN_POLE_H = 16;
+/**
+ * Where a throw leaves the hand, measured down from the player's top edge. 6 puts
+ * a horizontal wall pin's platform exactly TILE above the feet, so "throw at the
+ * wall, hop on" is a one-tile step every single time — the same read as a floor
+ * pin, and enough margin over the measured 54.7px jump to clear a 4-tile wall.
+ */
+export const PIN_HAND_OFFSET = 6;
+export const PIN_CLANG_FLASH_FRAMES = 6;
+/**
+ * The Pin biting nothing at all. Stone before Deep Pin used to be silent, which
+ * made "the first thing the Pin cannot solve" indistinguishable from a whiffed
+ * throw. Shorter and softer than a clang: a refusal, not an impact.
+ */
+export const PIN_REJECT_FLASH_FRAMES = 2;
+export const SHAKE_REJECT = 2;
+/** Out of bounds or inside a kill volume for this long and the Pin comes home. */
+export const PIN_AUTO_RECALL_FRAMES = 30;
+/**
+ * How long a pinned body stays helpless. 90 was measured against nothing: the bot
+ * needs 55 frames just to cross the room and land the first jab, so a human hit
+ * the timer and watched the kill wriggle free. 150 leaves room for the walk.
+ */
+export const PIN_PINNED_FRAMES = 150;
+export const PIN_THROW_DAMAGE = 2;
+export const PIN_RECALL_DAMAGE = 1;
+/** A light enemy is carried this far to the wall behind it before it can be pinned. */
+export const PIN_CARRY_RANGE = 48;
+/** Terminal sink speed in water; the Pin stays recallable and stays lit. */
+export const PIN_WATER_SINK = 0.5;
+
+/** Hang (§D1.2): falling this close to an embedded wall pin grabs it. */
+export const HANG_GRAB_DIST = 8;
+export const HANG_KICK_VX = 3.0;
+export const HANG_KICK_VY = -5.0;
+/**
+ * Jump from a Hang with no direction held: mantle straight up onto the shelf
+ * rather than away from it. Enough to lift the hands (14px) over the shelf and
+ * settle back onto it as a Perch; not enough to read as a second jump.
+ */
+export const HANG_MANTLE_VY = -3.2;
+/** Frames after letting go before the same pin may be grabbed again. */
+export const HANG_COOLDOWN = 12;
+
+// --- Jab (01-core-mechanic §Spec) -------------------------------------------
+
+export const JAB_STARTUP = 3;
+export const JAB_ACTIVE = 4;
+export const JAB_RECOVERY = 9;
+export const JAB_W = 16;
+export const JAB_H = 12;
+export const JAB_DAMAGE = 1;
+export const JAB_KNOCKBACK = 2;
+/** A pinned enemy is helpless, so the jab that frees it counts double. */
+export const JAB_CRIT_MULT = 2;
+
+// --- Combat (00-BIBLE §7, 06-revision-1 §D3) --------------------------------
+
+export const ENEMY_HP_LIGHT = 4;
+export const ENEMY_HP_HEAVY = 8;
+export const ENEMY_CONTACT_DAMAGE = 1;
+export const ENEMY_KNOCKBACK = 2;
+export const HITSTOP_HIT = 3;
+export const HITSTOP_HEAVY = 5;
+export const HITSTOP_KILL = 6;
+export const PLAYER_KNOCKBACK_VX = 3.5;
+export const PLAYER_KNOCKBACK_VY = -2.5;
+/**
+ * Knockback is halved when the full impulse would carry the player into a hazard.
+ * Never zero: a player who cannot be moved cannot be read as having been hit.
+ */
+export const KNOCKBACK_HAZARD_MULT = 0.5;
+/** How far ahead the hazard test looks along the knockback, in frames. */
+export const KNOCKBACK_LOOKAHEAD_FRAMES = 8;
+export const DEATH_RESPAWN_FRAMES = 60;
+
+/**
+ * Screenshake, 03-game-feel §2.3. Frames, not amplitude: the renderer owns how big
+ * a shake looks, the sim owns how long it lasts. Two sources at once take the max,
+ * never the sum, which is what `Math.max` at every call site is doing.
+ */
+export const SHAKE_HIT = 4;
+export const SHAKE_KILL = 6;
+export const SHAKE_HURT = 10;
+export const SHAKE_BOSS = 14;
+export const SHAKE_MAX = 24;
+
+// --- Enemies ----------------------------------------------------------------
+
+export const CRAWLER_SPEED = 1.0;
+/** A full tile tall, so a chest-height throw always meets it. */
+export const CRAWLER_W = 14;
+export const CRAWLER_H = 16;
+export const CHARGER_W = 16;
+export const CHARGER_H = 12;
+export const CHARGER_SIGHT = 200;
+export const CHARGER_WINDUP = 20;
+export const CHARGER_DASH_SPEED = 3.2;
+export const CHARGER_DASH_FRAMES = 60;
+export const CHARGER_RECOVER_FRAMES = 40;
+export const ENEMY_GRAVITY = 0.31;
+export const ENEMY_TERMINAL_VY = 6.0;
+
+// --- Light (06-revision-1 §D5) ----------------------------------------------
+
+/** The player's own aura. Never smaller, thrown Pin or not — an ember carries it. */
+export const LIGHT_AURA_R = 90;
+/** Every ability permanently widens the aura, 90 -> 250 by the end. */
+export const LIGHT_AURA_PER_ABILITY = 40;
+/** The Pin's light, which travels with the Pin. */
+export const LIGHT_PIN_R = 260;
+export const LIGHT_HAZARD_R = 40;
+export const LIGHT_EYE_R = 28;
+export const LIGHT_LANTERN_R = 120;
+/** Terrain already seen stays visible at this alpha; 0.12 was a rumour. */
+export const DISCOVERED_ALPHA = 0.25;
+export const DARKNESS_ALPHA_CAP = 0.55;
+
+// --- Water, currents, wind, crumble (02-world-structure §2) -----------------
+//
+// Each region owes its identity to one hazard, and until now three of the four had
+// nothing behind them: water was implemented for the Pin and not for the player,
+// currents and wind did not exist, and a crumble tile only ever crumbled when the
+// Pin hit it. These are those four, and they are numbers rather than systems.
+
+/**
+ * Frames with the head under water before it costs a heart — six seconds, which is
+ * long enough that crossing a room submerged is a decision and not a toll.
+ *
+ * Water's *buoyancy* — 02 §2's halved jump — is deliberately not here yet. It is a
+ * two-line change in `stepPlayerPhysics`, and it was measured: it re-times every
+ * swim in the Cistern, which costs c3_basin a heart to a Drifter it currently
+ * swims past and makes c6_shrine impassable. Those two rooms have to be re-tuned
+ * with the buoyancy on, by the agent that owns them, in the same change.
+ */
+export const WATER_DROWN_FRAMES = 360;
+/** A current's push, in units per frame. Under RUN_MAX, so it steers rather than owns. */
+export const CURRENT_PUSH = 1.4;
+/** Frames a crumble tile holds a body up before it gives way. */
+export const CRUMBLE_FRAMES = 24;
+/**
+ * Wind is a room property, not a tile: 02 §2 gives the Apex "a constant horizontal
+ * force per room, which can flip mid-room". This is the unit a room's `wind` is
+ * counted in, so `wind: 2` is two of these.
+ */
+export const WIND_ACCEL = 0.09;
+
+/** Distance walked between footsteps, from 05-aesthetic §4 (foot phase = distance / 28). */
+export const STRIDE_LENGTH = 28;
+
+/** How far ahead of a door the `door.open` event fires, so a grind has a wind-up. */
+export const DOOR_LEAD = 24;
+
+// --- A1 Zip (01-core-mechanic §3, 06-revision-1 §B) -------------------------
+
+export const ZIP_SPEED = 12;
+/** Close enough to the anchor to count as arrived. */
+export const ZIP_ARRIVE_DIST = 4;
+/** A zip can never outlive the Pin's own range; this is the safety stop. */
+export const ZIP_MAX_FRAMES = 60;
+/**
+ * The jump-cancel caps. Deliberately well above RUN_MAX: `accelerate()` only caps
+ * the direction being pushed, so a cancel is allowed to leave the player faster
+ * than they can run and let friction eat it. That carry is the skill ceiling.
+ */
+export const ZIP_CANCEL_VX_CAP = 6.0;
+export const ZIP_CANCEL_VY_CAP = 8.0;
+export const ZIP_PASS_DAMAGE = 1;
+/** Zip into a Pinned enemy: Skewer. */
+export const SKEWER_DAMAGE = 3;
+export const SKEWER_STUN = 20;
+
+// --- A3 Reel ----------------------------------------------------------------
+
+export const REEL_SPEED = 6;
+/** Ceiling on one drag. Past it the thing stays where it is; recall already went home. */
+export const REEL_FRAMES = 90;
+
+// --- The Ascent (02-world-structure §6 beat 2) ------------------------------
+
+/**
+ * The finale's clock, in two numbers rather than one, because a Spine tier's exit
+ * is sometimes at the top of the room (S1) and sometimes on the floor (S2, S3). A
+ * void that simply fills the room over N frames swallows a floor-level door almost
+ * at once, so instead:
+ *
+ *  - for `ASCENT_TIER_FRAMES` the void sits level with the floor — visible, moving,
+ *    and not yet in the way;
+ *  - after that it climbs at `ASCENT_RISE` px/frame and eats the tier.
+ *
+ * 02 §6 asks for "a competent pace +30%". The bot crosses the slowest tier in about
+ * 300 frames and 03's own note puts a first-timer at ~1.7x that, so ten seconds of
+ * level and then half a pixel a frame is that pace with the margin on top.
+ */
+export const ASCENT_TIER_FRAMES = 600;
+export const ASCENT_RISE = 0.5;
+
+// --- A4 Ricochet ------------------------------------------------------------
+
+/** One mirror-bounce, and only one. Range keeps counting through it. */
+export const RICOCHET_BOUNCES = 1;

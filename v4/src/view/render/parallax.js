@@ -1,0 +1,282 @@
+/**
+ * The value-banded background: a void gradient, three seeded skylines and the fog
+ * planes between them (05-aesthetic §3.1).
+ *
+ * Each skyline is generated once per region and baked into an offscreen canvas
+ * two screens wide, then scrolled with `drawImage` and wrapped modulo its width.
+ * Per frame this whole layer is 2 gradients and 6 blits, which is why the most
+ * compositionally important part of the scene is also the cheapest.
+ *
+ * The layers get *lighter* with distance. That inversion of the usual "far things
+ * fade to the sky colour" is the entire depth cue here, since nothing is textured.
+ */
+
+import { VIEW_W, VIEW_H } from '../../core/constants.js';
+import { SurfaceCache, createSurface } from './surface.js';
+import { cosmeticRng, seedFrom } from './rng.js';
+import { rgba, shade } from './palette.js';
+
+/** @typedef {import('./palette.js').Region} Region */
+/** @typedef {import('./surface.js').Surface} Surface */
+
+const LAYER_W = VIEW_W * 2;
+/** Taller than the view so a downward camera can slide the layer without a gap. */
+const LAYER_H = VIEW_H + 48;
+/**
+ * How far a layer may slide vertically before the baked canvas runs out. It is
+ * the slack in LAYER_H, and it is a hard limit rather than a taste decision.
+ */
+const DRIFT_DOWN = 20;
+const DRIFT_UP = 44;
+/** The nearest layer's parallax, which is the one that reaches the limit first. */
+const MAX_PARALLAX = 0.70;
+/** The rate a *short* room drifts at, which is what every room used to use. */
+const BASE_DRIFT = 0.30;
+
+/**
+ * @typedef {object} LayerSpec
+ * @property {number} parallax   fraction of camera motion the layer takes
+ * @property {number} baseline   silhouette footing, as a fraction of LAYER_H
+ * @property {number} minH
+ * @property {number} maxH
+ * @property {number} spacing    average building width
+ * @property {number} windows    chance a building shows lit windows
+ */
+
+/** @type {LayerSpec[]} */
+const LAYERS = [
+  { parallax: 0.20, baseline: 0.52, minH: 30, maxH: 140, spacing: 44, windows: 0.34 },
+  { parallax: 0.45, baseline: 0.68, minH: 40, maxH: 150, spacing: 62, windows: 0.24 },
+  { parallax: 0.70, baseline: 0.84, minH: 34, maxH: 120, spacing: 88, windows: 0.12 },
+];
+
+const cache = new SurfaceCache();
+
+/**
+ * The background is composited at *world* resolution and blitted up once.
+ * Nothing back here has an edge finer than a building silhouette, so the six
+ * full-screen passes it takes to build cost a quarter as much this way, and the
+ * one upscale that replaces them is invisible. Foreground art still draws at
+ * device resolution, which is where crisp 1.5px strokes actually matter.
+ */
+/** @type {Surface|null} */
+let composite = null;
+
+/**
+ * One cathedral-city silhouette. Shapes come from a tiny vocabulary so the skyline
+ * reads as architecture rather than as noise.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {() => number} rnd
+ * @param {number} x
+ * @param {number} w
+ * @param {number} baseY
+ * @param {number} h
+ */
+function building(ctx, rnd, x, w, baseY, h) {
+  const kind = rnd();
+  const top = baseY - h;
+  ctx.beginPath();
+  if (kind < 0.34) {
+    // Block with a stepped parapet.
+    const step = Math.max(2, w * 0.16);
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, top + step);
+    ctx.lineTo(x + step, top + step);
+    ctx.lineTo(x + step, top);
+    ctx.lineTo(x + w - step, top);
+    ctx.lineTo(x + w - step, top + step);
+    ctx.lineTo(x + w, top + step);
+    ctx.lineTo(x + w, baseY);
+  } else if (kind < 0.62) {
+    // Arch: a nave with a round roof.
+    const r = w / 2;
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, top + r);
+    ctx.arc(x + r, top + r, r, Math.PI, 0);
+    ctx.lineTo(x + w, baseY);
+  } else if (kind < 0.85) {
+    // Spire: a tower narrowing to a needle.
+    const shoulder = top + h * 0.42;
+    const inset = w * 0.28;
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, shoulder);
+    ctx.lineTo(x + inset, shoulder);
+    ctx.lineTo(x + w / 2, top);
+    ctx.lineTo(x + w - inset, shoulder);
+    ctx.lineTo(x + w, shoulder);
+    ctx.lineTo(x + w, baseY);
+  } else {
+    // Buttress: a mass with a diagonal brace flying off one side.
+    const dir = rnd() < 0.5 ? -1 : 1;
+    const armX = dir < 0 ? x - w * 0.5 : x + w * 1.5;
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, top);
+    ctx.lineTo(x + w, top);
+    ctx.lineTo(x + w, baseY - h * 0.45);
+    ctx.lineTo(armX, baseY);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * @param {Region} region
+ * @param {number} index
+ * @returns {Surface}
+ */
+function skyline(region, index) {
+  return cache.get(`sky|${region.id}|${index}`, () => {
+    const spec = LAYERS[index] ?? /** @type {LayerSpec} */ (LAYERS[0]);
+    const s = createSurface(LAYER_W, LAYER_H);
+    const rnd = cosmeticRng(seedFrom(`${region.id}:skyline:${index}`));
+    const baseY = LAYER_H * spec.baseline;
+    // Value, not colour, carries depth: each layer steps darker as it comes
+    // nearer, ending just above the terrain band.
+    const body = index === 0 ? shade(region.far, 0.12) : index === 1 ? region.mid : shade(region.mid, -0.52);
+
+    s.ctx.fillStyle = body;
+    s.ctx.fillRect(0, baseY - 1, LAYER_W, LAYER_H - baseY + 1);
+
+    /** @type {{x:number, w:number, h:number}[]} */
+    const placed = [];
+    let x = -spec.spacing;
+    while (x < LAYER_W + spec.spacing) {
+      const w = spec.spacing * (0.55 + rnd() * 0.9);
+      const h = spec.minH + rnd() * (spec.maxH - spec.minH);
+      placed.push({ x, w, h });
+      building(s.ctx, rnd, x, w, baseY + 2, h);
+      x += w * (0.72 + rnd() * 0.5);
+    }
+
+    // A few lit windows per layer: the only warm points in the far distance, and
+    // the thing that says "city" rather than "mountains".
+    s.ctx.fillStyle = rgba(region.accent, index === 0 ? 0.22 : 0.14);
+    for (const b of placed) {
+      if (rnd() > spec.windows) continue;
+      const rows = 1 + Math.floor(rnd() * 3);
+      for (let r = 0; r < rows; r++) {
+        const wx = b.x + b.w * (0.25 + rnd() * 0.5);
+        const wy = baseY - b.h * (0.2 + rnd() * 0.6);
+        s.ctx.fillRect(Math.round(wx), Math.round(wy), 1.5, 2.5);
+      }
+    }
+
+    // Each layer sits in its own bank of fog, densest at its footing. Baking the
+    // fog into the layer (rather than washing the whole screen) is what keeps the
+    // *near* fog from also lifting the far silhouettes.
+    const g = s.ctx.createLinearGradient(0, baseY - spec.maxH, 0, LAYER_H);
+    g.addColorStop(0, rgba(region.fog, 0));
+    g.addColorStop(0.65, rgba(region.fog, 0.16));
+    g.addColorStop(1, rgba(region.fog, 0.34));
+    s.ctx.fillStyle = g;
+    s.ctx.fillRect(0, baseY - spec.maxH, LAYER_W, LAYER_H);
+    return s;
+  });
+}
+
+/**
+ * The void band and the near fog plane, baked per region.
+ *
+ * Both are fixed in view space, so evaluating their gradients every frame is two
+ * full-surface gradient fills bought for nothing — a gradient fill costs several
+ * times what the equivalent blit does.
+ * @param {Region} region
+ * @returns {Surface}
+ */
+function voidBand(region) {
+  return cache.get(`void|${region.id}`, () => {
+    const s = createSurface(VIEW_W, VIEW_H, true);
+    const g = s.ctx.createLinearGradient(0, 0, 0, VIEW_H);
+    // Foundry is the one region lit from below — dead furnaces under the floor —
+    // so its gradient runs the other way. Everywhere else the sky darkens downward
+    // and the fog banks put the light back at the horizon.
+    g.addColorStop(0, region.litFromBelow ? region.voidTop : shade(region.voidTop, 0.06));
+    g.addColorStop(0.6, region.voidTop);
+    g.addColorStop(1, region.voidBottom);
+    s.ctx.fillStyle = g;
+    s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    return s;
+  });
+}
+
+/**
+ * One bank of haze between the background and the foreground, plus the flat dim
+ * the whole distance takes.
+ *
+ * The dim is deliberately hole-less and deliberately not the darkness overlay:
+ * no light in the game reaches the skyline, so nothing out here should ever
+ * brighten when the Pin flies past. It is the one place a *uniform* darkening is
+ * the honest answer, and keeping it out of the overlay is what stops the overlay
+ * flattening the L26/L20/L15 bands into one another.
+ * @param {Region} region
+ * @returns {Surface}
+ */
+function fogPlane(region) {
+  return cache.get(`fog|${region.id}`, () => {
+    const s = createSurface(VIEW_W, VIEW_H);
+    const g = s.ctx.createLinearGradient(0, VIEW_H * 0.30, 0, VIEW_H);
+    g.addColorStop(0, rgba(region.fog, 0.02));
+    g.addColorStop(1, rgba(region.fog, 0.20));
+    s.ctx.fillStyle = g;
+    s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    s.ctx.fillStyle = 'rgba(4,10,16,0.30)';
+    s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    return s;
+  });
+}
+
+/**
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Region} region
+ * @param {number} camX
+ * @param {number} camY
+ * @param {number} roomH  the room's full height in world units
+ * @param {HTMLCanvasElement|null} [grade]  the constant grade, which the distance
+ *   needs too: the darkness blit that used to carry it now stops at the world
+ * @param {number} [gradeAlpha]
+ */
+export function drawParallax(ctx, region, camX, camY, roomH, grade = null, gradeAlpha = 1) {
+  if (!composite) composite = createSurface(VIEW_W, VIEW_H, true);
+  const b = composite.ctx;
+  b.setTransform(1, 0, 0, 1, 0, 0);
+  b.globalCompositeOperation = 'copy';
+  b.drawImage(voidBand(region).canvas, 0, 0);
+  b.globalCompositeOperation = 'source-over';
+
+  // The vertical drift is spread over however much camera travel the room has,
+  // rather than run at a fixed rate and then clamped. At the fixed rate the
+  // nearest layer hit the clamp after 733px of travel, so in the Plunge — 2400px
+  // of falling, and the best-composed moment in the game — the background was a
+  // still image for the last two thirds of the drop.
+  const travel = Math.max(1, roomH - VIEW_H);
+  const drift = Math.min(BASE_DRIFT, DRIFT_UP / (travel * MAX_PARALLAX));
+
+  for (let i = 0; i < LAYERS.length; i++) {
+    const spec = LAYERS[i] ?? /** @type {LayerSpec} */ (LAYERS[0]);
+    const s = skyline(region, i);
+    const off = ((-camX * spec.parallax) % LAYER_W + LAYER_W) % LAYER_W;
+    const y = Math.round(Math.max(-DRIFT_UP, Math.min(DRIFT_DOWN, -camY * spec.parallax * drift)));
+    // The wrap copy is usually entirely off-screen; blitting it anyway costs a
+    // whole extra layer's worth of fill rate for nothing.
+    const left = Math.round(off - LAYER_W);
+    if (left + LAYER_W > 0) b.drawImage(s.canvas, left, y);
+    if (off < VIEW_W) b.drawImage(s.canvas, Math.round(off), y);
+  }
+
+  // One fog plane in front of everything distant, baked: evaluating its gradient
+  // per frame is a full-surface gradient fill bought for nothing.
+  b.drawImage(fogPlane(region).canvas, 0, 0);
+  if (grade) {
+    b.globalAlpha = gradeAlpha;
+    b.drawImage(grade, 0, 0, VIEW_W, VIEW_H);
+    b.globalAlpha = 1;
+  }
+
+  // Blitted without smoothing. This is a 2-3x upscale of a full screen and the
+  // filtered path costs ~4ms of the frame; the content is flat silhouettes and
+  // wide gradients, which nearest-neighbour reproduces indistinguishably (it
+  // actually keeps the silhouette edges harder).
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(composite.canvas, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+}
