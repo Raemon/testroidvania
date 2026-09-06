@@ -7,8 +7,10 @@
 // wall is the answer — bank around the corner, ride the Pin up, kick off onto the
 // plate, and the door is at the top of it.
 //
-// It is the same shape as the Spine's own S4 gate, mirrored, one region later and
-// with the floor taken out from under it. Nothing lives in here: a room that
+// The wood is three columns wide for the same reason S4's is: one column left a
+// twelve-pixel window of floor to make the bank from, which is a coin flip and not
+// a gate. It is the same shape as the Spine's own S4 gate, mirrored, one region
+// later and with the floor taken out from under it. Nothing lives in here: a room that
 // teaches a verb should only ever ask for the verb, which is why the Roots' own
 // gate room is empty too.
 
@@ -20,9 +22,9 @@ export const tiles = `
 #....cc.......................c#
 #...........#.................c#
 D...........#..................#
-D...........W#.................#
-#MMMMMMM....W#.................#
-#MMMMMMM....W#.................#
+D..........WWW.................#
+#MMMMMMM...WWW.................#
+#MMMMMMM...WWW.................#
 #MMMMMMM...#####################
 #MMMMMMM.......................#
 #MMMMMMM.......................#

@@ -42,7 +42,7 @@ D..............................#
 
 /** @type {import('../../core/types.js').Door[]} */
 export const doors = [
-  { id: 'd_e', at: [31, 12], to: 's4_gallery:d_apex', requires: null },
+  { id: 'd_e', at: [31, 12], to: 's5_crown:d_apex', requires: null },
   { id: 'd_w', at: [0, 4], to: 'x3_buttress:d_e', requires: null },
 ];
 
