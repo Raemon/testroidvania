@@ -156,7 +156,7 @@ export class Particles {
     for (const p of this.pool) {
       if (p.life <= 0) continue;
       const k = p.life / p.maxLife;
-      if (p.glow > 0 && glows < 120) {
+      if (p.glow > 0 && glows < 48) {
         glows++;
         drawGlow(ctx, p.x, p.y, p.size * 4 + 2, p.color, p.glow * Math.min(1, k * 1.4) * 0.45);
       }
@@ -172,9 +172,16 @@ export class Particles {
       } else if (p.shape === 1) {
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
       } else {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.2, p.size * (0.4 + k * 0.6)), 0, Math.PI * 2);
-        ctx.fill();
+        // A 1-2px mote is a rectangle either way once it is rasterised, and
+        // `fillRect` skips the path machinery `arc` has to run per particle.
+        const r = Math.max(0.3, p.size * (0.4 + k * 0.6));
+        if (r <= 1.4) {
+          ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
   }

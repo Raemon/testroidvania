@@ -18,13 +18,15 @@
 /**
  * @param {number} w
  * @param {number} h
+ * @param {boolean} [opaque] the surface covers every pixel it owns, so it can be
+ *   allocated without an alpha channel and blitted as a straight copy
  * @returns {Surface}
  */
-export function createSurface(w, h) {
+export function createSurface(w, h, opaque = false) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(w));
   canvas.height = Math.max(1, Math.round(h));
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', opaque ? { alpha: false } : undefined);
   if (!ctx) throw new Error('surface: 2d context unavailable');
   return { canvas, ctx, w: canvas.width, h: canvas.height };
 }

@@ -10,7 +10,7 @@
  * legible through the darkness overlay, not decoration that can be dropped.
  */
 
-import { TILE, VIEW_W, VIEW_H } from '../../core/constants.js';
+import { TILE } from '../../core/constants.js';
 import { TILES } from '../../content/tiles.js';
 import { createSurface, SurfaceCache } from './surface.js';
 import { cosmeticRng, seedFrom } from './rng.js';
@@ -20,6 +20,7 @@ import { setMemoryMask } from './darkness.js';
 /** @typedef {import('../../core/types.js').Room} Room */
 /** @typedef {import('./palette.js').Region} Region */
 /** @typedef {import('./surface.js').Surface} Surface */
+/** @typedef {import('./view.js').View} View */
 
 /** 45-degree cut on every exposed convex corner. The signature of the shape language. */
 const CHAMFER = 4;
@@ -241,26 +242,24 @@ function drawPlatform(ctx, region, x, y) {
  * with the room instead of with the window.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Surface} s
- * @param {number} k device pixels per world unit in the baked surface
- * @param {{scale:number, offsetX:number, offsetY:number, camX:number, camY:number}} v
+ * @param {View} v
  * @param {number} alpha
  */
-function blitRoom(ctx, s, k, v, alpha) {
-  const sx = Math.max(0, Math.floor(v.camX * k));
-  const sy = Math.max(0, Math.floor(v.camY * k));
-  const sw = Math.min(s.w - sx, Math.ceil(VIEW_W * k) + 2);
-  const sh = Math.min(s.h - sy, Math.ceil(VIEW_H * k) + 2);
+function blitRoom(ctx, s, v, alpha) {
+  // Source and destination are the same size and both land on integer device
+  // pixels, so this is a straight copy. A blit whose scale is 1.067 because the
+  // bake resolution was quantised takes a resampling path that costs six times
+  // as much, and that one factor was most of the frame.
+  const sx = Math.max(0, -v.originX);
+  const sy = Math.max(0, -v.originY);
+  const sw = Math.min(s.w - sx, v.width - Math.max(0, v.originX));
+  const sh = Math.min(s.h - sy, v.height - Math.max(0, v.originY));
   if (sw <= 0 || sh <= 0) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = alpha;
-  ctx.drawImage(
-    s.canvas, sx, sy, sw, sh,
-    Math.round(v.offsetX + (sx / k - v.camX) * v.scale), Math.round(v.offsetY + (sy / k - v.camY) * v.scale),
-    Math.round(sw * v.scale / k), Math.round(sh * v.scale / k),
-  );
+  ctx.drawImage(s.canvas, sx, sy, sw, sh, v.originX + sx, v.originY + sy, sw, sh);
   ctx.globalAlpha = 1;
-  ctx.setTransform(v.scale, 0, 0, v.scale, v.offsetX, v.offsetY);
-  ctx.translate(-v.camX, -v.camY);
+  ctx.setTransform(v.scale, 0, 0, v.scale, v.originX, v.originY);
 }
 
 /**
@@ -270,9 +269,8 @@ function blitRoom(ctx, s, k, v, alpha) {
  * @returns {Surface|null} null for rooms too large to bake
  */
 export function roomSurface(room, region, scale) {
-  const q = Math.max(1, Math.min(4, Math.round(scale * 2) / 2));
-  const s = room.w * TILE * q > MAX_CACHED_PX || room.h * TILE * q > MAX_CACHED_PX ? 1 : q;
-  return cache.get(`room|${room.id}|${region.id}|${s}`, () => bakeRoom(room, region, s));
+  const q = room.w * TILE * scale > MAX_CACHED_PX || room.h * TILE * scale > MAX_CACHED_PX ? 1 : scale;
+  return cache.get(`room|${room.id}|${region.id}|${q.toFixed(3)}`, () => bakeRoom(room, region, q));
 }
 
 /**
@@ -282,13 +280,12 @@ export function roomSurface(room, region, scale) {
  * @param {CanvasRenderingContext2D} ctx
  * @param {Room} room
  * @param {Region} region
- * @param {{scale:number, offsetX:number, offsetY:number, camX:number, camY:number}} v
+ * @param {View} v
  * @param {number} [alpha]
  */
 export function drawTerrain(ctx, room, region, v, alpha = 1) {
   const s = roomSurface(room, region, v.scale);
-  if (!s) return;
-  blitRoom(ctx, s, s.w / (room.w * TILE), v, alpha);
+  if (s) blitRoom(ctx, s, v, alpha);
 }
 
 /** @type {{key:string, surface:Surface}|null} */
@@ -315,7 +312,7 @@ let maskSig = 0;
  * @param {Room} room
  * @param {number[]} rows one bitmask per tile row
  * @param {number} alpha
- * @param {{camX:number, camY:number}} v
+ * @param {View} v
  */
 export function updateMemoryMask(room, rows, alpha, v) {
   if (!rows || rows.length === 0) {

@@ -188,7 +188,7 @@ function drawVoid(ctx, region) {
  * @param {number} camY
  */
 export function drawParallax(ctx, region, camX, camY) {
-  if (!composite) composite = createSurface(VIEW_W, VIEW_H);
+  if (!composite) composite = createSurface(VIEW_W, VIEW_H, true);
   const b = composite.ctx;
   b.setTransform(1, 0, 0, 1, 0, 0);
   b.globalCompositeOperation = 'source-over';
@@ -212,5 +212,11 @@ export function drawParallax(ctx, region, camX, camY) {
   b.fillStyle = g;
   b.fillRect(0, 0, VIEW_W, VIEW_H);
 
+  // Blitted without smoothing. This is a 2-3x upscale of a full screen and the
+  // filtered path costs ~4ms of the frame; the content is flat silhouettes and
+  // wide gradients, which nearest-neighbour reproduces indistinguishably (it
+  // actually keeps the silhouette edges harder).
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(composite.canvas, 0, 0);
+  ctx.imageSmoothingEnabled = true;
 }

@@ -84,10 +84,14 @@ export function render(ctx, state, cam, target) {
   const camX = Math.round(cam.x);
   const camY = Math.round(cam.y);
   const view = { x: camX, y: camY, w: VIEW_W, h: VIEW_H };
+  /** @type {import('./view.js').View} */
+  const v = {
+    scale,
+    originX: Math.round(offsetX - camX * scale),
+    originY: Math.round(offsetY - camY * scale),
+    camX, camY, width: target.width, height: target.height,
+  };
 
-  const P = /** @type {any} */ (globalThis).__PROF__;
-  const mark = P ? (/** @type {string} */ n) => { P[n] = (P[n] ?? 0) + performance.now() - P.__t; P.__t = performance.now(); } : (/** @type {string} */ _n) => {};
-  if (P) P.__t = performance.now();
   updatePlayerRig(rig, state, dt, particles);
   updateEntities(state, dt);
   particles.breathe(region, view, dt);
@@ -113,25 +117,19 @@ export function render(ctx, state, cam, target) {
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawParallax(ctx, region, camX, camY);
-  mark('parallax');
 
-  ctx.translate(-camX, -camY);
-  const v = { scale, offsetX, offsetY, camX, camY };
+  ctx.setTransform(scale, 0, 0, scale, v.originX, v.originY);
   drawTerrain(ctx, state.roomData, region, v);
-  mark('terrain');
   drawCrumble(ctx, state, region, view);
   drawFluids(ctx, state.roomData, region, view, t);
   drawHazards(ctx, state.roomData, view, t);
   drawLanterns(ctx, state, region, t);
   drawPickups(ctx, state, region, t);
-  mark('props');
   particles.draw(ctx);
-  mark('particles');
   drawEntities(ctx, state, region, t, hand);
   drawPin(ctx, state, region, t);
   drawPlayer(ctx, state, rig, region, t);
   drawHazardGlow(ctx, state.roomData, view);
-  mark('chars');
 
   // The warm cast: what the light *adds* to the scene, as opposed to what the
   // darkness overlay subtracts everywhere else. Additive and low, so it colours
@@ -144,15 +142,12 @@ export function render(ctx, state, cam, target) {
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   updateMemoryMask(state.roomData, state.discovered?.[state.room] ?? [], DISCOVERED_ALPHA, v);
   drawDarkness(ctx, region, lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY })), region.darkness);
-  mark('darkness');
 
 
   drawGrade(ctx, state, region, state.tick, target);
-  mark('grade');
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawHudOverlay(ctx, state, state.tick, dt);
   drawRoomLabel(ctx, state.room);
-  mark('hud');
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;

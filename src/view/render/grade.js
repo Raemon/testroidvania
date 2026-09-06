@@ -10,71 +10,65 @@
  * Deliberately no scanlines and no CRT curve — they fight the cut-paper concept.
  */
 
-import { VIEW_W, VIEW_H } from '../../core/constants.js';
 import { createSurface } from './surface.js';
 import { HAZARD, rgba, shade } from './palette.js';
-import { cosmeticRng, hashNoise, seedFrom } from './rng.js';
+import { cosmeticRng, seedFrom } from './rng.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./surface.js').Surface} Surface */
 
-/** @type {{key:string, surface:Surface}|null} */
-let vignetteSurface = null;
-/** @type {{key:string, surface:Surface}|null} */
-let grainSurface = null;
+/**
+ * Region tint, vignette and film grain are one image, pre-baked in a few
+ * variants that the frame counter cycles through.
+ *
+ * Each of them alone is a full-screen composite, and a full-screen composite is
+ * the most expensive thing this renderer does. They never change within a region
+ * except for the grain's offset, which is exactly what having more than one
+ * variant buys back — so three images replace three passes with one.
+ */
+const VARIANTS = 3;
+
+/** @type {{key:string, surfaces:Surface[]}|null} */
+let gradeSurfaces = null;
 
 /**
- * Vignette and region tint are one cached image rather than two full-screen
- * passes: the tint never changes within a region and the vignette never changes
- * at all, so compositing them together once is free and blitting them together
- * halves the cost of the grade.
- * Built at the device's own size so it blits 1:1: a scaled full-screen blit is
- * the most expensive single draw in the frame and this one never has to be.
  * @param {import('./palette.js').Region} region
  * @param {number} w
  * @param {number} h
- * @returns {Surface}
+ * @returns {Surface[]}
  */
-function vignette(region, w, h) {
+function gradeLayers(region, w, h) {
   const key = `${region.id}|${w}x${h}`;
-  if (vignetteSurface && vignetteSurface.key === key) return vignetteSurface.surface;
-  const s = createSurface(w, h);
-  s.ctx.fillStyle = rgba(shade(region.fog, 0.25), 0.10);
-  s.ctx.fillRect(0, 0, w, h);
-  const cx = w / 2;
-  const cy = h / 2;
-  const g = s.ctx.createRadialGradient(cx, cy, h * 0.28, cx, cy, w * 0.62);
-  g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(0.7, 'rgba(0,0,0,0.10)');
-  g.addColorStop(1, 'rgba(0,0,0,0.42)');
-  s.ctx.fillStyle = g;
-  s.ctx.fillRect(0, 0, w, h);
-  vignetteSurface = { key, surface: s };
-  return s;
-}
+  if (gradeSurfaces && gradeSurfaces.key === key) return gradeSurfaces.surfaces;
+  const rnd = cosmeticRng(seedFrom('grade'));
+  /** @type {Surface[]} */
+  const surfaces = [];
+  for (let n = 0; n < VARIANTS; n++) {
+    const s = createSurface(w, h);
+    // Cream grain first, so the vignette darkens it at the corners the way a
+    // single exposure would.
+    const img = s.ctx.createImageData(w, h);
+    for (let i = 0; i < img.data.length; i += 4) {
+      img.data[i] = 243;
+      img.data[i + 1] = 233;
+      img.data[i + 2] = 210;
+      img.data[i + 3] = Math.floor(rnd() * 11);
+    }
+    s.ctx.putImageData(img, 0, 0);
 
-/**
- * Cream noise, one tile bigger than the screen in both axes, so a whole frame of
- * grain is a single 1:1 blit at an offset instead of a grid of scaled ones.
- * @param {number} w
- * @param {number} h
- * @returns {Surface}
- */
-function grain(w, h) {
-  const key = `${w}x${h}`;
-  if (grainSurface && grainSurface.key === key) return grainSurface.surface;
-  const s = createSurface(w + 64, h + 64);
-  const rnd = cosmeticRng(seedFrom('grain'));
-  const img = s.ctx.createImageData(s.w, s.h);
-  for (let i = 0; i < img.data.length; i += 4) {
-    img.data[i] = 243;
-    img.data[i + 1] = 233;
-    img.data[i + 2] = 210;
-    img.data[i + 3] = Math.floor(rnd() * 9);
+    s.ctx.fillStyle = rgba(shade(region.fog, 0.25), 0.10);
+    s.ctx.fillRect(0, 0, w, h);
+
+    const g = s.ctx.createRadialGradient(w / 2, h / 2, h * 0.28, w / 2, h / 2, w * 0.62);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.7, 'rgba(0,0,0,0.10)');
+    g.addColorStop(1, 'rgba(0,0,0,0.42)');
+    s.ctx.fillStyle = g;
+    s.ctx.fillRect(0, 0, w, h);
+    surfaces.push(s);
   }
-  s.ctx.putImageData(img, 0, 0);
-  grainSurface = { key, surface: s };
-  return s;
+  gradeSurfaces = { key, surfaces };
+  return surfaces;
 }
 
 /**
@@ -91,8 +85,10 @@ export function drawGrade(ctx, state, region, frame, target) {
   const h = target.height;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+  const layers = gradeLayers(region, w, h);
+  const layer = layers[Math.abs(frame) % layers.length] ?? layers[0];
   ctx.globalAlpha = lowHealth ? 0.85 + 0.15 * Math.sin(frame * 0.126) : 0.72;
-  ctx.drawImage(vignette(region, w, h).canvas, 0, 0);
+  if (layer) ctx.drawImage(layer.canvas, 0, 0);
   ctx.globalAlpha = 1;
 
   if (lowHealth) {
@@ -115,12 +111,4 @@ export function drawGrade(ctx, state, region, frame, target) {
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  // Grain offset is a hash of the frame number, so a screenshot at tick N is
-  // byte-identical on every run instead of merely "close enough".
-  const g = grain(w, h);
-  const ox = -Math.floor(hashNoise(frame) * 64);
-  const oy = -Math.floor(hashNoise(frame * 7 + 1) * 64);
-  ctx.globalAlpha = 0.32;
-  ctx.drawImage(g.canvas, ox, oy);
-  ctx.globalAlpha = 1;
 }

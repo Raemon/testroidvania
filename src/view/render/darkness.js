@@ -126,7 +126,12 @@ export function drawDarkness(ctx, region, lights, alpha) {
   }
   o.globalCompositeOperation = 'source-over';
 
+  // Same reasoning as the parallax composite: a filtered upscale of a full
+  // screen is the single most expensive draw available, and this surface is
+  // nothing but wide soft gradients.
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(s.canvas, 0, 0, VIEW_W, VIEW_H);
+  ctx.imageSmoothingEnabled = true;
 }
 
 /**
