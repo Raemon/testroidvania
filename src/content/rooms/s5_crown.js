@@ -22,9 +22,9 @@ export const tiles = `
 #..............................#
 D..............................#
 D..............................#
-###............................#
+####...........................#
 #..............................#
-#====..........................#
+#...====.......................#
 D..............................D
 D...............L..............D
 ################################`;
@@ -50,7 +50,7 @@ export const pickups = [];
 /** @type {import('../../core/types.js').AbilityId[]} */
 export const needs = [];
 
-export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[16, 10], [4, 10], [2, 7], [1, 5], [0, 5]]) };
+export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[16, 10], [6, 10], [6, 7], [2, 5], [0, 5]]) };
 
 /**
  * The Ascent ends here, and the Crown opens east onto the hull of the Vessel.
