@@ -100,8 +100,10 @@ export const SPINE = {
             time: cx.time,
             freq: midiToFreq(note + 12 * voice.octave),
             // Each new voice comes in under the ones already there, so growing
-            // never makes the hub louder — only wider.
-            gain: 0.26 * (1 - i * 0.07) * (0.85 + noteRng(0x5b1e, cx.loop, voice.step)() * 0.3),
+            // never makes the hub louder — only wider. Five strikes in four bars
+            // is a sixth of the Cistern arp's density, so each one has to be
+            // struck harder than the Cistern's to sit over the same drone.
+            gain: 0.34 * (1 - i * 0.06) * (0.85 + noteRng(0x5b1e, cx.loop, voice.step)() * 0.3),
             bus: cx.bus,
             reverb: 0.65,
             delay: 0.35,
