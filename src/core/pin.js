@@ -24,6 +24,10 @@ import { tileAt } from '../content/tiles.js';
 import { overlaps, pointToSegment } from './geometry.js';
 import { pinHitbox } from './pin-geometry.js';
 import { damageEntity, entityBox } from './entities/index.js';
+import { propBox } from './props/index.js';
+import { bitesMaterial, freezesMechanisms } from './abilities/deepPin.js';
+import { canBounce, bounce } from './abilities/ricochet.js';
+import { startReel } from './abilities/reel.js';
 import { breakTile } from './rooms.js';
 import { emit } from './events.js';
 
@@ -43,6 +47,7 @@ export function createPin() {
     dirX: 1, dirY: 0, hostId: null,
     startup: 0, aimX: 1, aimY: 0, nx: 0, ny: 0,
     inert: false, clang: 0, away: 0, lock: 0, hostTimer: 0,
+    bounces: 0, propId: null,
   };
 }
 
@@ -61,8 +66,7 @@ export function surfaceVerdict(room, tx, ty, abilities) {
   if (def.crumble) return 'crumble';
   if (def.material === 'metal') return 'clang';
   if (!def.pinnable) return 'reject';
-  if (def.material === 'stone' && !abilities.includes('deepPin')) return 'reject';
-  return 'embed';
+  return bitesMaterial(def.material, abilities) ? 'embed' : 'reject';
 }
 
 /** @param {Room} room @param {number} x @param {number} y @returns {boolean} */
@@ -115,20 +119,32 @@ export function stagePin(s) {
   }
 
   // Recall: available from every other state, on every frame, with no condition.
+  let props = s.props;
   if (pressed && pin.state !== 'returning') {
     emit(s.events, 'pin.recall', pin.x, pin.y);
-    entities = releaseHost(entities, pin);
-    pin = { ...pin, state: 'returning', inert: false, away: 0, hostId: null, hostTimer: 0, surface: null, nx: 0, ny: 0 };
+    // A2: the recall is what shatters a slag block the Pin is buried in.
+    const slag = slagUnder(s, pin, roomData);
+    if (slag) {
+      const broken = breakTile(roomData, brokenTiles, slag[0], slag[1]);
+      roomData = broken.room;
+      brokenTiles = broken.brokenTiles;
+      emit(s.events, 'slag.shatter', (slag[0] + 0.5) * TILE, (slag[1] + 0.5) * TILE, { material: 'stone' });
+    }
+    // A3: whatever the Pin was in comes with it, for as far as it can get.
+    const dragged = startReel(s, pin);
+    entities = releaseHost(dragged.entities, pin);
+    props = dragged.props;
+    pin = { ...pin, state: 'returning', inert: false, away: 0, hostId: null, hostTimer: 0, propId: null, surface: null, nx: 0, ny: 0 };
   }
 
   if (pin.state === 'returning') {
     const result = stepReturning(s, pin, entities);
     if (result.pin.state === 'held') emit(s.events, 'pin.catch', result.pin.x, result.pin.y);
-    return { ...s, pin: result.pin, entities: result.entities, hitstop: Math.max(s.hitstop, result.hitstop), flash };
+    return { ...s, pin: result.pin, entities: result.entities, props, roomData, brokenTiles, hitstop: Math.max(s.hitstop, result.hitstop), flash };
   }
 
   if (pin.state === 'flying') {
-    const moved = stepFlying(s, pin, entities, roomData);
+  const moved = stepFlying(s, pin, entities, roomData);
     pin = moved.pin;
     entities = moved.entities;
     hitstop = moved.hitstop;
@@ -168,7 +184,7 @@ export function stagePin(s) {
   }
 
   pin = trackAutoRecall(s, pin, roomData);
-  return { ...s, pin, entities, roomData, brokenTiles, flash, hitstop: Math.max(s.hitstop, hitstop) };
+  return { ...s, pin, entities, props, roomData, brokenTiles, flash, hitstop: Math.max(s.hitstop, hitstop) };
 }
 
 /** @param {Pin} pin @param {{x:number,y:number}} from @returns {Pin} */
