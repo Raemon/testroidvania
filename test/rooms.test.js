@@ -78,18 +78,20 @@ test('the opening is one connected chain the bot walks end to end, unaided', () 
   assert.ok(result.frames < 1800, `the opening took ${result.frames} frames`);
 });
 
-test('the unaided run reaches the Spine gate that Deep Pin opens, and nothing else stops it', () => {
-  // The browser playthrough is bounded by render cost (see routes.js), so the
-  // whole first act is proved here instead: one bot, no abilities granted, from
-  // the first frame to the one door in the world it cannot open yet.
-  const result = runBot(newRun(1), { maxFrames: 6000 });
+test('the unaided run plays the Roots and the Foundry end to end, and kills the Stoker on the way', () => {
+  // The browser playthrough is bounded by render cost (see routes.js), so the run
+  // itself is proved here: one bot, no abilities granted, from the first frame to
+  // the Cistern's door — the opening, the Roots, Zip, the Spine's first Height
+  // gate, the whole Foundry, the Stoker, Deep Pin, and the slag gate out.
+  const result = runBot(newRun(1), { maxFrames: 9000, until: (s) => s.room === 's3_throat' });
   assertFinished(result, 'the unaided run');
-  assert.equal(result.state.room, 's2_awakening', 'the run must end at the slag gate, holding Zip and not Deep Pin');
-  assert.deepEqual(result.state.progress.abilities, ['zip'], 'exactly one ability is earnable without Deep Pin');
-  assert.equal(result.state.player.hp, result.state.player.maxHp, 'the first act must cost no health');
+  assert.equal(result.state.room, 's3_throat', 'the run must reach Spine tier three');
+  assert.deepEqual(result.state.progress.abilities, ['zip', 'deepPin'], 'both region abilities, in ladder order');
+  assert.deepEqual(result.state.progress.bossesKilled, ['stoker'], 'the Stoker must actually fall');
+  assert.ok(result.state.player.hp >= 4, `the run cost ${result.state.player.maxHp - result.state.player.hp} health outside the arena`);
   assert.equal(result.state.progress.deaths, 0, 'and no deaths');
   assert.ok(
-    result.state.progress.lanternsLit.length >= 4,
+    result.state.progress.lanternsLit.length >= 8,
     `only ${result.state.progress.lanternsLit.length} lanterns lit; the checkpoint density is every 2-3 rooms`,
   );
   assert.deepEqual(result.state.errors, []);
