@@ -136,3 +136,63 @@ export function drawPickups(ctx, state, region, t) {
     ctx.globalAlpha = 1;
   }
 }
+
+/**
+ * Rail tracks. Drawn faintly and behind everything, because the track is a
+ * promise about where a platform will be — the player needs to read the path
+ * before the platform arrives, not after.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {import('../../core/types.js').Room} room
+ * @param {Region} region
+ */
+export function drawRails(ctx, room, region) {
+  for (const rail of room.rails ?? []) {
+    const ax = rail.at[0] * TILE + TILE / 2;
+    const ay = rail.at[1] * TILE + TILE / 2;
+    const bx = rail.to[0] * TILE + TILE / 2;
+    const by = rail.to[1] * TILE + TILE / 2;
+    ctx.strokeStyle = rgba(region.edge, 0.22);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const [ex, ey] of [[ax, ay], [bx, by]]) {
+      ctx.beginPath();
+      ctx.arc(ex ?? 0, ey ?? 0, 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+/**
+ * Rail platforms: the one dynamic solid in the game. They carry the full material
+ * treatment (00-BIBLE §5) because whether the Pin can bite one is the whole point
+ * of them, and a frozen one shows its bullseye core.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Readonly<GameState>} state
+ * @param {Region} region
+ */
+export function drawProps(ctx, state, region) {
+  for (const prop of state.props ?? []) {
+    const look = materialLook(prop.material ?? 'metal');
+    ctx.fillStyle = shade(region.terrain, 0.10);
+    ctx.fillRect(prop.x, prop.y, prop.w, prop.h);
+    ctx.fillStyle = look.edge;
+    ctx.fillRect(prop.x, prop.y, prop.w, 1.6);
+    ctx.fillStyle = rgba(look.hatch, 0.75);
+    for (let x = 3; x < prop.w - 2; x += 6) ctx.fillRect(prop.x + x, prop.y + prop.h * 0.55, 1.4, 1.4);
+
+    // The bullseye is the mechanism core: the whole gating vocabulary in one ring.
+    const cx = prop.x + prop.w / 2;
+    const cy = prop.y + prop.h / 2;
+    ctx.strokeStyle = prop.frozen ? rgba(PLAYER.flame, 0.9) : rgba(look.edge, 0.5);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.min(4, prop.h * 0.35), 0, Math.PI * 2);
+    ctx.stroke();
+    if (prop.frozen) drawGlow(ctx, cx, cy, 16, PLAYER.flame, 0.35);
+  }
+}

@@ -358,7 +358,7 @@ function drawHead(ctx, x, y, r, facing, body) {
  * @param {number} t
  */
 function drawHandFlame(ctx, state, rig, a, region, t) {
-  const held = (state.pin?.state ?? 'held') === 'held';
+  const held = (state.pin?.state ?? 'held') === 'held' && (state.pinB?.state ?? 'held') === 'held';
   const wobble = 0.9 + hashNoise(Math.floor(t * 11)) * 0.2;
   const h = (held ? 5.4 : 3) * wobble * (1 + Math.abs(rig.pendV) * 0.04);
   const w = h * 0.5;

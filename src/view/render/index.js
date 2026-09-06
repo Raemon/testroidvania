@@ -22,12 +22,12 @@ import { regionFor, INK, PLAYER } from './palette.js';
 import { drawParallax } from './parallax.js';
 import { drawTerrain, drawFluids, updateMemoryMask } from './terrain.js';
 import { drawHazards, drawHazardGlow } from './hazards.js';
-import { drawLanterns, drawCrumble, drawPickups } from './props.js';
+import { drawLanterns, drawCrumble, drawPickups, drawRails, drawProps } from './props.js';
 import { drawDarkness } from './darkness.js';
 import { buildLights } from './lights.js';
 import { createPlayerRig, updatePlayerRig, drawPlayer, handLight } from './player.js';
 import { drawEntities, updateEntities } from './entities.js';
-import { drawPin } from './pin.js';
+import { drawPins } from './pin.js';
 import { Particles } from './particles.js';
 import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
@@ -120,14 +120,16 @@ export function render(ctx, state, cam, target) {
 
   ctx.setTransform(scale, 0, 0, scale, v.originX, v.originY);
   drawTerrain(ctx, state.roomData, region, v);
+  drawRails(ctx, state.roomData, region);
   drawCrumble(ctx, state, region, view);
   drawFluids(ctx, state.roomData, region, view, t);
   drawHazards(ctx, state.roomData, view, t);
   drawLanterns(ctx, state, region, t);
   drawPickups(ctx, state, region, t);
+  drawProps(ctx, state, region);
   particles.draw(ctx);
   drawEntities(ctx, state, region, t, hand);
-  drawPin(ctx, state, region, t);
+  drawPins(ctx, state, region, t);
   drawPlayer(ctx, state, rig, region, t);
   drawHazardGlow(ctx, state.roomData, view);
 

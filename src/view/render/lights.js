@@ -15,6 +15,7 @@ import {
 } from '../../core/constants.js';
 import { HAZARD, PLAYER } from './palette.js';
 import { flicker } from './darkness.js';
+import { loosePins } from './pin.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./darkness.js').Light} Light */
@@ -60,11 +61,10 @@ export function buildLights(state, region, hand, t) {
 
   const abilities = state.progress?.abilities?.length ?? 0;
   const aura = LIGHT_AURA_R + abilities * LIGHT_AURA_PER_ABILITY;
-  const pin = state.pin;
-  const held = (pin?.state ?? 'held') === 'held';
+  const loose = loosePins(state);
 
-  out.push({ x: hand.x, y: hand.y, r: (held ? LIGHT_PIN_R : aura) * f, color: PLAYER.flame, warmth: 1 });
-  if (pin && !held) out.push({ x: pin.x, y: pin.y, r: LIGHT_PIN_R * f, color: PLAYER.flame, warmth: 1 });
+  out.push({ x: hand.x, y: hand.y, r: (loose.length ? aura : LIGHT_PIN_R) * f, color: PLAYER.flame, warmth: 1 });
+  for (const pin of loose) out.push({ x: pin.x, y: pin.y, r: LIGHT_PIN_R * f, color: PLAYER.flame, warmth: 1 });
 
   for (const hz of state.roomData?.hazards ?? []) {
     out.push({ x: hz.x + hz.w / 2, y: hz.y + hz.h / 2, r: LIGHT_HAZARD_R, color: HAZARD, warmth: 0 });

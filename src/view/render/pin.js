@@ -26,14 +26,19 @@ export function pinIsLoose(state) {
 }
 
 /**
+ * Every Pin that is out in the world. With A5 Twin Pin there are two lights, and
+ * the invariant is that a Pin in the hand is always `pin` — so anything here is
+ * by definition somewhere the player is not.
  * @param {Readonly<GameState>} state
- * @returns {{x:number, y:number}|null} world position of the Pin's flame, or null
- *   when the Pin is in hand (the player rig owns the light then)
+ * @returns {Pin[]}
  */
-export function pinLight(state) {
-  const pin = state.pin;
-  if (!pin || pin.state === 'held') return null;
-  return { x: pin.x, y: pin.y };
+export function loosePins(state) {
+  /** @type {Pin[]} */
+  const out = [];
+  for (const pin of [state.pin, state.pinB]) {
+    if (pin && pin.state !== 'held') out.push(pin);
+  }
+  return out;
 }
 
 /**
@@ -42,9 +47,17 @@ export function pinLight(state) {
  * @param {import('./palette.js').Region} region
  * @param {number} t seconds
  */
-export function drawPin(ctx, state, region, t) {
-  const pin = state.pin;
-  if (!pin || pin.state === 'held') return;
+export function drawPins(ctx, state, region, t) {
+  for (const pin of loosePins(state)) drawOnePin(ctx, pin, region, t);
+}
+
+/**
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Pin} pin
+ * @param {import('./palette.js').Region} region
+ * @param {number} t seconds
+ */
+function drawOnePin(ctx, pin, region, t) {
 
   // Orientation: embedded pins stand along their surface normal, flying ones
   // along their travel. Both fall back to the aim so a partial state still draws.
@@ -87,7 +100,7 @@ export function drawPin(ctx, state, region, t) {
     ctx.stroke();
   }
 
-  const wob = 0.85 + hashNoise(Math.floor(t * 11) ^ 0x51) * 0.3;
+  const wob = 0.85 + hashNoise((Math.floor(t * 11) ^ 0x51) + Math.round(pin.x)) * 0.3;
   const h = 6 * wob;
   // Body first, then the additive halo over it — see render/player.js.
   teardrop(ctx, headX, headY, h, h * 0.5, PLAYER.flame);
