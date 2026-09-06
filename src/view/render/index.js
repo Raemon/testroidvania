@@ -44,6 +44,7 @@ import { drawPins } from './pin.js';
 import { Particles } from './particles.js';
 import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
+import { bloomAmount, drawPrompt, drawWorldMoments } from './moments.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./camera.js').Camera} Camera */
@@ -136,6 +137,7 @@ export function render(ctx, state, cam, target) {
   drawEntities(ctx, state, region, t, hand);
   drawPins(ctx, state, region, t);
   drawPlayer(ctx, state, rig, region, t);
+  drawWorldMoments(ctx, state, region, hand);
   drawHazardGlow(ctx, state.roomData, view);
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
@@ -147,8 +149,19 @@ export function render(ctx, state, cam, target) {
   const gradeAlpha = low ? 0.85 + 0.15 * Math.sin(state.tick * 0.126) : 0.72;
   // Only what the light could have reached. See the header: a wash that also
   // covers the sky costs the parallax its value separation and buys nothing.
+  // 05 §7.1: earning an ability opens the room up for a moment — "you see
+  // architecture you could not see before" — and then it closes back down. It is
+  // the one time the darkness is allowed to move, and it is the whole reason the
+  // beat lands as a reward rather than as an inventory update.
+  const bloom = bloomAmount();
+  if (bloom > 0) {
+    screenLights.push({
+      x: hand.x - camX, y: hand.y - camY,
+      r: 260 + 640 * bloom, color: PLAYER.flame, warmth: 1,
+    });
+  }
   ctx.globalCompositeOperation = 'source-atop';
-  drawDarkness(ctx, region, screenLights, region.darkness, grade ? grade.canvas : null, gradeAlpha, WARM_ALPHA);
+  drawDarkness(ctx, region, screenLights, region.darkness * (1 - bloom * 0.8), grade ? grade.canvas : null, gradeAlpha, WARM_ALPHA);
 
   // The distance, filled in behind everything above it. It carries the same grade
   // (so the vignette still closes the frame) and a flat, hole-less dim: the light
@@ -172,6 +185,7 @@ export function render(ctx, state, cam, target) {
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawHudOverlay(ctx, state, state.tick, dt);
   drawRoomLabel(ctx, state.room);
+  drawPrompt(ctx, state.tick);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;

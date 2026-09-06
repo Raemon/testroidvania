@@ -21,6 +21,7 @@ import { keyboardSource, botSource, replaySource, manualSource } from './input-s
 import { createHud, HUD_FIELDS } from './hud.js';
 import { createCamera, updateCamera } from './render/camera.js';
 import { render, viewTransform } from './render/index.js';
+import { observeMoments, clearMoments } from './render/moments.js';
 import { guardContext } from './debug/ctxGuard.js';
 import { createAudio } from './audio.js';
 
@@ -83,6 +84,9 @@ function onStep() {
     if (found.length) violations = violations.concat(found).slice(0, 32);
   }
   camera = updateCamera(camera, state);
+  // Observed from the step, not the draw: an event lives for one frame, and a
+  // free-running loop can take several steps between two draws.
+  observeMoments(prev, state);
   audio.observe(prev, state);
 }
 
@@ -142,6 +146,7 @@ const harness = {
   restore(s) {
     state = restore(s);
     camera = createCamera(state);
+    clearMoments();
     return state.tick;
   },
   room: () => state.room,

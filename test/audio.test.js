@@ -31,6 +31,9 @@ const EXPECTED_SFX = [
 
 const EXPECTED_VOICES = ['bell', 'pad', 'drone', 'pluck', 'sub', 'breath', 'tick'];
 
+/** Every region the sequencer can be handed, asserted by name. */
+const EXPECTED_REGIONS = ['cistern', 'ending', 'foundry', 'ossuary', 'spine', 'verdant'];
+
 /** @type {Awaited<ReturnType<typeof launchGame>> | null} */
 let live = null;
 /** @type {import('playwright').Page | null} */
@@ -253,16 +256,25 @@ test('eight bars of the Cistern render, and intensity actually adds layers', { t
     `intensity 1 (${boss.peak}) is not louder than intensity 0 (${exploring.peak}) — layers are not being added`);
 });
 
-test('the music is not a sub-bass rumble with a tune on top', { timeout: AUDIO_TIMEOUT_MS }, async () => {
+test('no region is a sub-bass rumble with a tune on top', { timeout: AUDIO_TIMEOUT_MS }, async () => {
   const page = await quietPage();
+  // Every region, not the default one. The sub-bass fix landed in the Cistern and
+  // stayed there for four more regions because this guard called `renderMusic()`
+  // with no argument, and `renderMusic`'s default region is the Cistern. Four
+  // fifths of the game measured 44-61% of its power under 120 Hz and the suite
+  // was green. A guard that checks one of five is not a guard.
   const rendered = await page.evaluate(async (dir) => {
     const m = await import(`${dir}offline.js`);
+    const { REGIONS } = await import(`${dir}regions/index.js`);
     /** @type {any[]} */
     const out = [];
-    for (const intensity of [0, 0.75, 1]) out.push(await m.renderMusic({ bars: 4, intensity, tail: 0.5 }));
+    for (const region of Object.keys(REGIONS)) {
+      for (const intensity of [0, 1]) out.push(await m.renderMusic({ region, bars: 4, intensity, tail: 0.5 }));
+    }
     return out;
   }, AUDIO_DIR);
 
+  assert.equal(rendered.length, EXPECTED_REGIONS.length * 2, 'a region went missing from the sweep');
   for (const r of rendered) {
     // The D1 drone was -27 dBFS RMS against -32.3 for the entire rest of the
     // arrangement, putting 77% of the music's power under 60 Hz: inaudible on a

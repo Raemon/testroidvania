@@ -173,7 +173,10 @@ export function drawEntities(ctx, state, region, t, light) {
   for (const e of state.entities ?? []) {
     if (e.roomId && e.roomId !== state.room) continue;
     if (e.kind === 'part') {
-      drawPart(ctx, e, state, region, abilities, t);
+      // A limb rides its owner, dive included: fins left floating at the surface
+      // while the body went under was the clearest way to say "this is a bug".
+      const owner = state.entities.find((x) => x.id === e.timers.owner);
+      drawPart(ctx, e, state, region, abilities, t, owner ? diveDepth(owner, motionFor(owner)) : 0);
       continue;
     }
 
@@ -195,7 +198,12 @@ export function drawEntities(ctx, state, region, t, light) {
     // A guarded boss is *immune*, and looking identical to an open one is the
     // single most confusing thing a boss can do. Open brightens the whole body.
     const open = boss && (e.timers.guard ?? 0) === 0;
-    const body = warn?.active ? mix(base, HAZARD, 0.55) : open ? shade(base, 0.16) : base;
+    // 03 §2.8 ramps the *body*, not an outline: at these sizes an enemy is mostly
+    // fill, and a warning that only touches the silhouette is a warning most of
+    // the pixels do not carry.
+    const body = warn
+      ? mix(base, warn.color, warn.active ? 0.55 : 0.25 + warn.k * 0.5)
+      : open ? shade(base, 0.16) : base;
     const rimColor = warn ? warn.color : open ? region.accent : region.edge;
 
     ctx.save();
@@ -289,8 +297,9 @@ function surfaceRipple(ctx, e, region, t, dive) {
  * @param {Region} region
  * @param {readonly import('../../core/types.js').AbilityId[]} abilities
  * @param {number} t seconds
+ * @param {number} dive  how far the owner has submerged, 0 to 1
  */
-function drawPart(ctx, e, state, region, abilities, t) {
+function drawPart(ctx, e, state, region, abilities, t, dive) {
   const cx = e.x + e.w / 2;
   const cy = e.y + e.h / 2;
   const r = Math.min(e.w, e.h) / 2;
@@ -299,7 +308,13 @@ function drawPart(ctx, e, state, region, abilities, t) {
   const takeable = bitesMaterial(e.pinMaterial, abilities);
   const held = e.pinned;
 
-  drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.4, region.fog, 0.16);
+  ctx.save();
+  if (dive > 0) {
+    ctx.translate(0, dive * (e.h + 4));
+    ctx.globalAlpha = 1 - dive * 0.65;
+  } else {
+    drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.4, region.fog, 0.16);
+  }
 
   const plate = () => ctx.roundRect(e.x + 1, e.y + 1, e.w - 2, e.h - 2, 3);
   ctx.beginPath();
@@ -328,6 +343,7 @@ function drawPart(ctx, e, state, region, abilities, t) {
     ctx.moveTo(e.x + e.w - 3, e.y + 3);
     ctx.lineTo(e.x + 3, e.y + e.h - 3);
     ctx.stroke();
+    ctx.restore();
     return;
   }
 
@@ -349,6 +365,7 @@ function drawPart(ctx, e, state, region, abilities, t) {
   ctx.beginPath();
   ctx.arc(cx, cy, 1.6, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 }
 
 /**
@@ -420,13 +437,17 @@ function drawCrest(ctx, e, region, body, rimColor, t) {
     }
   } else if (e.kind === 'anchor') {
     // The fluke: a hanging hook, the heaviest shape in the game.
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(cx, top - 8);
-    ctx.lineTo(cx, top + 2);
-    ctx.moveTo(cx - 7, top - 3);
-    ctx.quadraticCurveTo(cx, top + 4, cx + 7, top - 3);
-    ctx.moveTo(cx - 5, top - 6);
-    ctx.lineTo(cx + 5, top - 6);
+    ctx.moveTo(cx, top - 12);
+    ctx.lineTo(cx, top + 1);
+    ctx.moveTo(cx - 10, top - 4);
+    ctx.quadraticCurveTo(cx, top + 6, cx + 10, top - 4);
+    ctx.moveTo(cx - 7, top - 9);
+    ctx.lineTo(cx + 7, top - 9);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, top - 13, 2.4, 0, Math.PI * 2);
     ctx.stroke();
   } else if (e.kind === 'sentinel') {
     // Horns. The Apex miniboss is a Shell grown too large, and it wears it.

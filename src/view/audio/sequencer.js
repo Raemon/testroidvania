@@ -43,6 +43,8 @@ import { createRng } from './rng.js';
  * @property {number} barDur
  * @property {number} intensity     latched at the bar, never mid-bar
  * @property {boolean} calm         a save-lantern room forces intensity 0
+ * @property {number} abilities     how many abilities the player owns, so a layer
+ *   can grow a voice per ability (05 §7.1: "each ability adds one")
  * @property {() => number} rng      seeded per (layer, loop) so a loop pass is stable
  */
 
@@ -56,6 +58,7 @@ import { createRng } from './rng.js';
  * @property {number} barDur
  * @property {number} intensity
  * @property {boolean} calm
+ * @property {number} abilities
  * @property {() => number} rng
  */
 
@@ -141,6 +144,7 @@ function build(graph, startRegion, options) {
   let intensity = 0;
   let barIntensity = 0;
   let calm = false;
+  let abilities = 0;
   let lastChordIndex = -1;
   let resyncs = 0;
   let scheduledSteps = 0;
@@ -225,7 +229,7 @@ function build(graph, startRegion, options) {
           if (barIntensity + 1e-6 < layer.minIntensity) continue;
           layer.chord({
             graph, bus: gainFor(layer), time, chord, chordIndex,
-            barDur: barDur(), intensity: barIntensity, calm,
+            barDur: barDur(), intensity: barIntensity, calm, abilities,
             rng: createRng(seed ^ hashId(layer.id) ^ (chordIndex * 2654435761)),
           });
         }
@@ -252,6 +256,7 @@ function build(graph, startRegion, options) {
         barDur: barDur(),
         intensity: barIntensity,
         calm,
+        abilities,
         rng: createRng(seed ^ hashId(layer.id) ^ (loop * 40503)),
       });
     }
@@ -357,6 +362,14 @@ function build(graph, startRegion, options) {
     /** @param {boolean} value save-lantern rooms force intensity 0. */
     setCalm(value) { calm = value; },
 
+    /**
+     * How many abilities the player owns. The Spine's bell layer plays one voice
+     * per ability, so the hub gains a voice each time the player grows (05 §7.1
+     * step 6); every other region ignores it.
+     * @param {number} value
+     */
+    setAbilities(value) { abilities = Math.max(0, Math.round(value)); },
+
     /** @param {Region} next */
     setRegion(next) {
       if (next.id === region.id) return;
@@ -382,6 +395,7 @@ function build(graph, startRegion, options) {
         intensity,
         barIntensity,
         calm,
+        abilities,
         resyncs,
         scheduledSteps,
         layers: Object.fromEntries([...layerGains].map(([id, g]) => [id, Number(g.gain.value.toFixed(4))])),
