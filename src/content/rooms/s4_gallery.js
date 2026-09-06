@@ -14,6 +14,15 @@
 // The wood is three columns wide, which is the difference between a gate and a
 // coin flip: one column left a twelve-pixel window of floor to stand on and make
 // the bank from. Three leaves twenty-four, which is a two-tile stand.
+//
+// There is a hatch in the west end of the gallery floor and a beam over it, and on
+// the way in they are a tease and nothing else: a straight throw up through the
+// hatch bites the beam, and a Zip leaves you hanging under it with one Pin, no way
+// on, and nothing to do but let go. The Ascent is when that changes. With the
+// second light you throw *from* the hang — down and right, into the gallery roof —
+// and the fall between the two throws is the whole trick, exactly as K1 taught it.
+// That is what puts A5 in the finale: the last tier of the climb is the chain-zip,
+// over a floor the void is in the middle of eating.
 
 export const id = 's4_gallery';
 
@@ -21,12 +30,12 @@ export const tiles = `
 ################################
 #..............................#
 #..............................#
-#..................#...........#
+#.WW...............#...........#
 #..................#...........D
 #.................#WWW.........D
 #.................#WWW..MMMMMMM#
 #.................#WWW..MMMMMMM#
-######################..MMMMMMM#
+##..##################..MMMMMMM#
 #.......................MMMMMMM#
 #.......................MMMMMMM#
 #.......................MMMMMMM#
@@ -60,10 +69,25 @@ export const needs = ['zip', 'ricochet'];
 export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[24, 14], [18, 14], [18, 14, 'climb:ur'], [26, 5], [31, 5]]) };
 
 /**
+ * The Ascent takes the hatch, not the bank. Same room, same door, and the only
+ * tier of the climb that asks for the ability the Apex handed over last.
  * @type {import('../../core/types.js').RouteVariant[]}
  */
 export const variants = [
-  { flags: ['ascent'], route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[18, 14], [18, 14, 'climb:ur'], [26, 5], [31, 5]]) },
+  {
+    needs: ['deepPin', 'twinPin'],
+    flags: ['ascent'],
+    route: /** @type {import('../../core/types.js').Waypoint[]} */ ([
+      [2, 14],
+      [2, 14, 'chain:u'],
+      [2, 4, 'chain:dr'],
+      [6, 7],
+      [16, 7],
+      [20, 4],
+      [26, 5],
+      [31, 5],
+    ]),
+  },
 ];
 
 /** @type {number[]|null} */

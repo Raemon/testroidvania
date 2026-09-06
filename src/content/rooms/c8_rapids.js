@@ -12,21 +12,29 @@
 //
 // The lantern on the east lip is the Cistern's last bench, and the door past it is
 // the mouth of the Diver's tank.
+//
+// And there is a second lantern up in the corner, on a shelf behind a metal lip,
+// with the riveted east wall beside it. Nothing in the room reaches it: the shelf
+// eats every throw from below and the only line onto the wood's east face runs off
+// that wall. It is thirty seconds of "how would you even get up there" and then the
+// Diver hands over Ricochet in the very next room — so the answer to the tease and
+// the reward for the fight arrive within a minute of each other, which is what §A3
+// asks of a gate and what an optional one should do too.
 
 export const id = 'c8_rapids';
 
 export const tiles = `
 ################################
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
+#..............................M
+#..............................M
+#..............................M
+#..............................M
+#..............................M
+#..............................M
+#...........................MW.M
+#..........................L.W.M
+#.......................######.M
+#..............................M
 D..............................D
 D.........................L....D
 #########~~~~#######.......#####
