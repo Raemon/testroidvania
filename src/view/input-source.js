@@ -26,6 +26,7 @@ const KEYMAP = {
   KeyX: IN.ATTACK, KeyK: IN.ATTACK,
   KeyC: IN.THROW, KeyL: IN.THROW,
   KeyV: IN.ZIP,
+  KeyB: IN.RECALL, ShiftLeft: IN.RECALL, ShiftRight: IN.RECALL, Semicolon: IN.RECALL,
   Escape: IN.PAUSE,
   Tab: IN.MAP,
 };

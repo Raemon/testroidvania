@@ -81,7 +81,8 @@ export function handAt(s) {
  * @returns {GameState}
  */
 export function stagePin(s) {
-  const pressed = justPressed(s.input, s.prevInput, IN.THROW);
+  const thrown = justPressed(s.input, s.prevInput, IN.THROW);
+  const recalled = justPressed(s.input, s.prevInput, IN.RECALL);
   let pin = { ...s.pin, lock: Math.max(0, s.pin.lock - 1), clang: Math.max(0, s.pin.clang - 1) };
   let entities = s.entities;
   let flash = Math.max(0, s.flash - 1);
@@ -93,7 +94,7 @@ export function stagePin(s) {
   if (pin.state === 'held') {
     const hand = handAt(s);
     pin = { ...pin, x: hand.x, y: hand.y, vx: 0, vy: 0 };
-    if (pressed && pin.lock === 0 && pin.startup === 0 && s.player.hp > 0) {
+    if (thrown && pin.lock === 0 && pin.startup === 0 && s.player.hp > 0) {
       const aimX = /** @type {-1|0|1} */ (axisX(s.input));
       const aimY = /** @type {-1|0|1} */ (axisY(s.input));
       const neutral = aimX === 0 && aimY === 0;
@@ -117,7 +118,7 @@ export function stagePin(s) {
 
   // Recall: available from every other state, on every frame, with no condition.
   let props = s.props;
-  if (pressed && pin.state !== 'returning') {
+  if (recalled && pin.state !== 'returning') {
     emit(s.events, 'pin.recall', pin.x, pin.y);
     // A2: the recall is what shatters a slag block the Pin is buried in.
     const slag = slagUnder(s, pin, roomData);

@@ -211,13 +211,14 @@ addCheck(({ next, report }) => {
   }
 });
 
-// 19. RECALL IS NEVER DISABLED. A Throw/Recall press on a frame the world is
-//     actually running, with the Pin anywhere but the hand, must start it home.
-//     This is the invariant the whole "you can never be stranded" promise rests on,
-//     so it is checked on every frame rather than trusted to a unit test.
+// 19. RECALL IS NEVER DISABLED. A Recall press on a frame the world is actually
+//     running, with the Pin anywhere but the hand, must start it home. This is the
+//     invariant the whole "you can never be stranded" promise rests on, so it is
+//     checked on every frame rather than trusted to a unit test. The rule did not
+//     change when Recall moved onto its own button; only the bit it watches did.
 addCheck(({ prev, next, report }) => {
   if (prev.hitstop > 0) return;
-  if (!justPressed(next.input, next.prevInput, IN.THROW)) return;
+  if (!justPressed(next.input, next.prevInput, IN.RECALL)) return;
   if (prev.pin.state === 'held') return;
   if (next.pin.state === 'returning' || next.pin.state === 'held') return;
   report('RECALL_REFUSED', `Recall pressed with the Pin ${prev.pin.state} and it stayed ${next.pin.state}`);

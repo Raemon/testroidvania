@@ -31,7 +31,7 @@ export function policy(obs) {
     const run = backAway(obs, gap < 0 ? IN.LEFT : IN.RIGHT);
     const aim = gap < 0 ? IN.RIGHT : IN.LEFT;
     if (Math.abs(gap) < 56) return run | (p.grounded ? IN.JUMP : 0);
-    if (obs.pin.state !== 'held') return pressNow(obs) ? IN.THROW : 0;
+    if (obs.pin.state !== 'held') return pressNow(obs) ? IN.RECALL : 0;
     return aim | (pressNow(obs) ? IN.THROW : 0);
   }
   return brawl(obs);

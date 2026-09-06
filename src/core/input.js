@@ -14,6 +14,7 @@ export const IN = {
   ATTACK: 32,
   THROW: 64,
   ZIP: 128,
+  RECALL: 1024,
   PAUSE: 256,
   MAP: 512,
 };
