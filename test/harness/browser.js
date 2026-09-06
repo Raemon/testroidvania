@@ -91,7 +91,7 @@ function installPump() {
 export async function launchGame(options = {}) {
   const server = await startServer();
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 960, height: 600 } });
+  const context = await browser.newContext({ viewport: { width: 480, height: 300 }, deviceScaleFactor: 1 });
   await context.addInitScript(installPump);
   const page = await context.newPage();
 

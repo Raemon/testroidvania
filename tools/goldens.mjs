@@ -31,7 +31,7 @@ function scriptedTape(length = 600) {
 }
 
 const scripted = replayWithCheckpoints(newRun(SEED), scriptedTape(), EVERY);
-const bot = runBot(newRun(SEED), { maxFrames: 1200 });
+const bot = runBot(newRun(SEED), { maxFrames: 2400 });
 if (!bot.done) {
   process.stderr.write(`goldens: the bot did not finish the route — ${bot.violation ?? bot.why}\n`);
   process.exit(1);

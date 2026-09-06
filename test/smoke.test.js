@@ -11,7 +11,7 @@ import { IN } from '../src/core/input.js';
 test('the page boots, runs 300 frames, draws, and populates the HUD', async () => {
   const game = await launchGame();
   try {
-    assert.equal(await game.call('room'), 't1_flat');
+    assert.equal(await game.call('room'), 'o1_arrival');
     assert.equal(await game.call('tick'), 0, 'nothing may run before the harness pumps');
 
     const size = await game.call('canvasSize');
@@ -34,7 +34,7 @@ test('the page boots, runs 300 frames, draws, and populates the HUD', async () =
 
     await game.assertHudMatchesState();
     const hud = await game.call('hud');
-    assert.equal(hud['hud-room'], 't1_flat');
+    assert.equal(hud['hud-room'], 'o1_arrival');
     assert.equal(hud['hud-hp'], '5');
     assert.equal(hud['hud-errors'], '0');
     for (const [id, text] of Object.entries(hud)) {

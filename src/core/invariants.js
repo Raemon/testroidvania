@@ -202,7 +202,9 @@ addCheck(({ next, report }) => {
   if (pin.state === 'embedded' && pin.surface === null) report('PIN_STATE', 'an embedded Pin is embedded in nothing');
   if (pin.state !== 'embedded' && pin.surface !== null) report('PIN_STATE', `a ${pin.state} Pin still names surface '${pin.surface}'`);
   if (pin.state === 'held' && (pin.vx !== 0 || pin.vy !== 0)) report('PIN_STATE', 'a held Pin is moving');
-  for (const [name, v] of [['startup', pin.startup], ['clang', pin.clang], ['away', pin.away], ['lock', pin.lock], ['hostTimer', pin.hostTimer]]) {
+  /** @type {[string, number][]} */
+  const timers = [['startup', pin.startup], ['clang', pin.clang], ['away', pin.away], ['lock', pin.lock], ['hostTimer', pin.hostTimer]];
+  for (const [name, v] of timers) {
     if (!Number.isInteger(v) || v < 0) report('TIMER', `pin.${name} is ${v}`);
   }
 });

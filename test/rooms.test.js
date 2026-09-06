@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ROOM_IDS, getRoom } from '../src/content/rooms/index.js';
 import { TILE, PLAYER_W } from '../src/core/constants.js';
+import { step } from '../src/core/step.js';
 import { newRun, runBot, assertFinished } from './harness/run.js';
 
 /** Every room must be traversable from its own route's first waypoint. */
@@ -40,9 +41,38 @@ for (const id of ROOM_IDS) {
   });
 }
 
-test('the three rooms form one connected chain the bot walks end to end', () => {
-  const result = runBot(newRun(1), { maxFrames: 1500 });
-  assertFinished(result, 'full chain');
-  assert.equal(result.state.room, 't3_ceiling', 'the chain must end in the last room');
-  assert.ok(result.frames < 900, `chain took ${result.frames} frames`);
+test('the opening is one connected chain the bot walks end to end, unaided', () => {
+  const result = runBot(newRun(1), { maxFrames: 2400 });
+  assertFinished(result, 'the opening');
+  assert.equal(result.state.room, 'o6_weapon', 'the opening ends at the stone wall the Pin cannot solve');
+  assert.equal(result.state.player.hp, result.state.player.maxHp, 'the opening must cost no health');
+  assert.equal(result.state.progress.deaths, 0, 'and no deaths');
+  assert.ok(
+    result.state.progress.lanternsLit.length >= 1,
+    'the bot must walk through the first save-lantern; it is on the critical path',
+  );
+  assert.ok(result.frames < 1800, `the opening took ${result.frames} frames`);
+});
+
+test('the bot uses the Pin: it throws, stands on it, jabs an enemy and recalls', () => {
+  const seen = new Set();
+  let killed = false;
+  const result = runBot(newRun(1), {
+    maxFrames: 2400,
+    until: () => false,
+  });
+  assertFinished(result, 'the opening');
+  // Replaying the bot's own tape is how we see the states it passed through.
+  let s = newRun(1);
+  for (const input of result.tape) {
+    s = step(s, input);
+    seen.add(s.pin.state);
+    if (s.player.perch) seen.add('perch');
+    if (s.player.jabFrames > 0) seen.add('jab');
+    if (s.room === 'o6_weapon' && s.entities.every((e) => e.kind !== 'crawler')) killed = true;
+  }
+  for (const beat of ['flying', 'embedded', 'pinned', 'returning', 'perch', 'jab']) {
+    assert.ok(seen.has(beat), `the bot never reached '${beat}' — it did not learn the Pin`);
+  }
+  assert.ok(killed, 'the bot never killed the crawler in o6_weapon');
 });

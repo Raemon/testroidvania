@@ -24,6 +24,8 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
   const game = await launchGame({ query: 'seed=1&debug=1&lockstep=1&bot=1' });
   /** @type {{intent: string, tick: number}[]} */
   const beats = [];
+  /** @type {string[]} */
+  const pinStates = [];
   try {
     await game.call('recordFrom', 0);
 
@@ -37,6 +39,12 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
           assert.ok(state.player.hp >= intent.expect.hpAtLeast, `hp ${state.player.hp} < ${intent.expect.hpAtLeast} in ${state.room}`);
         }
         if (intent.expect.abilities) assert.deepEqual(state.progress.abilities, intent.expect.abilities);
+        if (intent.expect.lanternsAtLeast !== undefined) {
+          assert.ok(
+            state.progress.lanternsLit.length >= intent.expect.lanternsAtLeast,
+            `only ${state.progress.lanternsLit.length} lantern(s) lit in ${state.room}`,
+          );
+        }
         continue;
       }
 
@@ -44,6 +52,7 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
       while ((await game.call('room')) !== goal && pumped < FRAME_BUDGET) {
         await game.pump(BATCH);
         pumped += BATCH;
+        pinStates.push((await game.call('observe')).pin.state);
         if (await game.call('botStuck')) {
           assert.fail(`bot gave up before reaching '${goal}' at tick ${await game.call('tick')} in room ${await game.call('room')}`);
         }
@@ -64,10 +73,20 @@ test('the bot plays the whole route in the browser, and Node agrees frame for fr
 
     const finalTick = await game.call('tick');
     assert.ok(finalTick <= FRAME_BUDGET, `route took ${finalTick} frames, budget is ${FRAME_BUDGET}`);
-    assert.equal(await game.call('room'), 't3_ceiling');
+    assert.equal(await game.call('room'), 'o6_weapon');
     assert.deepEqual(await game.call('violations'), []);
     assert.deepEqual(await game.call('errors'), []);
     game.assertClean();
+
+    // The opening is a teaching sequence, so assert it was actually taught: the
+    // bot learned the Pin in the browser, not only in Node.
+    const end = await game.call('state');
+    assert.equal(end.player.hp, end.player.maxHp, 'the opening must cost no health');
+    assert.equal(end.progress.deaths, 0);
+    assert.ok(end.progress.lanternsLit.length >= 1, 'the save-lantern was never walked through');
+    assert.equal(end.pin.state, 'held', 'the opening ends with the Pin back in hand');
+    assert.deepEqual(pinStates.filter((k) => ['embedded', 'pinned', 'returning'].includes(k)).length > 0, true,
+      `the bot never used the Pin in the browser; it only saw ${[...new Set(pinStates)].join(', ')}`);
 
     // --- The cross-environment assertion -----------------------------------
     const tape = await game.call('tape');

@@ -32,24 +32,33 @@ export function drawLanterns(ctx, state, region, t) {
     const x = l.x;
     const base = l.y + TILE / 2;
 
-    ctx.fillStyle = shade(region.terrain, 0.16);
-    ctx.fillRect(x - 5, base - 2, 10, 2);
-    ctx.strokeStyle = on ? rgba(CREAM, 0.75) : rgba(CREAM, 0.3);
+    // A filled iron body, not an outline: an unlit lantern that is only a wire
+    // rectangle disappears into the background instead of reading as a thing you
+    // have not yet claimed.
+    ctx.fillStyle = shade(region.terrain, 0.20);
+    ctx.fillRect(x - 6, base - 3, 12, 3);
+    ctx.fillStyle = '#161A20';
+    ctx.beginPath();
+    ctx.moveTo(x - 4.5, base - 3);
+    ctx.lineTo(x - 4.5, base - 15);
+    ctx.lineTo(x, base - 19);
+    ctx.lineTo(x + 4.5, base - 15);
+    ctx.lineTo(x + 4.5, base - 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = on ? rgba(CREAM, 0.8) : rgba(CREAM, 0.32);
     ctx.lineWidth = 1.2;
     ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x, base - 22);
-    ctx.lineTo(x, base - 17);
     ctx.stroke();
     ctx.beginPath();
-    ctx.rect(x - 4, base - 17, 8, 15);
+    ctx.arc(x, base - 21, 2, Math.PI * 0.15, Math.PI * 0.85, true);
     ctx.stroke();
 
     if (!on) continue;
     // Lit lanterns breathe: a still flame reads as a decal, a moving one reads
     // as the room having been claimed.
-    const h = 6 * (0.9 + hashNoise(Math.floor(t * 9) ^ Math.round(x)) * 0.2);
-    drawGlow(ctx, x, base - 9, 26, PLAYER.flame, 0.45);
+    const h = 5.5 * (0.9 + hashNoise(Math.floor(t * 9) ^ Math.round(x)) * 0.2);
+    drawGlow(ctx, x, base - 9, 30, PLAYER.flame, 0.4);
     teardrop(ctx, x, base - 8, h, h * 0.5, PLAYER.flame);
     teardrop(ctx, x, base - 8.5, h * 0.5, h * 0.24, PLAYER.core);
   }

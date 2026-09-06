@@ -15,6 +15,7 @@ import { START, worldEdges, findDoor } from '../src/content/world.js';
 import { ROUTE } from '../src/content/routes.js';
 import { isAbilityId } from '../src/core/abilities/index.js';
 import { isEntityKind } from '../src/core/entities/index.js';
+import { isKnownAction } from '../src/bot/actions.js';
 import { solidAt } from '../src/core/collision.js';
 import { solve } from '../tools/reachability.mjs';
 
@@ -145,6 +146,51 @@ test('every servo waypoint is inside the room and standable', () => {
       assert.equal(solidAt(room, tx, ty), false, `${room.id} waypoint (${tx},${ty}) is inside a solid tile`);
     }
   }
+});
+
+test('every waypoint action is one the bot actually knows how to perform', () => {
+  for (const room of rooms) {
+    for (const [tx, ty, action] of room.route) {
+      if (action === undefined) continue;
+      assert.ok(isKnownAction(action), `${room.id} waypoint (${tx},${ty}) asks the bot for '${action}'`);
+    }
+  }
+});
+
+test('no room is wider than the 32-column discovered-tile bitmask', () => {
+  for (const room of rooms) {
+    assert.ok(room.w <= 32, `${room.id} is ${room.w} tiles wide; one row of seen-tile memory is 32 bits`);
+  }
+});
+
+test('save-lanterns compile out of the grid and stand in reachable space', () => {
+  for (const room of rooms) {
+    let expected = 0;
+    for (const row of room.grid) for (const glyph of row) if (tileAt(glyph).lantern) expected++;
+    assert.equal(room.lanterns.length, expected, `${room.id} lantern count`);
+    for (const lantern of room.lanterns) {
+      assert.equal(solidAt(room, lantern.at[0], lantern.at[1]), false, `${room.id} lantern at ${lantern.at} is inside a solid tile`);
+    }
+  }
+});
+
+test('the opening is lit: the critical path passes at least one save-lantern', () => {
+  const lanterns = rooms.reduce((n, room) => n + room.lanterns.length, 0);
+  assert.ok(lanterns >= 1, 'a run with no save-lantern has no respawn point but the start');
+});
+
+test('the Pin has something to bite and something to refuse', () => {
+  const materials = new Set();
+  for (const room of rooms) {
+    for (const row of room.grid) {
+      for (const glyph of row) {
+        const def = tileAt(glyph);
+        if (def.solid && def.material) materials.add(def.material);
+      }
+    }
+  }
+  assert.ok(materials.has('wood'), 'no wood anywhere: the Pin can never be a platform');
+  assert.ok(materials.has('stone'), 'no stone anywhere: nothing gates the base kit');
 });
 
 test('hazard tiles compile into hazard rects', () => {

@@ -53,7 +53,7 @@ test('2. the golden hashes still match (regenerate with `npm run goldens` if int
   );
   assert.deepEqual(actual.checkpoints, GOLDENS.scripted.checkpoints);
 
-  const bot = runBot(newRun(GOLDENS.seed), { maxFrames: 1200 });
+  const bot = runBot(newRun(GOLDENS.seed), { maxFrames: 2400 });
   assert.equal(hash(bot.state), GOLDENS.bot.final, 'the bot route hash changed');
   assert.equal(bot.frames, GOLDENS.bot.frames, 'the bot took a different number of frames');
 });

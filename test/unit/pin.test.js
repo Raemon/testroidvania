@@ -237,7 +237,9 @@ test('recall phases through all terrain: a solid pillar does not stop it', () =>
   const start = at(pillar, 2, 3);
   // Placed directly: choreographing a throw over a pillar would be testing the
   // throw, and the rule under test is that the way *home* ignores geometry.
-  let s = { ...start, pin: { ...start.pin, state: /** @type {const} */ ('dropped'), x: 15 * TILE, y: 3.5 * TILE } };
+  /** @type {import('../../src/core/types.js').Pin} */
+  const placed = { ...start.pin, state: 'dropped', x: 15 * TILE, y: 3.5 * TILE };
+  let s = { ...start, pin: placed };
   assert.ok(s.pin.x > 6 * TILE, 'the Pin starts on the far side of the pillar');
 
   const path = [];
