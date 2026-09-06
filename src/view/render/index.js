@@ -45,7 +45,6 @@ import { Particles } from './particles.js';
 import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
 
-
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./camera.js').Camera} Camera */
 

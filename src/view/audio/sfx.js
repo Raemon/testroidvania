@@ -196,7 +196,7 @@ export const RECIPES = {
     out.push(sub(g, { time: t + 0.62, freq: 60, attack: 0.004, decay: 0.18, gain: 0.6 * b.gain, bus: b.bus }));
     // The thud, again in the octave a laptop can reproduce: the door closing on
     // the room behind you is a story beat, and it was inaudible off a subwoofer.
-    out.push(tick(g, { time: t + 0.62, freq: 160 * b.vary, to: 100, sweep: 0.06, decay: 0.12, gain: 0.22 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }));
+    out.push(tick(g, { time: t + 0.62, freq: 160 * b.vary, to: 100, sweep: 0.06, decay: 0.12, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }));
     return out;
   },
 
@@ -319,7 +319,7 @@ export const RECIPES = {
     const b = base(o);
     return [
       sub(g, { time: t, freq: 70 * b.vary, to: 30, sweep: 0.12, attack: 0.002, decay: 0.2, gain: 0.9 * b.gain, pan: b.pan, bus: b.bus }),
-      tick(g, { time: t, freq: 220 * b.vary, to: 110 * b.vary, sweep: 0.06, decay: 0.1, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.15 }),
+      tick(g, { time: t, freq: 220 * b.vary, to: 110 * b.vary, sweep: 0.06, decay: 0.1, gain: 0.5 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.15 }),
       breath(g, { time: t, freq: 150 * b.vary, mode: 'lowpass', attack: 0.004, decay: 0.2, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 }),
     ];
   },

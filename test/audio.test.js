@@ -160,6 +160,26 @@ test('?mute=1 makes the engine a complete no-op', async () => {
   assert.equal(stats.sequencer, null);
 });
 
+/** dBFS from a linear amplitude. */
+const dB = (/** @type {number} */ v) => (v > 0 ? 20 * Math.log10(v) : -Infinity);
+
+/**
+ * How much of a sound lives where a laptop speaker can reproduce it, in dBFS.
+ *
+ * The failure this catches: a sound whose energy is all sub. `land`, `bossStomp`,
+ * `heartbeat` and `doorOpen` — the game's entire vocabulary of weight — measured
+ * spectral centroids of 58-90 Hz, which on the speakers most people play browser
+ * games on is silence. Peak and RMS say nothing about it: a sound can be loud on
+ * the meter and absent in the room.
+ * @param {{rms100:number, bands:Record<string, number>}} m
+ * @returns {number}
+ */
+function audibleBandDb(m) {
+  let e = 0;
+  for (const band of ['250-500', '500-1000', '1000-2000', '2000-4000']) e += Math.pow(10, (m.bands[band] ?? -120) / 10);
+  return dB(m.rms100) + 10 * Math.log10(e + 1e-12);
+}
+
 test('every SFX renders to a buffer that is audible, unclipped and finite', async () => {
   const page = await quietPage();
   /** @type {any[]} */
@@ -183,8 +203,24 @@ test('every SFX renders to a buffer that is audible, unclipped and finite', asyn
     assert.ok(Math.abs(r.dc) < 0.002, `${r.id}: DC offset ${r.dc}`);
     assert.ok(r.durationMs > 8, `${r.id}: only ${r.durationMs} ms long — that is a click, not a sound`);
     // A rise from silence to peak in under a millisecond is the classic web-audio
-    // click; every envelope in 05 §6d has at least a 1 ms attack.
+    // click. Note this is time-to-*peak*, so it is only meaningful for a
+    // single-hit recipe; for enemyDeath's three ticks or abilityPickup's rising
+    // bells a large value says nothing about whether the first event clicks.
     assert.ok(r.attackMs >= 0.9, `${r.id}: ${r.attackMs} ms attack — that is a click`);
+
+    // Level, not just presence. `peak > 0.005` passes for a sound 40 dB under the
+    // music, which is what the footstep was: -46.7 dBFS over its first 100 ms.
+    assert.ok(dB(r.rms100) > -48,
+      `${r.id}: ${dB(r.rms100).toFixed(1)} dBFS over its first 100 ms — under the score at every intensity`);
+    assert.ok(audibleBandDb(r) > -56,
+      `${r.id}: only ${audibleBandDb(r).toFixed(1)} dBFS above 250 Hz (centroid ${Math.round(r.centroidHz)} Hz) — inaudible on a laptop`);
+  }
+
+  // The three sounds the player's own movement makes are the ones that must sit
+  // over the score rather than under it.
+  for (const id of ['jump', 'land', 'footstep']) {
+    const r = measured.find((m) => m.id === id);
+    assert.ok(r && dB(r.rms100) > -44, `${id}: ${dB(r?.rms100 ?? 0).toFixed(1)} dBFS — movement has gone quiet again`);
   }
 });
 
@@ -209,4 +245,44 @@ test('eight bars of the Cistern render, and intensity actually adds layers', asy
   }
   assert.ok(boss.peak > exploring.peak * 1.1,
     `intensity 1 (${boss.peak}) is not louder than intensity 0 (${exploring.peak}) — layers are not being added`);
+});
+
+test('the music is not a sub-bass rumble with a tune on top', async () => {
+  const page = await quietPage();
+  const rendered = await page.evaluate(async (dir) => {
+    const m = await import(`${dir}offline.js`);
+    /** @type {any[]} */
+    const out = [];
+    for (const intensity of [0, 0.75, 1]) out.push(await m.renderMusic({ bars: 4, intensity, tail: 0.5 }));
+    return out;
+  }, AUDIO_DIR);
+
+  for (const r of rendered) {
+    // The D1 drone was -27 dBFS RMS against -32.3 for the entire rest of the
+    // arrangement, putting 77% of the music's power under 60 Hz: inaudible on a
+    // laptop, and eating the headroom of everything that is not.
+    assert.ok(r.bands['20-60'] < -8,
+      `${r.id}: the 20-60 Hz band is ${r.bands['20-60'].toFixed(1)} dB below the whole mix — the sub is the mix again`);
+    assert.ok(r.subShare < 0.35,
+      `${r.id}: ${(r.subShare * 100).toFixed(0)}% of the music's power is under 120 Hz`);
+    assert.ok(r.centroidHz > 300,
+      `${r.id}: spectral centroid ${Math.round(r.centroidHz)} Hz — the music has sunk back under the speaker`);
+  }
+});
+
+test('every chord of the progression is the same size', async () => {
+  const page = await quietPage();
+  const pads = await page.evaluate(async (dir) => {
+    const m = await import(`${dir}offline.js`);
+    return m.renderPads();
+  }, AUDIO_DIR);
+
+  assert.equal(pads.length, 4);
+  const levels = pads.map((/** @type {any} */ p) => 20 * Math.log10(p.rms));
+  const spread = Math.max(...levels) - Math.min(...levels);
+  // With a fixed filter cutoff the pad's loudness tracked its voicing rather than
+  // the music: Cmaj7, the chord the progression lifts to, rendered 4.5 dB quieter
+  // than Dm9. A filter that keytracks makes the four chords the same size.
+  assert.ok(spread < 2.5,
+    `the four chords span ${spread.toFixed(1)} dB (${pads.map((/** @type {any} */ p, /** @type {number} */ i) => `${p.id} ${levels[i].toFixed(1)}`).join(', ')}) — the pad filter has stopped keytracking`);
 });
