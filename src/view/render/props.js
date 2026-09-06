@@ -29,39 +29,75 @@ export function drawLanterns(ctx, state, region, t) {
   const lit = state.progress?.lanternsLit ?? [];
   for (const l of state.roomData.lanterns ?? []) {
     const on = lit.includes(lanternId(state.roomData.id, l.at));
-    const x = l.x;
-    const base = l.y + TILE / 2;
-
-    // A filled iron body, not an outline: an unlit lantern that is only a wire
-    // rectangle disappears into the background instead of reading as a thing you
-    // have not yet claimed.
-    ctx.fillStyle = shade(region.terrain, 0.20);
-    ctx.fillRect(x - 6, base - 3, 12, 3);
-    ctx.fillStyle = '#161A20';
-    ctx.beginPath();
-    ctx.moveTo(x - 4.5, base - 3);
-    ctx.lineTo(x - 4.5, base - 15);
-    ctx.lineTo(x, base - 19);
-    ctx.lineTo(x + 4.5, base - 15);
-    ctx.lineTo(x + 4.5, base - 3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = on ? rgba(CREAM, 0.8) : rgba(CREAM, 0.32);
-    ctx.lineWidth = 1.2;
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, base - 21, 2, Math.PI * 0.15, Math.PI * 0.85, true);
-    ctx.stroke();
-
-    if (!on) continue;
-    // Lit lanterns breathe: a still flame reads as a decal, a moving one reads
-    // as the room having been claimed.
-    const h = 5.5 * (0.9 + hashNoise(Math.floor(t * 9) ^ Math.round(x)) * 0.2);
-    teardrop(ctx, x, base - 8, h, h * 0.5, PLAYER.flame);
-    teardrop(ctx, x, base - 8.5, h * 0.5, h * 0.24, PLAYER.core);
-    drawGlow(ctx, x, base - 9, 30, PLAYER.flame, 0.4);
+    drawLantern(ctx, region, t, l.x, l.y + TILE / 2, on);
   }
+  drawRelit(ctx, state, region, t);
+}
+
+/**
+ * The ending's relight trail (`ascent.js` stageHull): one light per save-lantern
+ * the run lit, spread along the Hull behind the runner.
+ *
+ * They arrive as bare entries in `state.lights`, which the darkness reads and
+ * nothing else did — so the payoff for exploring the whole map was a slightly
+ * less dark corridor. Drawn as the same iron-and-flame lantern the four beacons
+ * are, the trail is a row of lamps you lit, which is what it was always meant to
+ * be. Still no new sim state: the lights are the data, this just believes them.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Readonly<GameState>} state
+ * @param {Region} region
+ * @param {number} t seconds
+ */
+function drawRelit(ctx, state, region, t) {
+  const own = state.roomData.lanterns ?? [];
+  for (const l of state.lights ?? []) {
+    if (l.kind !== 'lantern') continue;
+    if (own.some((o) => Math.abs(o.x - l.x) < 1 && Math.abs(o.y - l.y) < 1)) continue;
+    // Snapped to the tile it stands in, so a trail lamp and a room lamp sit on
+    // the same floor line rather than one of them floating.
+    const base = Math.floor(l.y / TILE) * TILE + TILE;
+    drawLantern(ctx, region, t, l.x, base, true);
+  }
+}
+
+/**
+ * One lantern: iron, plinth, and a flame if it is lit.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Region} region
+ * @param {number} t seconds
+ * @param {number} x @param {number} base  the floor line it stands on
+ * @param {boolean} on
+ */
+function drawLantern(ctx, region, t, x, base, on) {
+  // A filled iron body, not an outline: an unlit lantern that is only a wire
+  // rectangle disappears into the background instead of reading as a thing you
+  // have not yet claimed.
+  ctx.fillStyle = shade(region.terrain, 0.20);
+  ctx.fillRect(x - 6, base - 3, 12, 3);
+  ctx.fillStyle = '#161A20';
+  ctx.beginPath();
+  ctx.moveTo(x - 4.5, base - 3);
+  ctx.lineTo(x - 4.5, base - 15);
+  ctx.lineTo(x, base - 19);
+  ctx.lineTo(x + 4.5, base - 15);
+  ctx.lineTo(x + 4.5, base - 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = on ? rgba(CREAM, 0.8) : rgba(CREAM, 0.32);
+  ctx.lineWidth = 1.2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, base - 21, 2, Math.PI * 0.15, Math.PI * 0.85, true);
+  ctx.stroke();
+
+  if (!on) return;
+  // Lit lanterns breathe: a still flame reads as a decal, a moving one reads
+  // as the room having been claimed.
+  const h = 5.5 * (0.9 + hashNoise(Math.floor(t * 9) ^ Math.round(x)) * 0.2);
+  teardrop(ctx, x, base - 8, h, h * 0.5, PLAYER.flame);
+  teardrop(ctx, x, base - 8.5, h * 0.5, h * 0.24, PLAYER.core);
+  drawGlow(ctx, x, base - 9, 30, PLAYER.flame, 0.4);
 }
 
 /**

@@ -22,6 +22,7 @@ import { createHud, HUD_FIELDS } from './hud.js';
 import { createCamera, updateCamera } from './render/camera.js';
 import { render, viewTransform } from './render/index.js';
 import { observeMoments, clearMoments } from './render/moments.js';
+import { observeCoda, clearCoda, codaDrift } from './render/coda.js';
 import { guardContext } from './debug/ctxGuard.js';
 import { createAudio } from './audio.js';
 
@@ -87,6 +88,7 @@ function onStep() {
   // Observed from the step, not the draw: an event lives for one frame, and a
   // free-running loop can take several steps between two draws.
   observeMoments(prev, state);
+  observeCoda(state);
   audio.observe(prev, state);
 }
 
@@ -147,6 +149,7 @@ const harness = {
     state = restore(s);
     camera = createCamera(state);
     clearMoments();
+    clearCoda();
     return state.tick;
   },
   room: () => state.room,
@@ -186,9 +189,10 @@ const harness = {
   /** Device-pixel position of the player's centre, for the "is it on screen" probe. */
   projectPlayer() {
     const t = viewTransform({ width: canvas.width, height: canvas.height });
+    const drift = codaDrift();
     return {
-      x: Math.round(t.offsetX + (state.player.x + state.player.w / 2 - Math.round(camera.x)) * t.scale),
-      y: Math.round(t.offsetY + (state.player.y + state.player.h / 2 - Math.round(camera.y)) * t.scale),
+      x: Math.round(t.offsetX + (state.player.x + state.player.w / 2 - Math.round(camera.x + drift.x)) * t.scale),
+      y: Math.round(t.offsetY + (state.player.y + state.player.h / 2 - Math.round(camera.y + drift.y)) * t.scale),
     };
   },
   audio: () => audio.stats(),

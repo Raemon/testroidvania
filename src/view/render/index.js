@@ -30,8 +30,8 @@
  * written back, which is what keeps `render` a pure function of the simulation.
  */
 
-import { VIEW_W, VIEW_H, DISCOVERED_ALPHA } from '../../core/constants.js';
-import { regionFor, INK, PLAYER } from './palette.js';
+import { TILE, VIEW_W, VIEW_H, DISCOVERED_ALPHA } from '../../core/constants.js';
+import { regionFor, darknessFor, luminance, rgba, INK, PLAYER } from './palette.js';
 import { drawParallax } from './parallax.js';
 import { drawTerrain, drawFluids, updateMemoryMask } from './terrain.js';
 import { drawHazards, drawHazardGlow } from './hazards.js';
@@ -45,6 +45,7 @@ import { Particles } from './particles.js';
 import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
 import { bloomAmount, drawPrompt, drawWorldMoments } from './moments.js';
+import { codaDrift, drawCoda } from './coda.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./camera.js').Camera} Camera */
@@ -97,8 +98,12 @@ export function render(ctx, state, cam, target) {
 
   // Camera offsets are rounded so 1.5px strokes stay on the same subpixel every
   // frame; without it the whole scene shimmers as the camera eases.
-  const camX = Math.round(cam.x);
-  const camY = Math.round(cam.y);
+  // The coda drifts the camera off the runner once the run is over. Added here
+  // and in the harness's player projection through the same function, so there is
+  // still exactly one answer to "where is the world".
+  const drift = codaDrift();
+  const camX = Math.round(cam.x + drift.x);
+  const camY = Math.round(cam.y + drift.y);
   const view = { x: camX, y: camY, w: VIEW_W, h: VIEW_H };
   /** @type {import('./view.js').View} */
   const v = {
@@ -161,14 +166,15 @@ export function render(ctx, state, cam, target) {
     });
   }
   ctx.globalCompositeOperation = 'source-atop';
-  drawDarkness(ctx, region, screenLights, region.darkness * (1 - bloom * 0.8), grade ? grade.canvas : null, gradeAlpha, WARM_ALPHA);
+  drawDarkness(ctx, region, screenLights, darknessFor(state.room, region) * (1 - bloom * 0.8), grade ? grade.canvas : null, gradeAlpha, WARM_ALPHA);
 
   // The distance, filled in behind everything above it. It carries the same grade
   // (so the vignette still closes the frame) and a flat, hole-less dim: the light
   // cannot reach out here, so it is neither lit nor hidden — only far.
   ctx.globalCompositeOperation = 'destination-over';
-  drawParallax(ctx, region, camX, camY, grade ? grade.canvas : null, gradeAlpha);
+  drawParallax(ctx, region, camX, camY, state.roomData.h * TILE, grade ? grade.canvas : null, gradeAlpha);
   ctx.globalCompositeOperation = 'source-over';
+  pushBackOutsideRoom(ctx, region, state.roomData.w * TILE, state.roomData.h * TILE, camX, camY);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = INK;
@@ -186,10 +192,45 @@ export function render(ctx, state, cam, target) {
   drawHudOverlay(ctx, state, state.tick, dt);
   drawRoomLabel(ctx, state.room);
   drawPrompt(ctx, state.tick);
+  drawCoda(ctx, state);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
+}
+
+/**
+ * Push the distance back to the Void band past the room's own edges.
+ *
+ * A room smaller than the view is centred (camera.js §3.3 "Small rooms"), which
+ * leaves the sky showing beyond its walls. In the dark regions that is free
+ * atmosphere and worth keeping — the Plunge is a shaft with a city behind it. In
+ * the Core the void gradient *inverts* and the same strip is a bright cream bar:
+ * 23px above k1, 39px above k5, 71px above the Hull, all of them reading as a
+ * lit wall where the room ends.
+ *
+ * So the strips are not blanked, they are dimmed to the band the Void is supposed
+ * to occupy (05 §2, L10-12) — which costs a dark region almost nothing and costs
+ * the Core exactly the bar.
+ *
+ * @param {CanvasRenderingContext2D} ctx  in view space
+ * @param {import('./palette.js').Region} region
+ * @param {number} roomW @param {number} roomH
+ * @param {number} camX @param {number} camY
+ */
+function pushBackOutsideRoom(ctx, region, roomW, roomH, camX, camY) {
+  const top = -camY;
+  const bottom = roomH - camY;
+  const left = -camX;
+  const right = roomW - camX;
+  if (top <= 0 && bottom >= VIEW_H && left <= 0 && right >= VIEW_W) return;
+  const alpha = Math.min(0.88, Math.max(0, (luminance(region.voidTop) - 0.12) / 0.8));
+  if (alpha <= 0.02) return;
+  ctx.fillStyle = rgba(INK, alpha);
+  if (top > 0) ctx.fillRect(0, 0, VIEW_W, top);
+  if (bottom < VIEW_H) ctx.fillRect(0, bottom, VIEW_W, VIEW_H - bottom);
+  if (left > 0) ctx.fillRect(0, 0, left, VIEW_H);
+  if (right < VIEW_W) ctx.fillRect(right, 0, VIEW_W - right, VIEW_H);
 }
 
 /** Exposed for the perf probe: how much of the frame budget the scene is using. */

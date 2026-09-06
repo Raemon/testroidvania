@@ -22,6 +22,16 @@ import { rgba, shade } from './palette.js';
 const LAYER_W = VIEW_W * 2;
 /** Taller than the view so a downward camera can slide the layer without a gap. */
 const LAYER_H = VIEW_H + 48;
+/**
+ * How far a layer may slide vertically before the baked canvas runs out. It is
+ * the slack in LAYER_H, and it is a hard limit rather than a taste decision.
+ */
+const DRIFT_DOWN = 20;
+const DRIFT_UP = 44;
+/** The nearest layer's parallax, which is the one that reaches the limit first. */
+const MAX_PARALLAX = 0.70;
+/** The rate a *short* room drifts at, which is what every room used to use. */
+const BASE_DRIFT = 0.30;
 
 /**
  * @typedef {object} LayerSpec
@@ -220,11 +230,12 @@ function fogPlane(region) {
  * @param {Region} region
  * @param {number} camX
  * @param {number} camY
+ * @param {number} roomH  the room's full height in world units
  * @param {HTMLCanvasElement|null} [grade]  the constant grade, which the distance
  *   needs too: the darkness blit that used to carry it now stops at the world
  * @param {number} [gradeAlpha]
  */
-export function drawParallax(ctx, region, camX, camY, grade = null, gradeAlpha = 1) {
+export function drawParallax(ctx, region, camX, camY, roomH, grade = null, gradeAlpha = 1) {
   if (!composite) composite = createSurface(VIEW_W, VIEW_H, true);
   const b = composite.ctx;
   b.setTransform(1, 0, 0, 1, 0, 0);
@@ -232,11 +243,19 @@ export function drawParallax(ctx, region, camX, camY, grade = null, gradeAlpha =
   b.drawImage(voidBand(region).canvas, 0, 0);
   b.globalCompositeOperation = 'source-over';
 
+  // The vertical drift is spread over however much camera travel the room has,
+  // rather than run at a fixed rate and then clamped. At the fixed rate the
+  // nearest layer hit the clamp after 733px of travel, so in the Plunge — 2400px
+  // of falling, and the best-composed moment in the game — the background was a
+  // still image for the last two thirds of the drop.
+  const travel = Math.max(1, roomH - VIEW_H);
+  const drift = Math.min(BASE_DRIFT, DRIFT_UP / (travel * MAX_PARALLAX));
+
   for (let i = 0; i < LAYERS.length; i++) {
     const spec = LAYERS[i] ?? /** @type {LayerSpec} */ (LAYERS[0]);
     const s = skyline(region, i);
     const off = ((-camX * spec.parallax) % LAYER_W + LAYER_W) % LAYER_W;
-    const y = Math.round(Math.max(-44, Math.min(20, -camY * spec.parallax * 0.30)));
+    const y = Math.round(Math.max(-DRIFT_UP, Math.min(DRIFT_DOWN, -camY * spec.parallax * drift)));
     // The wrap copy is usually entirely off-screen; blitting it anyway costs a
     // whole extra layer's worth of fill rate for nothing.
     const left = Math.round(off - LAYER_W);

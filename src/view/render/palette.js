@@ -93,6 +93,28 @@ export function regionFor(roomId) {
   return REGIONS[key] ?? /** @type {Region} */ (REGIONS['cistern']);
 }
 
+/**
+ * Rooms whose darkness is not their region's.
+ *
+ * The Hull is the only entry and it is a fix, not a preference. The ending's whole
+ * payoff is that every save-lantern the run lit comes back on behind the runner —
+ * and E1 inherited the Core's bright inverted palette at `darkness: 0.18`, on an
+ * L0.42 ground, where a light hole has nothing left to reveal. Twenty-two lanterns
+ * lit measured a frame-mean change of +0.008 L: the one room where relighting is
+ * the point was the one room where a light could not do anything. Dark, it can.
+ * @type {Record<string, number>}
+ */
+const ROOM_DARKNESS = { e1_hull: 0.55 };
+
+/**
+ * @param {string} roomId
+ * @param {Region} region
+ * @returns {number}
+ */
+export function darknessFor(roomId, region) {
+  return ROOM_DARKNESS[roomId] ?? region.darkness;
+}
+
 /** Region-invariant colours. */
 export const INK = '#0B0D12';
 export const CREAM = '#F3E9D2';
@@ -171,6 +193,17 @@ export function shade(hex, t) {
   const g = toward((n >> 8) & 255);
   const b = toward(n & 255);
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+/**
+ * Relative luminance of a hex colour, 0 to 1. The palette is organised by value
+ * band, so "how light is this" is a question the renderer genuinely has to ask.
+ * @param {string} hex
+ * @returns {number}
+ */
+export function luminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return (((n >> 16) & 255) * 0.2126 + ((n >> 8) & 255) * 0.7152 + (n & 255) * 0.0722) / 255;
 }
 
 /**
