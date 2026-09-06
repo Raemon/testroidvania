@@ -87,7 +87,10 @@ export function drawEntities(ctx, state, region, t, light) {
     // Guarantee 2: the backlight halo, behind everything else the entity draws.
     drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.25, region.fog, 0.22);
 
-    const body = hurt ? '#FFFFFF' : e.pinned ? shade(region.enemy, 0.12) : region.enemy;
+    // 05 §2c requires an enemy body never darker than L 30%, which the region's
+    // own `enemy` swatch sits just under; lifting it here keeps the rule rather
+    // than the number.
+    const body = hurt ? '#FFFFFF' : shade(region.enemy, e.pinned ? 0.3 : 0.18);
     const rig = rigFor(e.kind);
     if (rig === 'jelly') drawJelly(ctx, e, region, body, dir, t);
     else if (rig === 'knight') drawKnight(ctx, e, region, body, dir);
@@ -116,11 +119,11 @@ export function drawEntities(ctx, state, region, t, light) {
  */
 function rim(ctx, path, region, dir) {
   ctx.save();
-  ctx.translate(dir * 1.5, -1);
+  ctx.translate(dir * 2, -1.2);
   ctx.beginPath();
   path();
   ctx.strokeStyle = region.edge;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.2;
   ctx.stroke();
   ctx.restore();
 }
@@ -152,8 +155,10 @@ function drawTick(ctx, e, region, body, dir, t) {
   const m = motionFor(e);
   const cx = e.x + e.w / 2;
   const cy = e.y + e.h * 0.45;
-  const rx = e.w * 0.9;
-  const ry = e.h * 0.55;
+  // Sized from the hitbox, not scaled up from it: a body wider than the box it
+  // occupies makes every gap look passable that is not.
+  const rx = e.w * 0.55;
+  const ry = e.h * 0.4;
   const phase = m.walk / 16;
   const legColor = shade(body, 0.14);
 
@@ -162,11 +167,11 @@ function drawTick(ctx, e, region, body, dir, t) {
     const slot = i % 3;
     const tripod = (i === 0 || i === 4 || i === 2) ? 0 : 0.5;
     const ph = (phase + tripod) * Math.PI * 2;
-    const hx = cx + (slot - 1) * rx * 0.55;
-    const hy = cy + ry * 0.2;
+    const hx = cx + (slot - 1) * rx * 0.7;
+    const hy = cy + ry * 0.35;
     const tx = hx + (slot - 1) * 2.2 + Math.cos(ph) * 5 * e.facing;
     const ty = e.y + e.h + 1.5 - Math.max(0, Math.sin(ph)) * 3;
-    const knee = ik2(hx, hy, tx, ty, e.h * 0.55, e.h * 0.55, side);
+    const knee = ik2(hx, hy, tx, ty, e.h * 0.5, e.h * 0.5, side);
     bone(ctx, hx, hy, knee.x, knee.y, 2.2, legColor);
     bone(ctx, knee.x, knee.y, tx, ty, 1.6, legColor);
   }
@@ -179,11 +184,11 @@ function drawTick(ctx, e, region, body, dir, t) {
   ctx.fillStyle = body;
   ctx.fill();
   ctx.strokeStyle = INK;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.2;
   ctx.stroke();
 
   const alert = e.mode === 'charging' || e.mode === 'windup' || e.mode === 'alert';
-  eye(ctx, cx + e.facing * rx * 0.5, cy + bob - ry * 0.2, 1.9, region, alert ? 1.8 : 1 + 0.12 * Math.sin(t * 4));
+  eye(ctx, cx + e.facing * rx * 0.55, cy + bob - ry * 0.25, 1.8, region, alert ? 1.8 : 1 + 0.12 * Math.sin(t * 4));
 }
 
 /**

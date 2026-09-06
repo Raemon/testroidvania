@@ -156,7 +156,7 @@ export class Particles {
     for (const p of this.pool) {
       if (p.life <= 0) continue;
       const k = p.life / p.maxLife;
-      if (p.glow > 0 && glows < 48) {
+      if (p.glow > 0.3 && glows < 28) {
         glows++;
         drawGlow(ctx, p.x, p.y, p.size * 4 + 2, p.color, p.glow * Math.min(1, k * 1.4) * 0.45);
       }

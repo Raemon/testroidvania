@@ -376,16 +376,16 @@ function drawHandFlame(ctx, state, rig, a, region, t) {
     ctx.stroke();
   }
 
-  // Kept below the flame's own brightness: an additive core hotter than the
-  // teardrop turns the flame into a dark ring inside a bright disc.
-  drawGlow(ctx, a.flame.x, a.flame.y, held ? 30 : 16, PLAYER.flame, 0.42);
-  drawGlow(ctx, a.flame.x, a.flame.y, held ? 12 : 6, PLAYER.core, 0.30);
-
+  // Body first, glow second. An opaque flame painted *over* its own additive
+  // halo is darker than the halo, and the whole thing reads as a bright ring
+  // with a dark teardrop punched out of it.
   teardrop(ctx, a.flame.x, a.flame.y, h, w, PLAYER.flame);
   teardrop(ctx, a.flame.x, a.flame.y - h * 0.1, h * 0.55, w * 0.45, PLAYER.core);
+  drawGlow(ctx, a.flame.x, a.flame.y, held ? 30 : 16, PLAYER.flame, 0.42);
+  drawGlow(ctx, a.flame.x, a.flame.y, held ? 10 : 5, PLAYER.core, 0.35);
   // A breath of the region accent in the flame's halo ties the player's light to
   // the room it is standing in without changing the flame's own colour.
-  drawGlow(ctx, a.flame.x, a.flame.y - h * 0.4, 5, region.accent, 0.25);
+  drawGlow(ctx, a.flame.x, a.flame.y - h * 0.4, 6, region.accent, 0.2);
 }
 
 /**

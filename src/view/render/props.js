@@ -58,9 +58,9 @@ export function drawLanterns(ctx, state, region, t) {
     // Lit lanterns breathe: a still flame reads as a decal, a moving one reads
     // as the room having been claimed.
     const h = 5.5 * (0.9 + hashNoise(Math.floor(t * 9) ^ Math.round(x)) * 0.2);
-    drawGlow(ctx, x, base - 9, 30, PLAYER.flame, 0.4);
     teardrop(ctx, x, base - 8, h, h * 0.5, PLAYER.flame);
     teardrop(ctx, x, base - 8.5, h * 0.5, h * 0.24, PLAYER.core);
+    drawGlow(ctx, x, base - 9, 30, PLAYER.flame, 0.4);
   }
 }
 

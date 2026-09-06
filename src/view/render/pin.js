@@ -11,6 +11,7 @@
 
 import { PLAYER, rgba } from './palette.js';
 import { drawGlow } from './glow.js';
+import { teardrop } from './player.js';
 import { hashNoise } from './rng.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
@@ -87,19 +88,11 @@ export function drawPin(ctx, state, region, t) {
   }
 
   const wob = 0.85 + hashNoise(Math.floor(t * 11) ^ 0x51) * 0.3;
-  drawGlow(ctx, headX, headY, 30 * wob, PLAYER.flame, 0.6);
-  drawGlow(ctx, headX, headY, 11, PLAYER.core, 0.95);
-  drawGlow(ctx, headX, headY, 7, region.accent, 0.2);
-
-  const h = 7 * wob;
-  ctx.fillStyle = PLAYER.flame;
-  ctx.beginPath();
-  ctx.moveTo(headX, headY - h);
-  ctx.quadraticCurveTo(headX + h * 0.5, headY - h * 0.3, headX, headY + h * 0.35);
-  ctx.quadraticCurveTo(headX - h * 0.5, headY - h * 0.3, headX, headY - h);
-  ctx.fill();
-  ctx.fillStyle = PLAYER.core;
-  ctx.beginPath();
-  ctx.arc(headX, headY - h * 0.25, h * 0.28, 0, Math.PI * 2);
-  ctx.fill();
+  const h = 6 * wob;
+  // Body first, then the additive halo over it — see render/player.js.
+  teardrop(ctx, headX, headY, h, h * 0.5, PLAYER.flame);
+  teardrop(ctx, headX, headY - h * 0.1, h * 0.55, h * 0.22, PLAYER.core);
+  drawGlow(ctx, headX, headY, 34 * wob, PLAYER.flame, 0.55);
+  drawGlow(ctx, headX, headY, 11, PLAYER.core, 0.4);
+  drawGlow(ctx, headX, headY, 8, region.accent, 0.18);
 }

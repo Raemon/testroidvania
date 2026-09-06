@@ -165,20 +165,46 @@ function skyline(region, index) {
 }
 
 /**
- * The void band: the lightest thing on screen and the back of every scene.
- * @param {CanvasRenderingContext2D} ctx
+ * The void band and the near fog plane, baked per region.
+ *
+ * Both are fixed in view space, so evaluating their gradients every frame is two
+ * full-surface gradient fills bought for nothing — a gradient fill costs several
+ * times what the equivalent blit does.
  * @param {Region} region
+ * @returns {Surface}
  */
-function drawVoid(ctx, region) {
-  const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-  // Foundry is the one region lit from below — dead furnaces under the floor —
-  // so its gradient runs the other way. Everywhere else the sky darkens downward
-  // and the fog banks put the light back at the horizon.
-  g.addColorStop(0, region.litFromBelow ? region.voidTop : shade(region.voidTop, 0.06));
-  g.addColorStop(0.6, region.voidTop);
-  g.addColorStop(1, region.voidBottom);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+function voidBand(region) {
+  return cache.get(`void|${region.id}`, () => {
+    const s = createSurface(VIEW_W, VIEW_H, true);
+    const g = s.ctx.createLinearGradient(0, 0, 0, VIEW_H);
+    // Foundry is the one region lit from below — dead furnaces under the floor —
+    // so its gradient runs the other way. Everywhere else the sky darkens downward
+    // and the fog banks put the light back at the horizon.
+    g.addColorStop(0, region.litFromBelow ? region.voidTop : shade(region.voidTop, 0.06));
+    g.addColorStop(0.6, region.voidTop);
+    g.addColorStop(1, region.voidBottom);
+    s.ctx.fillStyle = g;
+    s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    return s;
+  });
+}
+
+/**
+ * One bank of haze between the background and the foreground. It is what gives
+ * the terrain something lighter to be a silhouette *against*.
+ * @param {Region} region
+ * @returns {Surface}
+ */
+function fogPlane(region) {
+  return cache.get(`fog|${region.id}`, () => {
+    const s = createSurface(VIEW_W, VIEW_H);
+    const g = s.ctx.createLinearGradient(0, VIEW_H * 0.30, 0, VIEW_H);
+    g.addColorStop(0, rgba(region.fog, 0.02));
+    g.addColorStop(1, rgba(region.fog, 0.20));
+    s.ctx.fillStyle = g;
+    s.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    return s;
+  });
 }
 
 /**
@@ -191,16 +217,20 @@ export function drawParallax(ctx, region, camX, camY) {
   if (!composite) composite = createSurface(VIEW_W, VIEW_H, true);
   const b = composite.ctx;
   b.setTransform(1, 0, 0, 1, 0, 0);
+  b.globalCompositeOperation = 'copy';
+  b.drawImage(voidBand(region).canvas, 0, 0);
   b.globalCompositeOperation = 'source-over';
-  drawVoid(b, region);
 
   for (let i = 0; i < LAYERS.length; i++) {
     const spec = LAYERS[i] ?? /** @type {LayerSpec} */ (LAYERS[0]);
     const s = skyline(region, i);
     const off = ((-camX * spec.parallax) % LAYER_W + LAYER_W) % LAYER_W;
     const y = Math.round(Math.max(-44, Math.min(20, -camY * spec.parallax * 0.30)));
-    b.drawImage(s.canvas, Math.round(off - LAYER_W), y);
-    b.drawImage(s.canvas, Math.round(off), y);
+    // The wrap copy is usually entirely off-screen; blitting it anyway costs a
+    // whole extra layer's worth of fill rate for nothing.
+    const left = Math.round(off - LAYER_W);
+    if (left + LAYER_W > 0) b.drawImage(s.canvas, left, y);
+    if (off < VIEW_W) b.drawImage(s.canvas, Math.round(off), y);
   }
 
   // One fog plane in front of everything distant. A single bank of haze between

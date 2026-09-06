@@ -1,5 +1,13 @@
 /**
- * The DOM HUD. Every field carries a `data-testid`, because the harness asserts
+ * The DOM HUD: the debug readout under the canvas.
+ *
+ * This is *not* the player-facing HUD — the flame lanterns and ability glyphs are
+ * drawn on the canvas in `render/hud-overlay.js`. The two are deliberately
+ * separate: this one exists so the harness can compare a string against the sim
+ * every frame, and giving it a visual design would put the test oracle and the
+ * art direction in the same file.
+ *
+ * Every field carries a `data-testid`, because the harness asserts
  * the HUD text equals the sim state at every intent boundary — that comparison is
  * the oracle for "the view is reading a stale copy of state" (04-architecture §5).
  *
