@@ -58,10 +58,20 @@
  * @property {number} dropThrough  frames one-way platforms are ignored
  * @property {number} fallFrames   consecutive frames with vy > 0
  * @property {{x:number,y:number}} safeGround last standing position, for hazard respawn
+ * @property {boolean} perch       standing on a wall pin; horizontal input is ignored
+ * @property {boolean} hang        hanging off an embedded wall pin
+ * @property {number} hangCooldown frames before a pin may be grabbed again
+ * @property {number} throwFreeze  frames of frozen horizontal velocity during a throw
+ * @property {number} jabFrames    frames elapsed in the current jab, 0 when idle
+ * @property {number} jabHits      entities already hit by the current jab
+ * @property {number} deadFrames   frames spent dead, counting up to the respawn
  */
 
 /**
- * The Pin. Phase 2 owns its behaviour; Phase 1 only carries the shape.
+ * The Pin. `x`,`y` is its anchor: the centre while flying or dropped, the surface
+ * contact point while embedded, the hand while held. `nx`,`ny` is the surface
+ * normal it stands out along, which is what turns an embed into a platform.
+ *
  * @typedef {object} Pin
  * @property {PinState} state
  * @property {number} x
@@ -73,6 +83,16 @@
  * @property {-1|1} dirX
  * @property {-1|0|1} dirY
  * @property {number|null} hostId   entity a `pinned` Pin is stuck through
+ * @property {number} startup       frames of throw startup left; the Pin is still held
+ * @property {-1|0|1} aimX          aim locked at the press frame
+ * @property {-1|0|1} aimY
+ * @property {number} nx            surface normal, pointing out of the material
+ * @property {number} ny
+ * @property {boolean} inert        spent: past range or clanged, so it only falls
+ * @property {number} clang         frames of clang flash left
+ * @property {number} away          frames spent out of bounds or in a kill volume
+ * @property {number} lock          frames before the next throw is allowed
+ * @property {number} hostTimer     frames a `pinned` enemy stays helpless
  */
 
 /**
@@ -91,6 +111,13 @@
  * @property {-1|1} facing
  * @property {number} hitLockout    frames before the same attack may hit again
  * @property {Record<string, number>} timers  per-kind frame counters
+ * @property {0|1} mass             0 light (pinnable), 1 heavy (00-BIBLE §6)
+ * @property {string} mode          per-kind behaviour state, e.g. 'dormant'
+ * @property {boolean} pinned       nailed to a wall: helpless, and harmless to touch
+ * @property {number} stun          frames of lost control
+ * @property {number} flash         frames of hit flash left, for the renderer
+ * @property {number} targetX       what a light-tracking enemy is charging at
+ * @property {number} targetY
  */
 
 /**
@@ -121,8 +148,25 @@
  * @property {Hazard[]} hazards
  * @property {{kind:string, at:[number,number]}[]} spawns
  * @property {{id:string, kind:string, at:[number,number], ability?:AbilityId}[]} pickups
- * @property {[number, number][]} route waypoints in tile coords, for the servo
+ * @property {{at:[number,number], x:number, y:number}[]} lanterns save-lanterns, compiled from the grid
+ * @property {Waypoint[]} route     waypoints in tile coords, for the servo
  * @property {number[]|null} macro  RLE input tape, only if the servo cannot solve the room
+ */
+
+/**
+ * A servo waypoint: a tile to stand on, plus an optional action to perform once
+ * standing there. Actions are the bot's half of the Pin — see `src/bot/servo.js`.
+ * @typedef {[number, number] | [number, number, string]} Waypoint
+ */
+
+/**
+ * One light hole in the darkness overlay. The renderer owns how it is drawn; the
+ * sim owns where the lights are, because §D2 enemies aim at them.
+ * @typedef {object} Light
+ * @property {number} x
+ * @property {number} y
+ * @property {number} r
+ * @property {'aura'|'pin'|'hazard'|'eye'|'lantern'} kind
  */
 
 /**
@@ -174,6 +218,13 @@
  * @property {number} nextEntityId
  * @property {Progress} progress
  * @property {Liveness} liveness
+ * @property {Light[]} lights              every light hole this frame, brightest first
+ * @property {Record<string, number[]>} discovered per-room seen-tile bitmask, one number per row
+ * @property {string[]} brokenTiles        'tx,ty' of tiles crumbled away in this room
+ * @property {number} hitstop              frames the world is frozen for impact
+ * @property {number} flash                frames of screen-edge flash (the clang read)
+ * @property {number} shake                frames of screenshake left
+ * @property {{room:string, x:number, y:number}} respawn last lit save-lantern
  * @property {SimError[]} errors           step() reports failures here, never throws
  * @property {boolean} debug               enables invariant checking in the harness
  */
