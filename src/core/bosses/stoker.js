@@ -21,7 +21,7 @@ import { emit } from '../events.js';
 export const kind = 'stoker';
 export const rig = 'knight';
 
-const STOKER_HP = 18;
+const STOKER_HP = 12;
 const STOKER_W = 40;
 const STOKER_H = 32;
 const STOKER_SLAM_WINDUP = 14;

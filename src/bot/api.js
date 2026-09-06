@@ -26,7 +26,7 @@ import { isBoss, BOSSES } from '../core/bosses/index.js';
  * @property {AbilityId[]} abilities
  * @property {{id:string, x:number, y:number, to:string, requires:AbilityId|null}[]} doors
  * @property {{id:string, kind:string, x:number, y:number, taken:boolean}[]} pickups
- * @property {{id:number, kind:string, x:number, y:number, hp:number, pinned:boolean, mode:string}[]} enemies
+ * @property {{id:number, kind:string, x:number, y:number, w:number, h:number, vx:number, vy:number, hp:number, mass:0|1, pinned:boolean, mode:string}[]} enemies
  * @property {{id:string, entityId:number, x:number, y:number, w:number, h:number, hp:number, maxHp:number, mode:string, guarded:boolean, parts:{id:number,x:number,y:number,w:number,h:number,pinned:boolean,material:string|null}[]}|null} boss
  * @property {{x:number,y:number,w:number,h:number,kind:string}[]} hazards
  * @property {import('../core/types.js').Waypoint[]} route waypoints in tile coords; y is the foot tile
@@ -90,7 +90,10 @@ export function observe(state) {
       id: pk.id, kind: pk.kind, x: pk.at[0] * TILE + TILE / 2, y: pk.at[1] * TILE + TILE,
       taken: state.progress.pickupsTaken.includes(pk.id),
     })),
-    enemies: state.entities.map((e) => ({ id: e.id, kind: e.kind, x: e.x, y: e.y, hp: e.hp, pinned: e.pinned, mode: e.mode })),
+    enemies: state.entities.map((e) => ({
+      id: e.id, kind: e.kind, x: e.x, y: e.y, w: e.w, h: e.h,
+      vx: e.vx, vy: e.vy, hp: e.hp, mass: e.mass, pinned: e.pinned, mode: e.mode,
+    })),
     boss: bossIn(state),
     hazards: room.hazards.map((h) => ({ x: h.x, y: h.y, w: h.w, h: h.h, kind: h.kind })),
     route: room.route,

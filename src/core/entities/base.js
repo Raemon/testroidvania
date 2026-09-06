@@ -83,8 +83,9 @@ export function entityEye(e) {
  * @returns {boolean} true if the blow lands on the shell and does nothing
  */
 export function armoured(e, fromX, fromY) {
-  // A boss's plates are up unless one of its pinnable parts is currently held.
-  if ((e.timers.guard ?? 0) > 0) return true;
+  // A body with plates is governed by its plates and nothing else: a boss whose
+  // pinnable part is held is *open*, from any angle. Otherwise the Shell rule.
+  if (e.timers.guard !== undefined) return e.timers.guard > 0;
   if (!ARMOURED_KINDS.includes(e.kind)) return false;
   if (e.pinned || e.stun > 0) return false;
   if (fromY < e.y) return false;

@@ -19,7 +19,7 @@ import { spawnBoss, hatchParts, tick, enter, facePlayer, BOSS_LIGHT_TELEGRAPH } 
 export const kind = 'diver';
 export const rig = 'jelly';
 
-const DIVER_HP = 18;
+const DIVER_HP = 12;
 const DIVER_W = 32;
 const DIVER_H = 26;
 const DIVER_SUBMERGE_FRAMES = 50;

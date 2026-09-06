@@ -25,7 +25,7 @@ import { emit } from '../events.js';
 export const kind = 'anchor';
 export const rig = 'knight';
 
-const ANCHOR_HP = 24;
+const ANCHOR_HP = 16;
 const ANCHOR_W = 44;
 const ANCHOR_H = 36;
 /** Phase 2 begins here; phase 3 was cut (06-revision-1 §C). */

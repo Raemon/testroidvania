@@ -18,15 +18,20 @@ import { spawnBoss, hatchParts } from './base.js';
 export const kind = 'sentinel';
 export const rig = 'knight';
 
-const SENTINEL_HP = 14;
+const SENTINEL_HP = 10;
 const SENTINEL_W = 34;
 const SENTINEL_H = 30;
 
 /** @type {import('./index.js').BossDef} */
 export const boss = { id: 'sentinel', name: 'Sentinel', maxHp: SENTINEL_HP, grants: 'twinPin' };
 
+/**
+ * Shoulder plates, one each side, at hand height and standing proud of the body so
+ * a straight throw reaches the plate before it reaches the armour.
+ */
 const PARTS = /** @type {const} */ ([
-  { offX: SENTINEL_W / 2 - 7, offY: -6, swing: 0, material: 'stone' },
+  { offX: -6, offY: 8, swing: 0, material: 'stone' },
+  { offX: SENTINEL_W - 8, offY: 8, swing: 0, material: 'stone' },
 ]);
 
 /**
