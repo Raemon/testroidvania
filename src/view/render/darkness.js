@@ -24,6 +24,7 @@
 import { VIEW_W, VIEW_H, DARKNESS_ALPHA_CAP } from '../../core/constants.js';
 import { createSurface } from './surface.js';
 import { rgba } from './palette.js';
+import { paintWarmCasts } from './glow.js';
 
 /** @typedef {import('./palette.js').Region} Region */
 
@@ -99,8 +100,9 @@ export function flicker(t) {
  * @param {number} alpha  requested overlay strength, clamped to the §D5 cap
  * @param {HTMLCanvasElement|null} grade  the constant grade image to carry up
  * @param {number} gradeAlpha
+ * @param {number} warmAlpha  strength of the warm cast, which rides the same surface
  */
-export function drawDarkness(ctx, region, lights, alpha, grade, gradeAlpha) {
+export function drawDarkness(ctx, region, lights, alpha, grade, gradeAlpha, warmAlpha) {
   const s = overlay();
   const o = s.ctx;
   o.setTransform(1, 0, 0, 1, 0, 0);
@@ -135,6 +137,13 @@ export function drawDarkness(ctx, region, lights, alpha, grade, gradeAlpha) {
     o.imageSmoothingEnabled = true;
     o.globalAlpha = 1;
   }
+
+  // What the lights *add*, on the same surface as what the darkness subtracts.
+  // Additive here so two lamps sum the way two lamps do; the surface as a whole
+  // still lands on the world as one veil, which is why the brightest thing on
+  // screen is a warm colour rather than a blown-out white.
+  o.globalCompositeOperation = 'lighter';
+  paintWarmCasts(o, lights, warmAlpha);
   o.globalCompositeOperation = 'source-over';
 
   // The constant grade (region tint, vignette, grain) rides up with the overlay

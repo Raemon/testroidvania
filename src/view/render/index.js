@@ -18,8 +18,8 @@
  *
  * Draw order:
  *   terrain -> props -> fluids -> hazards -> particles -> entities -> Pin -> player
- *   warm light casts                                            (one blit, additive)
- *   darkness overlay + remembered terrain + the grade   (source-atop: world only)
+ *   the light layer: cold wash, holes, warm casts, remembered terrain, the grade,
+ *     built at world resolution and landed in one pass (source-atop: world only)
  *   void gradient -> parallax skylines + fog + a flat dim   (destination-over)
  *   letterbox bars                                                        (device)
  *   hit flash and the low-health tint, when they are happening             (view)
@@ -44,7 +44,7 @@ import { drawPins } from './pin.js';
 import { Particles } from './particles.js';
 import { drawGrade, gradeLayer } from './grade.js';
 import { drawHudOverlay, drawRoomLabel } from './hud-overlay.js';
-import { drawWarmCasts } from './glow.js';
+
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./camera.js').Camera} Camera */
@@ -54,6 +54,9 @@ import { drawWarmCasts } from './glow.js';
  * @property {number} width   backing-store width in device pixels
  * @property {number} height  backing-store height in device pixels
  */
+
+/** How strongly a light warms what it lands on. The cold half is `region.wash`. */
+const WARM_ALPHA = 0.30;
 
 const rig = createPlayerRig();
 const particles = new Particles('pinlight');
@@ -139,12 +142,6 @@ export function render(ctx, state, cam, target) {
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   const screenLights = lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY }));
 
-  // The warm cast: what the light *adds*, as opposed to what the darkness
-  // subtracts everywhere else. It reaches most of the way out to the hole the
-  // same light punches, because the two are one statement: warm where a light
-  // reaches, cold where it does not.
-  drawWarmCasts(ctx, screenLights, 0.30);
-
   updateMemoryMask(state.roomData, state.discovered?.[state.room] ?? [], DISCOVERED_ALPHA, v);
   const low = state.player.maxHp > 0 && state.player.hp / state.player.maxHp < 0.25 && state.player.hp > 0;
   const grade = gradeLayer(region, state.tick);
@@ -152,7 +149,7 @@ export function render(ctx, state, cam, target) {
   // Only what the light could have reached. See the header: a wash that also
   // covers the sky costs the parallax its value separation and buys nothing.
   ctx.globalCompositeOperation = 'source-atop';
-  drawDarkness(ctx, region, screenLights, region.darkness, grade ? grade.canvas : null, gradeAlpha);
+  drawDarkness(ctx, region, screenLights, region.darkness, grade ? grade.canvas : null, gradeAlpha, WARM_ALPHA);
 
   // The distance, filled in behind everything above it. It carries the same grade
   // (so the vignette still closes the frame) and a flat, hole-less dim: the light
