@@ -115,6 +115,17 @@ export function servo(obs, mem) {
     return { input: 0, mem: next, done: false };
   }
 
+  // Hanging off the Pin with the route still above us: **mantle**. Jump with no
+  // direction climbs onto the shelf; Jump with one is the wall-kick, which is a
+  // way back down from a ledge the bot was trying to get onto. Pulsed, because
+  // Jump is edge-triggered and a held button is not a press.
+  if (p.hang) {
+    next.still = 0;
+    const up = targetFootY < p.footY;
+    const pulse = obs.tick % 4 === 0;
+    return { input: pulse ? (up ? IN.JUMP : IN.DOWN) : 0, mem: next, done: false };
+  }
+
   // A living boss owns the room: nothing about a route is true while it is up.
   const policy = policyFor(obs);
   if (policy) {
@@ -168,7 +179,11 @@ function wantsJump(obs, dir, targetFootY) {
   // jump-cut does not fire and rob us of the last 30px of height.
   if (!p.grounded) {
     if (p.vy >= 0) return false;
-    if (p.footY > targetFootY + 4) return true;
+    // Hold past the waypoint's own height, not up to it. Releasing at +4 spends
+    // the jump-cut while still rising, which costs more than half the remaining
+    // arc — and the rooms that are one pixel of lip away from a landing are
+    // exactly the ones that teach something.
+    if (p.footY > targetFootY - 12) return true;
     // Or still under the lip of the thing we jumped at. Releasing here is how a
     // bot ends up bouncing off the same 2-tile block forever.
     return obs.solidAt(aheadTile, Math.floor((p.footY - 1) / TILE));

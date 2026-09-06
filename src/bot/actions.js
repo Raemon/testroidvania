@@ -131,11 +131,21 @@ function zip(obs, next) {
   return { input: 0, st: next, done: obs.player.zipFrames === 0, failed: '' };
 }
 
+/**
+ * Jump *away* from the wall, which is what makes it a kick rather than a mantle.
+ * The direction is not decoration: a bare Jump from a Hang now climbs onto the
+ * shelf instead (06-revision-1 §D1, as amended by the first playtest).
+ * @param {Observation} obs @returns {number}
+ */
+function awayBit(obs) {
+  return obs.pin.nx > 0 ? IN.RIGHT : IN.LEFT;
+}
+
 /** @param {Observation} obs @param {ActionState} next @returns {ActionResult} */
 function kick(obs, next) {
   const p = obs.player;
   if (!p.hang && !p.hangBelow) return { input: 0, st: next, done: next.phase > 0, failed: '' };
-  if (next.phase === 0) return { input: IN.JUMP, st: { phase: 1, frames: next.frames }, done: false, failed: '' };
+  if (next.phase === 0) return { input: IN.JUMP | awayBit(obs), st: { phase: 1, frames: next.frames }, done: false, failed: '' };
   return { input: 0, st: next, done: false, failed: '' };
 }
 
@@ -164,7 +174,7 @@ function climb(obs, targetX, next, bits) {
   if (next.phase === 3) {
     if (p.zipFrames > 0) return { input: 0, st: next, done: false, failed: '' };
     if (!p.hang && !p.hangBelow) return { input: 0, st: next, done: true, failed: '' };
-    return { input: IN.JUMP, st: { phase: 4, frames: next.frames }, done: false, failed: '' };
+    return { input: IN.JUMP | (p.hang ? awayBit(obs) : 0), st: { phase: 4, frames: next.frames }, done: false, failed: '' };
   }
   return { input: 0, st: next, done: !p.hang && !p.hangBelow, failed: '' };
 }

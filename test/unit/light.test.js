@@ -136,7 +136,7 @@ test('a Charger wakes, dashes at the light it saw, and stops at the ledge', () =
 #............................#
 #............................#
 #...........................##
-##############################`, { spawns: [{ kind: 'charger', at: [20, 4] }] });
+##############################`, { spawns: [{ kind: 'charger', at: [16, 4] }] });
   let s = stateIn(room, 4, 4);
   assert.equal(s.entities[0]?.mode, 'dormant');
   const startedAt = s.entities[0]?.x ?? 0;

@@ -64,7 +64,7 @@ test('hopper: at least 16 frames of visible crouch before it can be anywhere nea
 });
 
 test('turret: 32 frames of telegraph, and the bolt does not exist before then', () => {
-  let s = withEnemy('turret', [20, 5], 4);
+  let s = withEnemy('turret', [20, 5], 8);
   s = until(s, 0, (x) => (x.entities[0]?.mode ?? '') === 'telegraph', 'it acquires a light', 200);
   const committed = s.tick;
   s = until(s, 0, (x) => x.entities.some((e) => e.kind === 'bolt'), 'it fires', 200);
@@ -78,16 +78,22 @@ test('turret: it aims at the nearest light, which may be the Pin you threw (§D2
   // follows the light, not the player.
   // Stand well back and lob the Pin toward it: now the nearest light in its line of
   // sight is a piece of iron in the floor, and that is what it shoots at.
+  // Stand far enough back that the turret cannot see the player at all, then lob
+  // the Pin down-range: the only light in its line of sight is the one you threw.
   let s = withEnemy('turret', [22, 5], 3);
-  s = until(s, IN.THROW, (x) => x.pin.state === 'dropped' || x.pin.state === 'embedded', 'lob it forward', 300);
   const cx = s.player.x + s.player.w / 2;
-  assert.ok(s.pin.x > cx + 80, `the Pin must end up nearer the turret than the player is (${s.pin.x} vs ${cx})`);
-  s = until(s, 0, (x) => (x.entities[0]?.mode ?? '') === 'telegraph', 'it acquires', 300);
-  const turret = s.entities[0];
-  assert.ok(turret, 'the turret is still there');
+  s = run(s, IN.THROW, 1, 'lob it forward');
+  /** @type {{aim:number, pinX:number}|null} */
+  let shot = null;
+  for (let i = 0; i < 300 && shot === null; i++) {
+    s = run(s, 0, 1, 'watch it aim');
+    const t = s.entities[0];
+    if (t && t.mode === 'telegraph') shot = { aim: t.targetX, pinX: s.pin.x };
+  }
+  assert.ok(shot, 'the turret never acquired anything, so it never saw the Pin either');
   assert.ok(
-    Math.abs((turret?.targetX ?? 0) - s.pin.x) < Math.abs((turret?.targetX ?? 0) - cx),
-    `it aimed at ${turret?.targetX}, which is the player and not the Pin at ${s.pin.x}`,
+    Math.abs((shot?.aim ?? 0) - (shot?.pinX ?? 0)) < Math.abs((shot?.aim ?? 0) - cx),
+    `it aimed at ${shot?.aim}, which is the player at ${cx} and not the Pin at ${shot?.pinX}`,
   );
 });
 

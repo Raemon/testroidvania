@@ -15,6 +15,7 @@
 import {
   TILE, PIN_THROW_STARTUP, PIN_SPEED, PIN_RANGE, PIN_FALL_GRAVITY, PIN_RECALL_SPEED,
   PIN_CATCH_RADIUS, PIN_THROW_LOCK, PIN_HAND_OFFSET, PIN_CLANG_FLASH_FRAMES,
+  PIN_REJECT_FLASH_FRAMES, SHAKE_REJECT,
   PIN_AUTO_RECALL_FRAMES, PIN_PINNED_FRAMES, PIN_RECALL_DAMAGE,
   PIN_WATER_SINK, HITSTOP_HIT, HITSTOP_KILL, TERMINAL_VY,
 } from './constants.js';
@@ -84,6 +85,7 @@ export function stagePin(s) {
   let pin = { ...s.pin, lock: Math.max(0, s.pin.lock - 1), clang: Math.max(0, s.pin.clang - 1) };
   let entities = s.entities;
   let flash = Math.max(0, s.flash - 1);
+  let shake = s.shake;
   let hitstop = 0;
   let roomData = s.roomData;
   let brokenTiles = s.brokenTiles;
@@ -138,7 +140,7 @@ export function stagePin(s) {
   if (pin.state === 'returning') {
     const result = stepReturning(s, pin, entities);
     if (result.pin.state === 'held') emit(s.events, 'pin.catch', result.pin.x, result.pin.y);
-    return { ...s, pin: result.pin, entities: result.entities, props, roomData, brokenTiles, hitstop: Math.max(s.hitstop, result.hitstop), flash };
+    return { ...s, pin: result.pin, entities: result.entities, props, roomData, brokenTiles, hitstop: Math.max(s.hitstop, result.hitstop), flash, shake };
   }
 
   if (pin.state === 'flying') {
@@ -149,6 +151,14 @@ export function stagePin(s) {
     if (moved.clang) {
       flash = PIN_CLANG_FLASH_FRAMES;
       emit(s.events, 'pin.clang', pin.x, pin.y, { material: 'metal' });
+    }
+    // The Pin refusing a surface it cannot bite — stone, before Deep Pin. Quieter
+    // than a clang and unmistakably not a miss: two frames of flash and two of
+    // shake are what make "this wall is the gate" legible on the first throw.
+    if (moved.rejected) {
+      flash = Math.max(flash, PIN_REJECT_FLASH_FRAMES);
+      shake = Math.max(shake, SHAKE_REJECT);
+      emit(s.events, 'pin.reject', pin.x, pin.y, { material: moved.rejected });
     }
     if (moved.bounced) emit(s.events, 'pin.ricochet', pin.x, pin.y, { material: 'metal' });
     if (pin.state === 'embedded' && s.pin.state !== 'embedded') {
@@ -183,7 +193,7 @@ export function stagePin(s) {
   }
 
   pin = trackAutoRecall(s, pin, roomData);
-  return { ...s, pin, entities, props, roomData, brokenTiles, flash, hitstop: Math.max(s.hitstop, hitstop) };
+  return { ...s, pin, entities, props, roomData, brokenTiles, flash, shake, hitstop: Math.max(s.hitstop, hitstop) };
 }
 
 /** @param {Pin} pin @param {{x:number,y:number}} from @returns {Pin} */
@@ -258,7 +268,7 @@ function stepReturning(s, pin, entities) {
  * @param {Pin} pin
  * @param {readonly Entity[]} entities
  * @param {Room} room
- * @returns {{pin: Pin, entities: Entity[], hitstop: number, clang: boolean, bounced: boolean, broke: [number,number]|null}}
+ * @returns {{pin: Pin, entities: Entity[], hitstop: number, clang: boolean, bounced: boolean, rejected: import('./types.js').Material|null, broke: [number,number]|null}}
  */
 function stepFlying(s, pin, entities, room) {
   let next = { ...pin };
@@ -266,6 +276,8 @@ function stepFlying(s, pin, entities, room) {
   let hitstop = 0;
   let clang = false;
   let bounced = false;
+  /** @type {import('./types.js').Material|null} */
+  let rejected = null;
   /** @type {[number,number]|null} */
   let broke = null;
 
@@ -290,6 +302,7 @@ function stepFlying(s, pin, entities, room) {
       next = hit.pin;
       clang = clang || hit.clang;
       bounced = bounced || hit.bounced;
+      rejected = rejected ?? hit.rejected;
       broke = hit.broke ?? broke;
       // A bounce is the one outcome that keeps flying, so it spends the slice and
       // carries on rather than ending the frame's motion.
@@ -312,7 +325,7 @@ function stepFlying(s, pin, entities, room) {
     }
   }
 
-  return { pin: next, entities: list, hitstop, clang, bounced, broke };
+  return { pin: next, entities: list, hitstop, clang, bounced, rejected, broke };
 }
 
 
@@ -358,7 +371,7 @@ function slagUnder(s, pin, room) {
  * @param {Room} room
  * @param {Pin} pin
  * @param {import('./pin-geometry.js').PinContact} contact
- * @returns {{pin: Pin, clang: boolean, bounced: boolean, broke: [number,number]|null}}
+ * @returns {{pin: Pin, clang: boolean, bounced: boolean, rejected: import('./types.js').Material|null, broke: [number,number]|null}}
  */
 function resolveSurface(s, room, pin, contact) {
   const at = { ...pin, x: contact.x, y: contact.y };
@@ -376,12 +389,12 @@ function resolveSurface(s, room, pin, contact) {
         propId: contact.propId,
         surface: onRail ? 'metal' : tileAt(glyphAt(room, contact.tx, contact.ty)).material,
       },
-      clang: false, bounced: false, broke: null,
+      clang: false, bounced: false, rejected: null, broke: null,
     };
   }
   if (verdict === 'crumble') {
     // The tile gives way rather than holding the Pin (§G).
-    return { pin: { ...at, inert: true, vx: 0, vy: 0 }, clang: false, bounced: false, broke: [contact.tx, contact.ty] };
+    return { pin: { ...at, inert: true, vx: 0, vy: 0 }, clang: false, bounced: false, rejected: null, broke: [contact.tx, contact.ty] };
   }
   if (verdict === 'clang' && canBounce(pin, s.progress.abilities)) {
     // A4 turns the one thing the Pin could never do into a bank shot. Range keeps
@@ -389,7 +402,7 @@ function resolveSurface(s, room, pin, contact) {
     // Nudged off the face first: a Pin that starts its second leg exactly on the
     // surface it just left re-detects the same contact and clangs on its own bounce.
     const clear = { ...at, x: contact.x + contact.nx * 0.5, y: contact.y + contact.ny * 0.5 };
-    return { pin: bounce(clear, contact.nx, contact.ny), clang: false, bounced: true, broke: null };
+    return { pin: bounce(clear, contact.nx, contact.ny), clang: false, bounced: true, rejected: null, broke: null };
   }
   // Clang is the most important readability event in the game: white flash, then
   // straight down. Everything else non-pinnable just stops dead.
@@ -399,7 +412,10 @@ function resolveSurface(s, room, pin, contact) {
   const landed = contact.ny < 0
     ? { ...stopped, state: /** @type {import('./types.js').PinState} */ ('dropped'), y: contact.y - 2, vy: 0 }
     : stopped;
-  return { pin: landed, clang: verdict === 'clang' && !pin.inert, bounced: false, broke: null };
+  const refused = verdict === 'reject' && !pin.inert
+    ? tileAt(glyphAt(room, contact.tx, contact.ty)).material
+    : null;
+  return { pin: landed, clang: verdict === 'clang' && !pin.inert, bounced: false, rejected: refused, broke: null };
 }
 
 /**

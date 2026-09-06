@@ -24,7 +24,7 @@
  */
 export const EVENT_KINDS = [
   // Pin
-  'pin.throw', 'pin.embed', 'pin.clang', 'pin.enemy', 'pin.recall', 'pin.catch', 'pin.drop',
+  'pin.throw', 'pin.embed', 'pin.clang', 'pin.reject', 'pin.enemy', 'pin.recall', 'pin.catch', 'pin.drop',
   // Grip
   'perch', 'hang', 'wallkick',
   // Movement

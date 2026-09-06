@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import { IN } from '../../src/core/input.js';
 import {
   TILE, PIN_THROW_STARTUP, PIN_RANGE, PIN_PINNED_FRAMES, PIN_AUTO_RECALL_FRAMES,
-  PIN_HAND_OFFSET, PIN_CLANG_FLASH_FRAMES, PLAYER_H, ENEMY_HP_LIGHT,
+  PIN_HAND_OFFSET, PIN_CLANG_FLASH_FRAMES, PIN_REJECT_FLASH_FRAMES, SHAKE_REJECT,
+  PLAYER_H, ENEMY_HP_LIGHT,
 } from '../../src/core/constants.js';
 import { pinPlatform } from '../../src/core/pin-geometry.js';
 import { roomFrom, stateIn, run, tap, until } from '../harness/sim.js';
@@ -19,6 +20,21 @@ import { roomFrom, stateIn, run, tap, until } from '../harness/sim.js';
 /** Wood wall on the right, stone floor, nine tiles of room to stand in. */
 const WOOD_WALL = `
 ##############
+#............W
+#............W
+#............W
+#............W
+#............W
+##############`;
+
+/** The same wall with a tall ceiling, so a mantle has somewhere to go. */
+const TALL_WOOD_WALL = `
+##############
+#............W
+#............W
+#............W
+#............W
+#............W
 #............W
 #............W
 #............W
@@ -144,7 +160,7 @@ test('hang (§D1.2): falling past a wall pin snaps to it, and Jump away is a wal
 });
 
 test('hang: Jump with no direction mantles up onto the shelf, and lands as a Perch', () => {
-  const s = hangingOnTheWall();
+  const s = hangingOnTheWall(TALL_WOOD_WALL, 10);
   const plat = pinPlatform(s.pin);
   assert.ok(plat, 'the pin being hung from is a shelf');
 
@@ -173,10 +189,12 @@ test('hang: Down lets go, and recall drops you — a hang can never strand you',
  * Throw at the top of a jump: the shelf lands above anything a jump from the floor
  * can reach, so the way back down passes the Pin instead of standing on it. That
  * is the situation §D1.2 exists for — the Pin you jumped for and did not quite get.
+ * @param {string} [art]
+ * @param {number} [ty]
  * @returns {import('../../src/core/types.js').GameState}
  */
-function hangingOnTheWall() {
-  let s = at(WOOD_WALL);
+function hangingOnTheWall(art = WOOD_WALL, ty = 5) {
+  let s = at(art, 3, ty);
   s = run(s, IN.RIGHT, 70, 'press against the wall');
   s = run(s, IN.RIGHT | IN.JUMP, 12, 'jump');
   s = run(s, IN.RIGHT | IN.JUMP | IN.THROW, 1, 'throw at the apex');
@@ -199,12 +217,31 @@ test('stone is not pinnable until Deep Pin, and then it is', () => {
   let s = at(STONE_WALL);
   s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.inert || x.pin.state === 'dropped', 'bounce off stone');
   assert.notEqual(s.pin.state, 'embedded');
-  assert.equal(s.flash, 0, 'only metal clangs');
+  assert.ok(s.flash <= PIN_REJECT_FLASH_FRAMES, 'a refusal is quieter than a clang');
+  assert.equal(s.pin.clang, 0, 'only metal clangs');
 
   let deep = at(STONE_WALL);
   deep = { ...deep, progress: { ...deep.progress, abilities: ['deepPin'] } };
   deep = until(deep, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'Deep Pin embeds in stone');
   assert.equal(deep.pin.surface, 'stone');
+});
+
+test('reject: stone before Deep Pin says so — a pin.reject event, a flash and a shake', () => {
+  let s = at(STONE_WALL);
+  /** @type {string[]} */
+  const kinds = [];
+  let sawFlash = 0;
+  let sawShake = 0;
+  for (let i = 0; i < 60 && !s.pin.inert; i++) {
+    s = run(s, IN.RIGHT | IN.THROW, 1, 'throw at stone');
+    for (const e of s.events) kinds.push(e.kind);
+    sawFlash = Math.max(sawFlash, s.flash);
+    sawShake = Math.max(sawShake, s.shake);
+  }
+  assert.ok(kinds.includes('pin.reject'), `the refusal was silent; saw ${[...new Set(kinds)].join(', ')}`);
+  assert.ok(!kinds.includes('pin.clang'), 'a refusal is not a clang');
+  assert.equal(sawFlash, PIN_REJECT_FLASH_FRAMES);
+  assert.equal(sawShake, SHAKE_REJECT);
 });
 
 test('one-way platforms are not pinnable: the Pin passes straight through (§G)', () => {

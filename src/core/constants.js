@@ -106,6 +106,13 @@ export const PIN_POLE_H = 16;
  */
 export const PIN_HAND_OFFSET = 6;
 export const PIN_CLANG_FLASH_FRAMES = 6;
+/**
+ * The Pin biting nothing at all. Stone before Deep Pin used to be silent, which
+ * made "the first thing the Pin cannot solve" indistinguishable from a whiffed
+ * throw. Shorter and softer than a clang: a refusal, not an impact.
+ */
+export const PIN_REJECT_FLASH_FRAMES = 2;
+export const SHAKE_REJECT = 2;
 /** Out of bounds or inside a kill volume for this long and the Pin comes home. */
 export const PIN_AUTO_RECALL_FRAMES = 30;
 /**
