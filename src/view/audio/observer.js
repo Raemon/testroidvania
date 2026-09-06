@@ -4,11 +4,17 @@
  * The simulation is pure and must stay bit-exact under replay, so audio is never
  * allowed to write to it and the core is never allowed to call into audio. What is
  * left is a diff: two consecutive `GameState`s go in, a list of sounds comes out.
- * Everything this module remembers between frames (a stride accumulator, a pickup
+ * Everything this module remembers between frames (which foot is next, a pickup
  * chain, the last heartbeat) lives here, never in `GameState`.
  *
- * Some events cannot honestly be derived this way — see the report in
- * `src/view/audio/README` of the task, and `WANTED_FROM_CORE` below.
+ * Some events cannot honestly be derived this way, and the sim publishes those in
+ * `state.events` — a list rebuilt from scratch every `step()`, so reading it is
+ * still observation and a replay still hashes identically. A Zip arrival is
+ * indistinguishable from a fast fall in a diff; a crumble tile's break frame is
+ * gone by the time `brokenTiles` shows it; the material under a foot would mean
+ * re-deriving collision out here. Those come from the event list. Everything a
+ * diff can honestly see still comes from the diff, because a state difference is
+ * the thing that cannot go stale.
  */
 
 import { IN, justPressed } from '../../core/input.js';
@@ -19,8 +25,6 @@ import { IN, justPressed } from '../../core/input.js';
 
 /** @typedef {{ id: string, opts: SfxOpts }} AudioEvent */
 
-/** Player stride, from 05-aesthetic §4 (foot phase = distance / 28). */
-const STRIDE = 28;
 /** 05 §6c 17: every 1.1 s. */
 const HEARTBEAT_TICKS = 66;
 const LOW_HEALTH = 0.25;
@@ -32,19 +36,45 @@ const AWARE_DIST = 200;
 const PICKUP_CHAIN_TICKS = 60;
 
 /**
- * Events the core does not expose, which audio therefore cannot fire. Listed here
- * so the list lives next to the code that would use it.
+ * What audio still cannot fire, because nothing in the sim says it happened.
+ * Everything else that used to be on this list now arrives in `state.events` and
+ * is wired in EVENT_SOUNDS below.
  */
 export const WANTED_FROM_CORE = [
-  'zip start / zip arrive (Zip is indistinguishable from a fast fall in state)',
-  'wall-kick off a Hang',
-  'boss phase change, boss roar, boss stomp footfall',
   'menu cursor movement (there is no menu state, only the PAUSE bit)',
-  'door open as distinct from room transition (a transition is instantaneous)',
-  'footstep material under the foot (derived from the room grid would duplicate collision)',
-  'water entry / exit ripple',
-  'crumble tile break (brokenTiles gives the tile but not which frame it broke)',
 ];
+
+/**
+ * `state.events` kind -> the recipe it plays. Exported so the suite can check it
+ * against the sim's own `EVENT_KINDS` and against the recipe table: the fault
+ * this file had was a name nobody was listening for.
+ *
+ * These are the sounds the game was emitting into nothing: the Zip, the
+ * wall-kick, tiles crumbling underfoot, water, every boss beat past the roar, the
+ * whole ascent, and the end of the game. The sim has published them for a while;
+ * the observer was still diffing state and could not see any of them.
+ *
+ * @type {Record<string, {id: string, gain?: number, vary?: number}>}
+ */
+export const EVENT_SOUNDS = {
+  // 05 §6c 13 is "Dash / Zip / recall" — the departure is the dash whoosh.
+  'zip.start': { id: 'dash', gain: 0.9 },
+  'zip.arrive': { id: 'zipArrive' },
+  wallkick: { id: 'wallKick' },
+  'crumble.break': { id: 'crumble' },
+  'water.enter': { id: 'splash' },
+  // The same recipe, quieter and a shade higher: leaving water is a smaller
+  // event than entering it, and it must not read as a second entry.
+  'water.exit': { id: 'splash', gain: 0.5, vary: 1.12 },
+  'boss.roar': { id: 'bossRoar' },
+  'boss.stomp': { id: 'bossStomp' },
+  'boss.phase': { id: 'bossPhase' },
+  'boss.death': { id: 'bossDeath' },
+  'ascent.start': { id: 'ascentRise' },
+  'ascent.tier': { id: 'ascentTier' },
+  'ascent.void': { id: 'voidNear' },
+  'game.complete': { id: 'finale' },
+};
 
 /** @param {{x:number,y:number,w:number,h:number}} a @param {{x:number,y:number,w:number,h:number}} b */
 function overlaps(a, b) {
@@ -82,7 +112,6 @@ function isBoss(e) {
  * }}
  */
 export function createObserver() {
-  let strideDist = 0;
   let footLeft = false;
   let lastHeartbeatTick = -Infinity;
   let lastDamageTick = -Infinity;
@@ -96,10 +125,28 @@ export function createObserver() {
       const p = next.player;
       const seed = next.tick;
 
+      // --- what the sim says happened ---------------------------------------
+      /** @type {Set<number>} */
+      const bossDeaths = new Set();
+      for (const ev of next.events ?? []) {
+        if (ev.kind === 'boss.death' && ev.id !== null) bossDeaths.add(ev.id);
+        if (ev.kind === 'footstep') {
+          // The one thing about a footstep that only the sim knows is what is
+          // under it. The stride pacing is the sim's too, so taking the whole
+          // event removes a duplicate accumulator out here.
+          footLeft = !footLeft;
+          out.push({ id: 'footstep', opts: { seed, pan: footLeft ? -0.15 : 0.15, material: p.inWater ? 'water' : ev.material ?? 'stone' } });
+          continue;
+        }
+        const sound = EVENT_SOUNDS[ev.kind];
+        if (!sound) continue;
+        const r = relativeTo(next, ev.x, ev.y);
+        out.push({ id: sound.id, opts: { seed, dist: r.dist, dx: r.dx, gain: sound.gain ?? 1, ...(sound.vary === undefined ? {} : { vary: sound.vary }) } });
+      }
+
       // A room change resets everything positional; sounds from the old room would
       // arrive attenuated by a distance that no longer means anything.
       if (next.room !== prev.room) {
-        strideDist = 0;
         out.push({ id: 'doorOpen', opts: { seed, gain: 0.7 } });
         return out;
       }
@@ -110,15 +157,6 @@ export function createObserver() {
       }
       if (!prev.player.grounded && p.grounded) {
         out.push({ id: 'land', opts: { seed, speed: Math.abs(prev.player.vy) } });
-        strideDist = 0;
-      }
-      if (p.grounded && p.hurtFrames === 0) {
-        strideDist += Math.abs(p.x - prev.player.x);
-        if (strideDist >= STRIDE) {
-          strideDist -= STRIDE;
-          footLeft = !footLeft;
-          out.push({ id: 'footstep', opts: { seed, pan: footLeft ? -0.15 : 0.15, material: 'stone' } });
-        }
       }
 
       // --- the Pin ---------------------------------------------------------
@@ -161,6 +199,9 @@ export function createObserver() {
       const now = new Set(next.entities.map((e) => e.id));
       for (const e of respawned ? [] : prev.entities) {
         if (now.has(e.id)) continue;
+        // A boss that died already got its own sound from the event list; the
+        // three little descending ticks under it would read as a bug.
+        if (bossDeaths.has(e.id)) continue;
         const r = relativeTo(next, e.x + e.w / 2, e.y + e.h / 2);
         out.push({ id: 'enemyDeath', opts: { seed, dist: r.dist, dx: r.dx } });
       }

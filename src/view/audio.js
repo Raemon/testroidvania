@@ -79,6 +79,8 @@ class AudioEngine {
     this.paused = false;
     this.regionId = 'cistern';
     this.calmUntilTick = -1;
+    /** Once the game is complete the score stays in the ending's material. */
+    this.ended = false;
     /** @type {(() => void)|null} */
     this.detach = null;
 
@@ -179,7 +181,7 @@ class AudioEngine {
     const events = this.observer.observe(prev, next);
     this.events += events.length;
 
-    if (next.room !== prev.room) {
+    if (next.room !== prev.room && !this.ended) {
       const region = regionForRoom(next.room);
       if (region.id !== this.regionId) {
         this.regionId = region.id;
@@ -190,14 +192,34 @@ class AudioEngine {
     const seq = this.seq;
     if (seq) {
       seq.setCalm(this.observer.calm(next) || next.tick < this.calmUntilTick);
-      seq.update(1 / 60, this.observer.intensity(next));
+      seq.setAbilities(next.progress.abilities.length);
+      seq.update(1 / 60, this.ended ? 0 : this.observer.intensity(next));
     }
 
     for (const e of events) {
       if (e.id === 'menuConfirm') this.setPaused(!this.paused);
       if (e.id === 'abilityPickup') this.calmUntilTick = next.tick + ABILITY_CALM_TICKS;
+      // The run ends in the Hull, which wears the Ossuary's palette — so without
+      // this the game's last chord is F# Phrygian's bII, the region's "unease"
+      // chord, held under the credits forever. 05 §7.5 asks for the opposite.
+      if (e.id === 'finale') this.enterEnding();
       this.play(e.id, e.opts);
     }
+  }
+
+  /**
+   * Move the score to the ending's material and leave it there. The sequencer is
+   * not restarted: the drone glides from wherever it is into D, the layer gains
+   * survive, and the resolution arrives as a change of colour in a sound that has
+   * been running since the first room.
+   */
+  enterEnding() {
+    if (this.ended) return;
+    const region = REGIONS.ending;
+    if (!region) return;
+    this.ended = true;
+    this.regionId = region.id;
+    this.seq?.setRegion(region);
   }
 
   /** @param {boolean} value */
@@ -220,6 +242,7 @@ class AudioEngine {
       stolen: sfx?.stolen ?? 0,
       timers: this.seq?.timers() ?? 0,
       region: this.regionId,
+      ended: this.ended,
       sequencer: this.seq?.state() ?? null,
     };
   }

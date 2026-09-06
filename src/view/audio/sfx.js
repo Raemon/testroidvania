@@ -106,7 +106,7 @@ export const RECIPES = {
         breath(g, { time: t, freq: 200 * b.vary, q: 1.2, attack: 0.002, decay: 0.05, gain: 0.12 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
       ];
     }
-    const f = material === 'metal' ? 700 : 1100;
+    const f = material === 'metal' ? 700 : material === 'wood' ? 520 : 1100;
     return [
       tick(g, { time: t, freq: f * b.vary, gain: 0.28 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.2 }),
       // 30 ms of scuff over the tick: the part of a footstep that is cloth and
@@ -322,6 +322,136 @@ export const RECIPES = {
       tick(g, { time: t, freq: 220 * b.vary, to: 110 * b.vary, sweep: 0.06, decay: 0.1, gain: 0.5 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.15 }),
       breath(g, { time: t, freq: 150 * b.vary, mode: 'lowpass', attack: 0.004, decay: 0.2, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 }),
     ];
+  },
+
+  /**
+   * 18. Zip arrival — the line goes taut and the world stops moving. `dash` is
+   * the departure (05 §6c 13 covers Zip); this is the landing at the other end.
+   */
+  zipArrive(g, t, o) {
+    const b = base(o);
+    return [
+      tick(g, { time: t, freq: 1400 * b.vary, to: 700 * b.vary, sweep: 0.02, decay: 0.05, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }),
+      breath(g, { time: t, freq: 2600 * b.vary, to: 900 * b.vary, sweep: 0.06, attack: 0.002, decay: 0.09, gain: 0.28 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
+      bell(g, { time: t, freq: 1976 * b.vary, gain: 0.12 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.45, delay: 0.2 }),
+    ];
+  },
+
+  /** 19. Wall-kick — a boot shoving off stone. Shorter and drier than a jump. */
+  wallKick(g, t, o) {
+    const b = base(o);
+    return [
+      breath(g, { time: t, freq: 1600 * b.vary, to: 500 * b.vary, sweep: 0.07, attack: 0.003, decay: 0.09, gain: 0.32 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }),
+      tick(g, { time: t, freq: 320 * b.vary, to: 160 * b.vary, sweep: 0.04, decay: 0.06, gain: 0.35 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.15 }),
+    ];
+  },
+
+  /** 20. A crumble tile giving way — the grain tearing, then the pieces. */
+  crumble(g, t, o) {
+    const b = base(o);
+    /** @type {Voice[]} */
+    const out = [
+      breath(g, { time: t, freq: 900 * b.vary, to: 250 * b.vary, sweep: 0.3, mode: 'lowpass', attack: 0.004, decay: 0.35, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 }),
+    ];
+    const shards = [520, 380, 260];
+    for (let i = 0; i < shards.length; i++) {
+      out.push(tick(g, { time: t + i * 0.055, freq: (shards[i] ?? 300) * b.vary, to: (shards[i] ?? 300) * 0.5, sweep: 0.03, decay: 0.05, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.35 }));
+    }
+    out.push(sub(g, { time: t + 0.1, freq: 90, to: 50, sweep: 0.08, attack: 0.003, decay: 0.16, gain: 0.3 * b.gain, bus: b.bus }));
+    return out;
+  },
+
+  /** 21. Water entry / exit — the surface breaking, then closing over. */
+  splash(g, t, o) {
+    const b = base(o);
+    return [
+      breath(g, { time: t, freq: 900 * b.vary, to: 3000 * b.vary, sweep: 0.09, attack: 0.002, decay: 0.16, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.35 }),
+      tick(g, { time: t, freq: 520 * b.vary, to: 220 * b.vary, sweep: 0.05, decay: 0.09, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
+      breath(g, { time: t + 0.03, freq: 2600 * b.vary, q: 0.9, attack: 0.02, decay: 0.3, gain: 0.16 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.6 }),
+    ];
+  },
+
+  /**
+   * 22. Boss phase change — the thing decides to stop holding back. A tritone
+   * bell pair over a swell: the same two notes 05 §6c 6 uses for nausea, an
+   * octave down and slower.
+   */
+  bossPhase(g, t, o) {
+    const b = base(o);
+    return [
+      sub(g, { time: t, freq: 82 * b.vary, to: 55, sweep: 0.4, attack: 0.01, decay: 0.5, gain: 0.5 * b.gain, bus: b.bus }),
+      breath(g, { time: t, freq: 700 * b.vary, to: 250 * b.vary, sweep: 0.45, mode: 'lowpass', attack: 0.03, decay: 0.5, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.6 }),
+      bell(g, { time: t, freq: 330 * b.vary, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.6, delay: 0.3 }),
+      bell(g, { time: t + 0.1, freq: 466 * b.vary, gain: 0.26 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.6, delay: 0.3 }),
+    ];
+  },
+
+  /** 23. Boss death — the roar's shape, run backwards and down. */
+  bossDeath(g, t, o) {
+    const b = base(o);
+    /** @type {Voice[]} */
+    const out = [
+      sub(g, { time: t, freq: 110 * b.vary, to: 35, sweep: 0.5, attack: 0.004, decay: 0.9, gain: 0.55 * b.gain, bus: b.bus }),
+      breath(g, { time: t, freq: 600 * b.vary, to: 130 * b.vary, sweep: 0.6, mode: 'lowpass', attack: 0.01, decay: 0.9, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.9 }),
+    ];
+    const fall = [700, 500, 330];
+    for (let i = 0; i < fall.length; i++) {
+      out.push(tick(g, { time: t + i * 0.09, freq: (fall[i] ?? 400) * b.vary, to: (fall[i] ?? 400) * 0.5, sweep: 0.04, decay: 0.08, gain: 0.35 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 }));
+    }
+    out.push(bell(g, { time: t + 0.3, freq: 1319 * b.vary, gain: 0.24 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.9, delay: 0.5 }));
+    return out;
+  },
+
+  /** 24. The void starts to rise — a swell that goes up instead of down. */
+  ascentRise(g, t, o) {
+    const b = base(o);
+    return [
+      bell(g, { time: t, freq: 294 * b.vary, gain: 0.26 * b.gain, bus: b.bus, reverb: 0.9, delay: 0.5 }),
+      sub(g, { time: t, freq: 40, to: 75, sweep: 0.7, attack: 0.05, decay: 0.8, gain: 0.45 * b.gain, bus: b.bus }),
+      breath(g, { time: t, freq: 220 * b.vary, to: 900 * b.vary, sweep: 0.8, mode: 'lowpass', attack: 0.05, decay: 0.9, gain: 0.35 * b.gain, bus: b.bus, reverb: 0.8 }),
+    ];
+  },
+
+  /** 25. One rung of the ascent — a fifth, struck twice, climbing. */
+  ascentTier(g, t, o) {
+    const b = base(o);
+    return [
+      bell(g, { time: t, freq: 587 * b.vary, gain: 0.3 * b.gain, bus: b.bus, reverb: 0.8, delay: 0.5 }),
+      bell(g, { time: t + 0.09, freq: 880 * b.vary, gain: 0.22 * b.gain, bus: b.bus, reverb: 0.8, delay: 0.5 }),
+      breath(g, { time: t, freq: 1200 * b.vary, to: 2600 * b.vary, sweep: 0.1, attack: 0.004, decay: 0.13, gain: 0.2 * b.gain, bus: b.bus, reverb: 0.5 }),
+    ];
+  },
+
+  /** 26. The void has you — the hurt pair, an octave down, with nowhere to go. */
+  voidNear(g, t, o) {
+    const b = base(o);
+    return [
+      sub(g, { time: t, freq: 55 * b.vary, to: 28, sweep: 0.3, attack: 0.004, decay: 0.5, gain: 0.5 * b.gain, bus: b.bus }),
+      tick(g, { time: t, freq: 200 * b.vary, to: 90 * b.vary, sweep: 0.12, decay: 0.2, gain: 0.35 * b.gain, bus: b.bus, reverb: 0.3 }),
+      breath(g, { time: t, freq: 400 * b.vary, mode: 'lowpass', q: 0.7, attack: 0.01, decay: 0.5, gain: 0.4 * b.gain, bus: b.bus, reverb: 0.7 }),
+      bell(g, { time: t, freq: 233 * b.vary, gain: 0.2 * b.gain, bus: b.bus, reverb: 0.7, delay: 0.2 }),
+      bell(g, { time: t, freq: 247 * b.vary, gain: 0.2 * b.gain, bus: b.bus, reverb: 0.7, delay: 0.2 }),
+    ];
+  },
+
+  /**
+   * 27. The final strike — 05 §7.5 step 1: the palette washes to cream over two
+   * seconds with a Sub swell and a single Bell at D6, reverb 1.0. The music
+   * changes region under it; this is the event, not the resolution.
+   */
+  finale(g, t, o) {
+    const b = base(o);
+    /** @type {Voice[]} */
+    const out = [
+      bell(g, { time: t, freq: 1175 * b.vary, gain: 0.42 * b.gain, bus: b.bus, reverb: 1, delay: 0.6 }),
+      bell(g, { time: t + 0.12, freq: 1760 * b.vary, gain: 0.2 * b.gain, bus: b.bus, reverb: 1, delay: 0.6 }),
+      sub(g, { time: t, freq: 73, attack: 0.25, decay: 1.4, gain: 0.35 * b.gain, bus: b.bus }),
+    ];
+    // D major, not D minor: the one chord in the game with a raised third.
+    const chord = pad(g, { time: t, freqs: [midiToFreq(62), midiToFreq(66), midiToFreq(69), midiToFreq(76)], gain: 0.18 * b.gain, bus: b.bus, reverb: 0.95, release: 3 });
+    chord.release(t + 2.5);
+    out.push(chord);
+    return out;
   },
 
   /**

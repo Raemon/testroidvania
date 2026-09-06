@@ -26,13 +26,50 @@ const EXPECTED_SFX = [
   'jump', 'land', 'footstep', 'swing', 'hit', 'hurt', 'enemyDeath', 'pickup',
   'abilityPickup', 'doorOpen', 'lantern', 'hazard', 'dash', 'menuMove',
   'menuConfirm', 'menuBack', 'mapOpen', 'mapClose', 'bossRoar', 'bossStomp',
+  'zipArrive', 'wallKick', 'crumble', 'splash', 'bossPhase', 'bossDeath',
+  'ascentRise', 'ascentTier', 'voidNear', 'finale',
   'heartbeat',
+];
+
+/**
+ * Every `state.events` kind the observer turns into a sound, asserted by name.
+ * The sim emitted all of these into nothing while the observer diffed state: the
+ * Zip, the wall-kick, crumbling tiles, water, every boss beat past the roar, the
+ * whole ascent, and the end of the game.
+ */
+const EXPECTED_EVENT_SOUNDS = [
+  'ascent.start', 'ascent.tier', 'ascent.void', 'boss.death', 'boss.phase',
+  'boss.roar', 'boss.stomp', 'crumble.break', 'footstep', 'game.complete',
+  'water.enter', 'water.exit', 'wallkick', 'zip.arrive', 'zip.start',
 ];
 
 const EXPECTED_VOICES = ['bell', 'pad', 'drone', 'pluck', 'sub', 'breath', 'tick'];
 
 /** Every region the sequencer can be handed, asserted by name. */
 const EXPECTED_REGIONS = ['cistern', 'ending', 'foundry', 'ossuary', 'spine', 'verdant'];
+
+/**
+ * A state skeleton with only the fields the observer reads. Written out rather
+ * than snapshotted from a running game so the test says what the observer's
+ * contract with the sim actually is.
+ * @param {object} [over]
+ * @returns {any}
+ */
+function bareState(over = {}) {
+  return {
+    tick: 100,
+    room: 'e1_hull',
+    roomData: { hazards: [], lanterns: [] },
+    input: 0,
+    prevInput: 0,
+    player: { x: 100, y: 100, w: 12, h: 24, vy: 0, hp: 5, maxHp: 5, grounded: true, jumpFrames: 0, jabFrames: 0, hurtFrames: 0, facing: 1, inWater: false },
+    pin: { state: 'held', clang: 0, x: 100, y: 100, dirX: 1 },
+    entities: [],
+    progress: { pickupsTaken: [], abilities: [], lanternsLit: [] },
+    events: [],
+    ...over,
+  };
+}
 
 /** @type {Awaited<ReturnType<typeof launchGame>> | null} */
 let live = null;
@@ -366,4 +403,53 @@ test('every chord of the progression is the same size', { timeout: AUDIO_TIMEOUT
   // than Dm9. A filter that keytracks makes the four chords the same size.
   assert.ok(spread < 2.5,
     `the four chords span ${spread.toFixed(1)} dB (${pads.map((/** @type {any} */ p, /** @type {number} */ i) => `${p.id} ${levels[i].toFixed(1)}`).join(', ')}) — the pad filter has stopped keytracking`);
+});
+
+test('every sound the sim emits reaches the engine', async () => {
+  const { EVENT_SOUNDS } = await import('../src/view/audio/observer.js');
+  const { RECIPES } = await import('../src/view/audio/sfx.js');
+  const { EVENT_KINDS } = await import('../src/core/events.js');
+
+  // `footstep` is wired by hand rather than through the table, because the
+  // material it carries picks the recipe's variant.
+  const wired = [...Object.keys(EVENT_SOUNDS), 'footstep'].sort();
+  assert.deepEqual(wired, [...EXPECTED_EVENT_SOUNDS].sort(),
+    'the set of sim events audio listens for drifted');
+
+  for (const kind of wired) {
+    assert.ok(EVENT_KINDS.includes(kind),
+      `audio listens for '${kind}', which the sim does not emit — a name nobody is listening for is exactly the fault this guards`);
+  }
+  for (const [kind, sound] of Object.entries(EVENT_SOUNDS)) {
+    assert.ok(RECIPES[sound.id], `'${kind}' plays '${sound.id}', which is not a recipe`);
+  }
+});
+
+test('the game does not end on the Ossuary, and the ending resolves', async () => {
+  const { REGIONS } = await import('../src/view/audio/regions/index.js');
+  const { createAudio } = await import('../src/view/audio.js');
+
+  const ending = REGIONS.ending;
+  assert.ok(ending, 'there is no ending material');
+  // The Hull wears the Ossuary's palette, so without its own material the run
+  // ends on F# Phrygian's bII — the region's "unease" chord — under the credits.
+  const first = ending.chords[0];
+  const last = ending.chords[ending.chords.length - 1];
+  assert.equal(first?.name, last?.name, 'the ending does not come home to the chord it left');
+  for (const chord of ending.chords) {
+    const root = chord.pad[0] ?? 0;
+    assert.ok(chord.pad.some((/** @type {number} */ m) => (m - root) % 12 === 4),
+      `the ending's ${chord.name} has no major third — 05 §7.5 asks for the drone to change to major`);
+  }
+
+  // And the engine actually goes there: `game.complete` was playing nothing at
+  // all, so the last thing the player heard was whatever the Hull was doing.
+  const engine = createAudio({ mode: 'silent', gestureTarget: null });
+  const prev = bareState();
+  const next = bareState({ tick: 101, events: [{ kind: 'game.complete', x: 100, y: 100, material: null, id: null }] });
+  assert.equal(engine.stats().region, 'cistern');
+  engine.observe(prev, next);
+  assert.equal(engine.stats().region, 'ending', 'game.complete did not move the score to the ending');
+  assert.equal(engine.stats().ended, true);
+  engine.dispose();
 });
