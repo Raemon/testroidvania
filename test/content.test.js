@@ -13,7 +13,7 @@ import { GLYPHS, tileAt, isDoorGlyph } from '../src/content/tiles.js';
 import { ROOM_IDS, ROOM_MODULES, getRoom } from '../src/content/rooms/index.js';
 import { START, worldEdges, findDoor } from '../src/content/world.js';
 import { ROUTE } from '../src/content/routes.js';
-import { isAbilityId } from '../src/core/abilities/index.js';
+import { isAbilityId, ABILITY_IDS } from '../src/core/abilities/index.js';
 import { isEntityKind } from '../src/core/entities/index.js';
 import { isKnownAction } from '../src/bot/actions.js';
 import { solidAt } from '../src/core/collision.js';
@@ -212,6 +212,36 @@ test('the game is completable: every room reachable, every gate openable', () =>
   assert.ok(ROOM_IDS.includes(START.room), `start room '${START.room}' does not exist`);
   assert.deepEqual(r.unreachable, [], `unreachable rooms: ${r.unreachable.join(', ')}`);
   assert.deepEqual(r.blockedDoors, [], r.blockedDoors.join('\n'));
+  assert.ok(ROOM_IDS.includes(r.goal), `the solver's goal room '${r.goal}' does not exist`);
+});
+
+test('no ability is required before it is obtainable', () => {
+  const r = solve();
+  assert.deepEqual(r.owned.slice().sort(), ABILITY_IDS.slice().sort(), 'some ability is never obtainable');
+  assert.deepEqual(r.outOfOrder, [], r.outOfOrder.join('\n'));
+});
+
+test('no one-way drop strands the player', () => {
+  // Exhaustive over (room x ability set): from every state a run can actually be
+  // in, the ending must still be reachable. That is what "never stranded" means.
+  const r = solve();
+  assert.deepEqual(r.stranded, [], r.stranded.join('\n'));
+});
+
+test('every room declares abilities its own route can actually have', () => {
+  for (const id of ROOM_IDS) {
+    for (const need of ROOM_MODULES[id]?.needs ?? []) {
+      assert.ok(isAbilityId(need), `${id} needs unknown ability '${need}'`);
+    }
+  }
+});
+
+test('every gate kind in the reach table has a door that opens with it', () => {
+  const gated = new Set();
+  for (const edge of worldEdges()) if (edge.requires) gated.add(edge.requires);
+  for (const id of ABILITY_IDS) {
+    assert.ok(gated.has(id), `no door anywhere is opened by '${id}' — its gate kind is unbuilt`);
+  }
 });
 
 test('the route only names rooms that exist', () => {

@@ -7,7 +7,7 @@
  */
 
 import { IN } from '../../core/input.js';
-import { brawl } from './base.js';
+import { brawl, backAway } from './base.js';
 
 /** @typedef {import('../api.js').Observation} Observation */
 
@@ -22,7 +22,7 @@ export function policy(obs) {
   const p = obs.player;
   if (b && b.mode === 'slam' && p.grounded && Math.abs(p.cx - (b.x + b.w / 2)) < 96) {
     // The waves run along the floor. Be off it.
-    return IN.JUMP | (p.cx < b.x ? IN.LEFT : IN.RIGHT);
+    return IN.JUMP | backAway(obs, p.cx < b.x ? IN.LEFT : IN.RIGHT);
   }
   return brawl(obs);
 }

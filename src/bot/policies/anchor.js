@@ -8,7 +8,7 @@
  */
 
 import { IN } from '../../core/input.js';
-import { brawl, pressNow } from './base.js';
+import { brawl, pressNow, backAway } from './base.js';
 
 /** @typedef {import('../api.js').Observation} Observation */
 
@@ -22,13 +22,13 @@ export function policy(obs) {
   const b = obs.boss;
   const p = obs.player;
   if (b && b.mode === 'slam' && p.grounded) {
-    return IN.JUMP | (p.cx < b.x + b.w / 2 ? IN.LEFT : IN.RIGHT);
+    return IN.JUMP | backAway(obs, p.cx < b.x + b.w / 2 ? IN.LEFT : IN.RIGHT);
   }
   if (b && b.mode === 'chase') {
     // It ignores terrain, so distance is the only defence, and the Pin has to fly
     // while we retreat rather than after we have stopped.
     const gap = p.cx - (b.x + b.w / 2);
-    const run = gap < 0 ? IN.LEFT : IN.RIGHT;
+    const run = backAway(obs, gap < 0 ? IN.LEFT : IN.RIGHT);
     const aim = gap < 0 ? IN.RIGHT : IN.LEFT;
     if (Math.abs(gap) < 56) return run | (p.grounded ? IN.JUMP : 0);
     if (obs.pin.state !== 'held') return pressNow(obs) ? IN.THROW : 0;

@@ -37,8 +37,8 @@ const STALK_FRAMES = 70;
 
 /** The bellows: wood, because Stoker is the boss that has to be beatable *before* A2. */
 const PARTS = /** @type {const} */ ([
-  { offX: -6, offY: 6, swing: 5, material: 'wood' },
-  { offX: STOKER_W - 8, offY: 6, swing: 5, material: 'wood' },
+  { offX: -10, offY: 6, swing: 4, material: 'wood' },
+  { offX: STOKER_W - 4, offY: 6, swing: 4, material: 'wood' },
 ]);
 
 /**

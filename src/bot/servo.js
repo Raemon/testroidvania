@@ -31,9 +31,9 @@ export const ROOM_FRAME_BUDGET = 1800;
 /** A boss room is a fight, not a walk, so it gets its own budget. */
 export const BOSS_ROOM_FRAME_BUDGET = 7200;
 
-/** @param {Observation} obs @returns {number} */
-export function roomBudget(obs) {
-  return obs.boss ? BOSS_ROOM_FRAME_BUDGET : ROOM_FRAME_BUDGET;
+/** @param {Observation} obs @param {ServoMemory} mem @returns {number} */
+export function roomBudget(obs, mem) {
+  return obs.boss || mem.sawBoss ? BOSS_ROOM_FRAME_BUDGET : ROOM_FRAME_BUDGET;
 }
 
 /**
@@ -47,6 +47,8 @@ export function roomBudget(obs) {
  * @property {number} frames    frames spent in this room
  * @property {boolean} stuck    give up: the wiggle did not help, or the budget ran out
  * @property {string} why       why it gave up, for the failure message
+ * @property {boolean} sawBoss a boss has stood in this room; the budget stays a
+ *   fight's budget afterwards, because the fight already spent the walking one
  * @property {string} act       the waypoint action being performed, '' when none
  * @property {{phase:number, frames:number}} actState
  */
@@ -55,7 +57,7 @@ export function roomBudget(obs) {
 export function createServo() {
   return {
     wp: 0, room: '', lastX: NaN, lastY: NaN, still: 0, wiggle: 0, frames: 0,
-    stuck: false, why: '', act: '', actState: { phase: 0, frames: 0 },
+    stuck: false, why: '', sawBoss: false, act: '', actState: { phase: 0, frames: 0 },
   };
 }
 
@@ -70,7 +72,8 @@ export function servo(obs, mem) {
   if (route.length === 0) return { input: 0, mem: next, done: true };
 
   next.frames++;
-  const budget = roomBudget(obs);
+  if (obs.boss) next.sawBoss = true;
+  const budget = roomBudget(obs, next);
   if (next.frames > budget) {
     next.stuck = true;
     next.why = `spent ${next.frames} frames in ${obs.room} without finishing its route (budget ${budget})`;

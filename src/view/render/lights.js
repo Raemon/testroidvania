@@ -11,7 +11,7 @@
 
 import {
   LIGHT_AURA_R, LIGHT_AURA_PER_ABILITY, LIGHT_PIN_R,
-  LIGHT_HAZARD_R, LIGHT_EYE_R, LIGHT_LANTERN_R,
+  LIGHT_HAZARD_R, LIGHT_EYE_R, LIGHT_LANTERN_R, DEATH_RESPAWN_FRAMES,
 } from '../../core/constants.js';
 import { HAZARD, PLAYER } from './palette.js';
 import { flicker } from './darkness.js';
@@ -19,6 +19,19 @@ import { loosePins } from './pin.js';
 
 /** @typedef {import('../../core/types.js').GameState} GameState */
 /** @typedef {import('./darkness.js').Light} Light */
+
+/**
+ * The light the player carries goes out with them. Death is the one time a radius
+ * shrinks — §D5's "never shrink the light" is about the calibration you play with,
+ * and this is the sixty frames in which you are not playing.
+ * @param {import('../../core/types.js').Player} p
+ * @returns {number} multiplier on the aura's radius, 1 -> 40/90 over 60 frames
+ */
+function deathDim(p) {
+  if (p.state !== 'dead' && p.hp > 0) return 1;
+  const k = Math.max(0, Math.min(1, (p.deadFrames ?? 0) / DEATH_RESPAWN_FRAMES));
+  return 1 - (1 - 40 / 90) * k;
+}
 
 /** @param {string} kind @returns {number} */
 function radiusFor(kind) {
@@ -38,13 +51,14 @@ function radiusFor(kind) {
  */
 export function buildLights(state, region, hand, t) {
   const f = flicker(t);
+  const dying = deathDim(state.player);
   /** @type {Light[]} */
   const out = [];
   const sim = state.lights ?? [];
 
   if (sim.length > 0) {
     for (const l of sim) {
-      const r = (l.r || radiusFor(l.kind)) * (l.kind === 'aura' || l.kind === 'pin' ? f : 1);
+      const r = (l.r || radiusFor(l.kind)) * (l.kind === 'aura' || l.kind === 'pin' ? f : 1) * (l.kind === 'aura' ? dying : 1);
       // The aura is drawn from the hand, not the hitbox centre: the light has a
       // visible source and the two must be the same point.
       const fromHand = l.kind === 'aura';
@@ -63,7 +77,7 @@ export function buildLights(state, region, hand, t) {
   const aura = LIGHT_AURA_R + abilities * LIGHT_AURA_PER_ABILITY;
   const loose = loosePins(state);
 
-  out.push({ x: hand.x, y: hand.y, r: (loose.length ? aura : LIGHT_PIN_R) * f, color: PLAYER.flame, warmth: 1 });
+  out.push({ x: hand.x, y: hand.y, r: (loose.length ? aura : LIGHT_PIN_R) * f * dying, color: PLAYER.flame, warmth: 1 });
   for (const pin of loose) out.push({ x: pin.x, y: pin.y, r: LIGHT_PIN_R * f, color: PLAYER.flame, warmth: 1 });
 
   for (const hz of state.roomData?.hazards ?? []) {

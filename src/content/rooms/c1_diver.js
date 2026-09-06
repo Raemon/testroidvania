@@ -43,7 +43,7 @@ export const pickups = [
 
 /** Abilities this room's own route needs; the room test grants exactly these. */
 /** @type {import('../../core/types.js').AbilityId[]} */
-export const needs = [];
+export const needs = ['deepPin'];
 
 export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[4, 12], [8, 12], [12, 12, 'fight'], [26, 12], [2, 12], [0, 12]]) };
 

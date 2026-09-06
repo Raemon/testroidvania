@@ -8,23 +8,34 @@
 import './harness/trap.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ROOM_IDS, getRoom } from '../src/content/rooms/index.js';
+import { ROOM_IDS, ROOM_MODULES, getRoom } from '../src/content/rooms/index.js';
 import { TILE, PLAYER_W } from '../src/core/constants.js';
 import { step } from '../src/core/step.js';
+import { isBoss } from '../src/core/bosses/index.js';
 import { newRun, runBot, assertFinished } from './harness/run.js';
 
-/** Every room must be traversable from its own route's first waypoint. */
+/**
+ * Every room must be traversable from its own route's first waypoint, carrying
+ * exactly the abilities its own `needs` declares — no more. That is what makes this
+ * a gate test as well as a traversal test: a Spine room whose route says `climb`
+ * proves the Height gate is crossable with Zip and with nothing else.
+ */
 for (const id of ROOM_IDS) {
   test(`${id}: the servo walks its route end to end`, () => {
     const room = getRoom(id);
     assert.ok(room, `room ${id} did not compile`);
+    const needs = ROOM_MODULES[id]?.needs ?? [];
+    const boss = room.spawns.find((sp) => isBoss(sp.kind));
 
-    // createInitialState places a non-start room's player on its first waypoint.
-    const result = runBot(newRun(1, id), {
-      maxFrames: 1200,
-      // Leaving the room through its exit door is success too.
-      until: (s) => s.room !== id,
-    });
+    const start = newRun(1, id);
+    const result = runBot(
+      { ...start, progress: { ...start.progress, abilities: needs.slice() } },
+      {
+        maxFrames: boss ? 9000 : 1200,
+        // Leaving the room through its exit door is success too.
+        until: (s) => s.room !== id,
+      },
+    );
     assertFinished(result, `${id} traversal`);
 
     const last = room.route[room.route.length - 1];
@@ -36,7 +47,17 @@ for (const id of ROOM_IDS) {
         `${id}: bot stopped at x=${cx.toFixed(1)}, last waypoint is x=${last[0] * TILE + TILE / 2}`,
       );
     }
-    assert.equal(result.state.player.hp, result.state.player.maxHp, `${id}: the route must not cost health`);
+    if (boss) {
+      // A boss room costs health by design. What it must not do is cost the run,
+      // and it must actually end with the boss dead rather than walked around.
+      assert.ok(result.state.player.hp >= 1, `${id}: the boss killed the bot`);
+      assert.ok(
+        result.state.progress.bossesKilled.includes(boss.kind),
+        `${id}: the route finished without killing the ${boss.kind}`,
+      );
+    } else {
+      assert.equal(result.state.player.hp, result.state.player.maxHp, `${id}: the route must not cost health`);
+    }
     assert.deepEqual(result.state.errors, [], `${id}: step() reported errors`);
   });
 }

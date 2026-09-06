@@ -34,8 +34,8 @@ const SWIM_SPEED = 1.2;
 
 /** Fins: stone, so freezing one needs the Deep Pin the player already carries. */
 const PARTS = /** @type {const} */ ([
-  { offX: -4, offY: 4, swing: 7, material: 'stone' },
-  { offX: DIVER_W - 10, offY: 4, swing: 7, material: 'stone' },
+  { offX: -10, offY: 4, swing: 4, material: 'stone' },
+  { offX: DIVER_W - 4, offY: 4, swing: 4, material: 'stone' },
 ]);
 
 /**

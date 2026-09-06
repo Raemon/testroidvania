@@ -82,7 +82,7 @@ export function brawl(obs) {
   // 1. Get out of the way. Every boss's damage arrives as something that moves.
   const bolt = incoming(obs);
   if (bolt) {
-    const aside = bolt.x + bolt.w / 2 < p.cx ? IN.RIGHT : IN.LEFT;
+    const aside = backAway(obs, bolt.x + bolt.w / 2 < p.cx ? IN.RIGHT : IN.LEFT);
     return p.grounded ? aside | IN.JUMP : aside;
   }
 
@@ -96,7 +96,10 @@ export function brawl(obs) {
     return face | (p.jabFrames === 0 ? IN.ATTACK : 0);
   }
 
-  // 3. The Pin is out there and holding nothing useful: bring it home.
+  // 3. The Pin has landed on nothing useful: bring it home. Never while it is still
+  //    flying — the pulse would recall a throw that has not arrived yet, which is
+  //    how a policy spends an entire fight throwing the same Pin four tiles.
+  if (obs.pin.state === 'flying') return 0;
   if (obs.pin.state !== 'held') return pressNow(obs) ? IN.THROW : 0;
 
   // 4. Throw at the nearest part the moment it is in the lane and inside range.
@@ -111,8 +114,12 @@ export function brawl(obs) {
   if (reach > THROW_MAX) return toward;
   // Backing off is better than trading contact damage — unless there is nowhere
   // left to back off to, in which case take the shot from where you are standing.
-  const cornered = (away === IN.LEFT && p.cx < 40) || (away === IN.RIGHT && p.cx > obs.roomBounds.w - 40);
-  if (reach < THROW_MIN && !cornered) return away;
+  //    Backing through the door you came in by counts as cornered too: leaving the
+  //    arena is not a dodge, and a policy that does it never fights the boss again.
+  if (reach < THROW_MIN) {
+    const back = backAway(obs, away);
+    if (back) return back;
+  }
   // A flat throw, so it is only worth spending while the part is in the hand's lane.
   const hand = p.y + 6;
   if (hand < part.y - 3 || hand > part.y + part.h + 3 || !p.grounded) return 0;
@@ -138,6 +145,39 @@ export function standoff(obs, boss, dist) {
     return Math.abs(left - obs.player.cx) <= Math.abs(right - obs.player.cx) ? left : right;
   }
   return okLeft ? left : right;
+}
+
+/**
+ * Step away, unless away is off the edge of the arena or out through the door. Every
+ * dodge in every policy goes through this, because a dodge that leaves the room is
+ * not a dodge and a boss you walked away from is not a boss you tested.
+ * @param {Observation} obs
+ * @param {number} dir  IN.LEFT or IN.RIGHT
+ * @returns {number} `dir`, the other way, or 0 when neither is safe
+ */
+export function backAway(obs, dir) {
+  const other = dir === IN.LEFT ? IN.RIGHT : IN.LEFT;
+  if (!blockedWay(obs, dir)) return dir;
+  if (!blockedWay(obs, other)) return other;
+  return 0;
+}
+
+/** @param {Observation} obs @param {number} dir @returns {boolean} */
+function blockedWay(obs, dir) {
+  const cx = obs.player.cx;
+  if (dir === IN.LEFT && cx < 40) return true;
+  if (dir === IN.RIGHT && cx > obs.roomBounds.w - 40) return true;
+  return doorAhead(obs, dir);
+}
+
+/**
+ * @param {Observation} obs
+ * @param {number} dir  IN.LEFT or IN.RIGHT
+ * @returns {boolean} true if stepping that way walks the bot out of the arena
+ */
+export function doorAhead(obs, dir) {
+  const cx = obs.player.cx;
+  return obs.doors.some((d) => (dir === IN.LEFT ? d.x < cx && cx - d.x < 56 : d.x > cx && d.x - cx < 56));
 }
 
 /**

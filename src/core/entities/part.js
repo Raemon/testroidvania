@@ -7,6 +7,10 @@
  *
  * Everything about which part belongs to whom, and where it sits, is data the boss
  * put in `timers` when it hatched, so this file has no per-boss knowledge at all.
+ *
+ * The one rule a boss author has to honour is geometric: a part must stand at least
+ * half a Pin-hitbox proud of the body, or a level throw meets the armour first and
+ * the fight has no way in. `test/bosses.test.js` checks it.
  */
 
 import { createEntity } from './base.js';

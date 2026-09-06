@@ -6,7 +6,7 @@
  * what the fight asks a player to do.
  */
 
-import { brawl, walkTo } from './base.js';
+import { brawl, backAway } from './base.js';
 
 /** @typedef {import('../api.js').Observation} Observation */
 
@@ -20,8 +20,7 @@ export function policy(obs) {
   const b = obs.boss;
   if (b && (b.mode === 'submerge' || b.mode === 'telegraph')) {
     // Geysers come up under where you are standing. Keep moving away from it.
-    const away = obs.player.cx < b.x + b.w / 2 ? obs.player.cx - 48 : obs.player.cx + 48;
-    return walkTo(obs, away, 2);
+    return backAway(obs, obs.player.cx < b.x + b.w / 2 ? 1 : 2);
   }
   return brawl(obs);
 }

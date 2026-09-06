@@ -7,7 +7,7 @@
  */
 
 import { IN } from '../../core/input.js';
-import { brawl } from './base.js';
+import { brawl, backAway } from './base.js';
 
 /** @typedef {import('../api.js').Observation} Observation */
 
@@ -20,8 +20,8 @@ export const boss = 'sentinel';
 export function policy(obs) {
   const b = obs.boss;
   const p = obs.player;
-  if (b && b.mode === 'dash' && Math.abs(p.cx - (b.x + b.w / 2)) < 80) {
-    return IN.JUMP | (p.cx < b.x + b.w / 2 ? IN.LEFT : IN.RIGHT);
+  if (b && (b.mode === 'dash' || b.mode === 'windup') && Math.abs(p.cx - (b.x + b.w / 2)) < 90) {
+    return IN.JUMP | backAway(obs, p.cx < b.x + b.w / 2 ? IN.LEFT : IN.RIGHT);
   }
   return brawl(obs);
 }

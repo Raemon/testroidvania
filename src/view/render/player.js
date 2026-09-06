@@ -36,6 +36,11 @@ const LEG_UPPER = 9 * S;
 const LEG_LOWER = 9 * S;
 const SCARF_SEG = 3.4 * S;
 const SCARF_N = 8;
+/** How long the body takes to give way. 12 frames is a fall, not a fade. */
+export const COLLAPSE_FRAMES = 12;
+/** The corpse is gone by the time the sim respawns (DEATH_RESPAWN_FRAMES). */
+const FADE_FROM = 40;
+const FADE_TO = 60;
 
 /**
  * @typedef {object} PlayerRig
@@ -80,8 +85,43 @@ export function updatePlayerRig(rig, state, dt, fx) {
   const p = state.player;
   const fx0 = p.x + p.w / 2;
   const fy0 = p.y + p.h;
+  const dead = p.state === 'dead' || p.hp <= 0;
 
   rig.dist += Math.abs(p.vx) * dt;
+
+  // Death is a collapse, not a colour change. Standing upright in a darker shade
+  // is the pose of a character who is fine; the rig has to fall out from under
+  // itself, and the light it was carrying has to go out.
+  if (dead) {
+    const k = clamp((p.deadFrames ?? 0) / COLLAPSE_FRAMES, 0, 1);
+    // Squash toward the ground rather than scaling down: the feet stay planted,
+    // which is what makes it read as a body giving way instead of a sprite
+    // shrinking.
+    rig.sy = 1 - 0.65 * k;
+    rig.sx = 1 + 0.30 * k;
+    rig.syv = 0;
+    rig.sxv = 0;
+    rig.landHold = 0;
+    rig.wasGrounded = p.grounded;
+    [rig.pend, rig.pendV] = spring(rig.pend, rig.pendV, 0, 20, 5, dt / 60);
+    [rig.arm, rig.armV] = spring(rig.arm, rig.armV, 0, 60, 12, dt / 60);
+    const deadPts = anchors(p, rig);
+    const ax = deadPts.neck.x - p.facing * 1.8;
+    const ay = deadPts.neck.y + 0.5;
+    // Triple gravity on the scarf: with the body no longer holding it up, the one
+    // piece of cloth on screen is what tells you the difference between a pause
+    // and a death.
+    for (let i = 0; i < Math.max(1, Math.round(dt)); i++) {
+      stepChain(rig.scarf, ax, ay, SCARF_SEG, 1.35, -p.facing * 0.05, 0, 0.9, 0.85);
+    }
+    rig.hand = deadPts.flame;
+    rig.lastTick = state.tick;
+    // The flame gutters out into smoke over the same twelve frames.
+    if (fx && k < 1 && state.tick % 3 === 0) {
+      fx.emit(deadPts.flame.x, deadPts.flame.y, (fx.rnd() - 0.5) * 0.2, -(0.15 + fx.rand(0.2)), 26 + fx.rand(18), 1.2 + fx.rand(1.2), '#6B6660', { drag: 0.94 });
+    }
+    return;
+  }
 
   // Squash/stretch (03 §3.1). Set on the event, sprung back, anchored at the feet.
   if (p.grounded && !rig.wasGrounded) {
@@ -196,10 +236,14 @@ export function handLight(rig, p) {
 export function drawPlayer(ctx, state, rig, region, t) {
   const p = state.player;
   const a = anchors(p, rig);
-  const dead = p.state === 'dead';
+  const dead = p.state === 'dead' || p.hp <= 0;
+  const deadFrames = dead ? (p.deadFrames ?? 0) : 0;
 
   // i-frames blink in 4-on/4-off blocks, matching 03 §2.4 exactly.
   if (p.iframes > 0 && Math.floor(p.iframes / 4) % 2 === 1) ctx.globalAlpha = 0.4;
+  // The last twenty frames are a fade to nothing, so the frame is empty at the
+  // moment the sim respawns rather than cutting a corpse away mid-pose.
+  if (dead) ctx.globalAlpha = clamp(1 - (deadFrames - FADE_FROM) / (FADE_TO - FADE_FROM), 0, 1);
   const body = dead ? '#7A2A2E' : p.iframes > 55 ? '#FF4D5A' : PLAYER.body;
 
   drawScarf(ctx, rig, dead);
@@ -220,6 +264,7 @@ export function drawPlayer(ctx, state, rig, region, t) {
   // Arm to the hand, then whatever the hand is holding.
   bone(ctx, a.neck.x, a.neck.y, a.hand.x, a.hand.y, 4 * S, body);
   if (!dead) drawHandFlame(ctx, state, rig, a, region, t);
+  else drawGutteringFlame(ctx, a, clamp(1 - deadFrames / COLLAPSE_FRAMES, 0, 1));
 
   ctx.globalAlpha = 1;
 }
@@ -386,6 +431,20 @@ function drawHandFlame(ctx, state, rig, a, region, t) {
   // A breath of the region accent in the flame's halo ties the player's light to
   // the room it is standing in without changing the flame's own colour.
   drawGlow(ctx, a.flame.x, a.flame.y - h * 0.4, 6, region.accent, 0.2);
+}
+
+/**
+ * The flame going out. It keeps the same body-then-glow order as the live one, so
+ * what you watch is a light shrinking rather than a sprite being swapped.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {ReturnType<typeof anchors>} a
+ * @param {number} k  1 at the moment of death, 0 once it is out
+ */
+function drawGutteringFlame(ctx, a, k) {
+  if (k <= 0) return;
+  const h = 5.4 * k;
+  teardrop(ctx, a.flame.x, a.flame.y, h, h * 0.5, PLAYER.flame);
+  drawGlow(ctx, a.flame.x, a.flame.y, 30 * k, PLAYER.flame, 0.42 * k);
 }
 
 /**

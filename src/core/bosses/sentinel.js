@@ -30,8 +30,8 @@ export const boss = { id: 'sentinel', name: 'Sentinel', maxHp: SENTINEL_HP, gran
  * a straight throw reaches the plate before it reaches the armour.
  */
 const PARTS = /** @type {const} */ ([
-  { offX: -6, offY: 8, swing: 0, material: 'stone' },
-  { offX: SENTINEL_W - 8, offY: 8, swing: 0, material: 'stone' },
+  { offX: -10, offY: 8, swing: 0, material: 'stone' },
+  { offX: SENTINEL_W - 4, offY: 8, swing: 0, material: 'stone' },
 ]);
 
 /**

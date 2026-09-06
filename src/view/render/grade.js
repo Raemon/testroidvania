@@ -10,6 +10,7 @@
  * Deliberately no scanlines and no CRT curve — they fight the cut-paper concept.
  */
 
+import { PLAYER_IFRAMES } from '../../core/constants.js';
 import { createSurface } from './surface.js';
 import { HAZARD, rgba, shade } from './palette.js';
 import { cosmeticRng, seedFrom } from './rng.js';
@@ -94,10 +95,57 @@ export function gradeLayer(region, frame) {
   return layers[Math.abs(frame) % layers.length] ?? layers[0] ?? null;
 }
 
+/** 2 frames at full, then 4 to fall off: long enough to see, short enough to be a hit. */
+const HURT_PEAK_FRAMES = 2;
+const HURT_DECAY_FRAMES = 4;
+
+/**
+ * @param {number} iframes
+ * @returns {number} 0..1, how much of the hurt vignette this frame shows
+ */
+function hurtLevel(iframes) {
+  if (iframes <= 0) return 0;
+  const since = PLAYER_IFRAMES - iframes;
+  if (since < 0) return 0;
+  if (since < HURT_PEAK_FRAMES) return 1;
+  if (since < HURT_PEAK_FRAMES + HURT_DECAY_FRAMES) return 1 - (since - HURT_PEAK_FRAMES) / HURT_DECAY_FRAMES;
+  return 0;
+}
+
+/** @type {Surface|null} */
+let hurtSurface = null;
+
+/**
+ * The hurt vignette: coral at the edges of the frame, nothing at all in the
+ * middle 60%.
+ *
+ * The previous version was a full-frame `lighter` coral fill at 0.35, which put a
+ * mauve cast over every pixel including the player and the sky — it read as a
+ * rendering fault rather than as damage, and it hid the one thing you need to see
+ * when you are hit, which is where you and the enemy are. Baked once and blitted,
+ * because it is an event and events must not cost a gradient evaluation.
+ * @returns {Surface}
+ */
+function hurtVignette() {
+  if (hurtSurface) return hurtSurface;
+  const s = createSurface(GRADE_W, GRADE_H);
+  const cx = GRADE_W / 2;
+  const cy = GRADE_H / 2;
+  const outer = Math.hypot(cx, cy);
+  const g = s.ctx.createRadialGradient(cx, cy, outer * 0.60, cx, cy, outer);
+  g.addColorStop(0, rgba(HAZARD, 0));
+  g.addColorStop(0.55, rgba(HAZARD, 0.18));
+  g.addColorStop(1, rgba(HAZARD, 0.5));
+  s.ctx.fillStyle = g;
+  s.ctx.fillRect(0, 0, GRADE_W, GRADE_H);
+  hurtSurface = s;
+  return s;
+}
+
 /**
  * The parts of the grade that are *events* rather than a constant look. These
- * are rare, so they stay as their own full-screen fills rather than costing a
- * pass every frame.
+ * are rare, so they stay as their own full-screen passes rather than costing one
+ * every frame.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Readonly<GameState>} state
  * @param {number} frame
@@ -109,7 +157,7 @@ export function drawGrade(ctx, state, frame, rect) {
   const w = rect.w;
   const h = rect.h;
   const flash = state.flash ?? 0;
-  const hurt = p.iframes > 54 ? (p.iframes - 54) / 6 : 0;
+  const hurt = hurtLevel(p.iframes);
   if (!lowHealth && hurt <= 0 && flash <= 0) return;
   ctx.setTransform(1, 0, 0, 1, rect.x, rect.y);
 
@@ -120,12 +168,20 @@ export function drawGrade(ctx, state, frame, rect) {
     ctx.globalAlpha = 1;
   }
 
-  // Hit flash and the metal "clang" both read as a bright edge, so they share a
-  // pass; only their colour and their source timer differ.
-  if (hurt > 0 || flash > 0) {
+  if (hurt > 0) {
+    ctx.globalAlpha = hurt;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(hurtVignette().canvas, 0, 0, w, h);
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 1;
+  }
+
+  // The metal "clang" is a different event and keeps the bright full-frame edge:
+  // it is a *good* thing happening to the Pin, and it is over in six frames.
+  if (flash > 0) {
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = Math.min(0.4, hurt * 0.35 + (flash / 6) * 0.3);
-    ctx.fillStyle = flash > 0 && hurt === 0 ? '#FFFFFF' : HAZARD;
+    ctx.globalAlpha = Math.min(0.3, (flash / 6) * 0.3);
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, w, h);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';

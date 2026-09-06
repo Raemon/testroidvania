@@ -39,8 +39,8 @@ const GROUND_SPEED = 0.8;
 const STALK_FRAMES = 60;
 
 const PARTS = /** @type {const} */ ([
-  { offX: -6, offY: 10, swing: 8, material: 'stone' },
-  { offX: ANCHOR_W - 8, offY: 10, swing: 8, material: 'stone' },
+  { offX: -10, offY: 10, swing: 4, material: 'stone' },
+  { offX: ANCHOR_W - 4, offY: 10, swing: 4, material: 'stone' },
 ]);
 
 /**
