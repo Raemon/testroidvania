@@ -97,16 +97,14 @@ function jab(obs, targetX, next, bits) {
 }
 
 /**
- * Get the Pin back. Both Pins, once A5 exists: the ordering rule is that Throw with
- * something still in the hand *throws* it, so after Twin Pin the first press sends
- * the spare out and only the second is a recall. Pulsing the button covers both
- * cases without the action having to know which one it is in — and "in hand
- * already" is success, not an excuse for another throw.
+ * Get the Pin back — both of them, once Twin Pin exists, since Recall is unmasked
+ * and every Pin answers it. Pulsed rather than held because a Pin caught mid-pulse
+ * would otherwise be thrown straight back out by the next frame's press.
  * @param {Observation} obs @param {ActionState} next @returns {ActionResult}
  */
 function recall(obs, next) {
   if (obs.pin.state === 'held' && obs.pinB.state === 'held') return { input: 0, st: next, done: true, failed: '' };
-  return { input: next.frames % 6 === 1 ? IN.THROW : 0, st: next, done: false, failed: '' };
+  return { input: next.frames % 6 === 1 ? IN.RECALL : 0, st: next, done: false, failed: '' };
 }
 
 /** @param {Observation} obs @param {number} targetX @param {ActionState} next @param {number} bits @returns {ActionResult} */

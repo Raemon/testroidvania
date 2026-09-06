@@ -100,7 +100,7 @@ export function brawl(obs) {
   //    flying — the pulse would recall a throw that has not arrived yet, which is
   //    how a policy spends an entire fight throwing the same Pin four tiles.
   if (obs.pin.state === 'flying') return 0;
-  if (obs.pin.state !== 'held') return pressNow(obs) ? IN.THROW : 0;
+  if (obs.pin.state !== 'held') return pressNow(obs) ? IN.RECALL : 0;
 
   // 4. Throw at the nearest part the moment it is in the lane and inside range.
   //    Not from a fixed mark: a boss walks, and a policy that insists on standing

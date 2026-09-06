@@ -149,7 +149,7 @@ test('hitstop freezes the world without eating the recall press', () => {
 
   // Press Recall *inside* the freeze; it must still be a press when time resumes.
   let held = run(s, 0, 1, 'release');
-  for (let i = 0; i < s.hitstop + 2; i++) held = run(held, IN.THROW, 1, 'recall through the freeze');
+  for (let i = 0; i < s.hitstop + 2; i++) held = run(held, IN.RECALL, 1, 'recall through the freeze');
   assert.ok(held.pin.state === 'returning' || held.pin.state === 'held',
     `recall pressed during hitstop was swallowed; the Pin is ${held.pin.state}`);
 });

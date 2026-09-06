@@ -68,7 +68,28 @@ const at = (art, tx = 3, ty = 5, o = {}) => stateIn(roomFrom(art, o), tx, ty);
  * from the throw would not be a second press, and testing that would test nothing.
  * @param {import('../../src/core/types.js').GameState} s
  */
-const recall = (s, label = 'recall') => until(tap(s, IN.THROW, 0, label), 0, (x) => x.pin.state === 'held', label);
+const recall = (s, label = 'recall') => until(tap(s, IN.RECALL, 0, label), 0, (x) => x.pin.state === 'held', label);
+
+test('throw and recall are separate buttons: neither does the other one\'s job', () => {
+  let s = at(WOOD_WALL);
+  s = tap(s, IN.THROW, 0, 'throw');
+  s = until(s, 0, (x) => x.pin.state === 'embedded', 'the Pin bites');
+
+  // A second Throw press is not a recall. This is the whole point of the split:
+  // the button that sends the Pin away can never also be the one that fetches it,
+  // so a throw aimed at a wall cannot be eaten by a Pin that is already out.
+  s = until(tap(s, IN.THROW, 0, 'throw again'), 0, () => true, 'settle');
+  s = run(s, 0, 20, 'wait');
+  assert.equal(s.pin.state, 'embedded', 'Throw with the Pin away must do nothing');
+
+  // Recall still works from that same state, unconditionally.
+  s = recall(s);
+  assert.equal(s.pin.state, 'held', 'Recall brings it home');
+
+  // And Recall is not a throw: pressing it with the Pin in hand leaves it there.
+  s = run(tap(s, IN.RECALL, 0, 'recall in hand'), 0, 20, 'wait');
+  assert.equal(s.pin.state, 'held', 'Recall with the Pin in hand must do nothing');
+});
 
 test('held: the Pin rides in the hand and follows the player', () => {
   let s = at(WOOD_WALL);
@@ -180,7 +201,7 @@ test('hang: Down lets go, and recall drops you — a hang can never strand you',
   assert.equal(dropped.player.hang, false);
   assert.ok(dropped.player.vy > 0, 'letting go falls');
 
-  const recalled = run(s, IN.THROW, 2, 'recall while hanging');
+  const recalled = run(s, IN.RECALL, 2, 'recall while hanging');
   assert.equal(recalled.player.hang, false, 'recall must drop the player, never hold them');
   assert.notEqual(recalled.pin.state, 'embedded');
 });
@@ -294,7 +315,7 @@ test('recall phases through all terrain: a solid pillar does not stop it', () =>
   assert.ok(s.pin.x > 6 * TILE, 'the Pin starts on the far side of the pillar');
 
   const path = [];
-  s = tap(s, IN.THROW, 0, 'recall');
+  s = tap(s, IN.RECALL, 0, 'recall');
   for (let i = 0; i < 60 && s.pin.state !== 'held'; i++) {
     path.push(s.pin.x);
     s = run(s, 0, 1, 'flying home');

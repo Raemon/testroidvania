@@ -51,7 +51,8 @@ export function stagePins(s) {
   }
   const press = justPressed(s.input, s.prevInput, IN.THROW);
   if (press && s.pin.state !== 'held' && s.pinB.state === 'held') return throwSecond(s);
-  // Masked so the Pin still in hand does not answer a press meant for the other.
+  // A throw press must send out exactly one Pin, so the spare does not also answer
+  // it. Recall is deliberately left unmasked: both Pins see it and both come home.
   const quiet = press && s.pin.state === 'held' ? s.input & ~IN.THROW : s.input;
   const a = stagePin(s);
   const b = stagePin({ ...a, pin: a.pinB, pinB: a.pin, input: quiet });

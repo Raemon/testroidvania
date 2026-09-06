@@ -137,12 +137,12 @@ test('deepPin: the recall shatters the whole slag block, and nothing else does',
 #.......SSS..#
 ##############`;
   let weak = until(at(SLAG, 2, 3), IN.RIGHT | IN.THROW, (x) => x.pin.state !== 'held' && x.pin.state !== 'flying', 'clang off it');
-  weak = tap(weak, IN.THROW, 8, 'recall');
+  weak = tap(weak, IN.RECALL, 8, 'recall');
   assert.deepEqual(weak.brokenTiles, [], 'slag is stone: without Deep Pin the Pin cannot even reach it');
 
   let s = withAbilities(at(SLAG, 2, 3), ['deepPin']);
   s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'pin the slag');
-  s = tap(s, IN.THROW, 4, 'recall');
+  s = tap(s, IN.RECALL, 4, 'recall');
   assert.ok(s.brokenTiles.length >= 9, `the whole block goes, not one tile: ${s.brokenTiles.length}`);
 });
 
@@ -179,13 +179,13 @@ test('reel: the recall drags a pinned body home, and only with Reel', () => {
 
   let plain = calm(until(stateIn(room(), 2, 3), IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it'));
   const wasX = plain.entities[0]?.x ?? 0;
-  plain = run(tap(plain, IN.THROW, 20, 'recall'), 0, 20, 'settle');
+  plain = run(tap(plain, IN.RECALL, 20, 'recall'), 0, 20, 'settle');
   assert.ok(Math.abs((plain.entities[0]?.x ?? 0) - wasX) < 8, 'without Reel the body stays where it was');
 
   let s = withAbilities(stateIn(room(), 2, 3), ['reel']);
   s = calm(until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned', 'nail it'));
   const startX = s.entities[0]?.x ?? 0;
-  s = run(tap(s, IN.THROW, 1, 'recall'), 0, 10, 'drag');
+  s = run(tap(s, IN.RECALL, 1, 'recall'), 0, 10, 'drag');
   const moved = startX - (s.entities[0]?.x ?? 0);
   assert.ok(moved > REEL_SPEED, `the body was dragged ${moved.toFixed(1)}px toward the player`);
   assert.equal(s.pin.state === 'returning' || s.pin.state === 'held', true, 'and the Pin still came home');
@@ -197,7 +197,7 @@ test('reel: nothing but bodies and rails is draggable — crates were cut (§C)'
   let s = withAbilities(at(HALL), ['reel']);
   s = embedRight(s);
   const before = s.roomData.grid.join('');
-  s = run(tap(s, IN.THROW, 1, 'recall'), 0, 20, 'drag nothing');
+  s = run(tap(s, IN.RECALL, 1, 'recall'), 0, 20, 'drag nothing');
   assert.equal(s.roomData.grid.join(''), before, 'a wall is not a reel target');
   assert.deepEqual(s.entities, [], 'and there was nothing else to drag');
 });
@@ -246,7 +246,7 @@ test('twinPin: two Pins, two lights, and the held one is always `pin`', () => {
   assert.equal(lights.length, 2, 'two Pins are two lights');
 
   // Recall now brings both home.
-  s = until(tap(calm(s), IN.THROW, 0, 'recall both'), 0, (x) => x.pin.state === 'held' && x.pinB.state === 'held', 'both home', 200);
+  s = until(tap(calm(s), IN.RECALL, 0, 'recall both'), 0, (x) => x.pin.state === 'held' && x.pinB.state === 'held', 'both home', 200);
   assert.equal(s.pin.state, 'held');
   assert.equal(s.pinB.state, 'held');
 });
