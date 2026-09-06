@@ -71,6 +71,8 @@
  * @property {number} deadFrames   frames spent dead, counting up to the respawn
  * @property {number} stride       distance walked since the last footstep
  * @property {boolean} inWater     the body is in water, for the entry/exit ripple
+ * @property {number} submerged    consecutive frames with the head under water
+ * @property {number} crumbleFrames frames stood on a crumble tile, counting to its collapse
  * @property {string} nearDoor     door id the player is close enough to open, '' for none
  */
 

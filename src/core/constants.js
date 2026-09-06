@@ -225,12 +225,12 @@ export const DARKNESS_ALPHA_CAP = 0.55;
 /** Water halves the jump (02 §2) — the Cistern's whole traversal verb. */
 export const WATER_JUMP_MULT = 0.5;
 /** And it holds you up on the way down, so the halved jump is not simply worse. */
-export const WATER_GRAVITY_MULT = 0.45;
+export const WATER_GRAVITY_MULT = 0.25;
 export const WATER_TERMINAL_VY = 2.2;
 /** Per-frame drag on horizontal motion in water; swimming is slower than running. */
 export const WATER_DRAG = 0.12;
-/** Frames with the head under water before it costs a heart. Three seconds. */
-export const WATER_DROWN_FRAMES = 180;
+/** Frames with the head under water before it costs a heart. Five seconds. */
+export const WATER_DROWN_FRAMES = 300;
 /** A current's push, in units per frame. Under RUN_MAX, so it steers rather than owns. */
 export const CURRENT_PUSH = 1.4;
 /** Frames a crumble tile holds a body up before it gives way. */

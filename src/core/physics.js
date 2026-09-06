@@ -162,14 +162,17 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
 
   const airborne = !p.grounded || vy < 0;
   const fastFalling = downHeld && airborne && dropThrough === 0;
-  vy = applyGravity(vy, fastFalling);
   if (swimming) {
-    // Buoyancy, so a halved jump is a different move and not simply a worse one:
-    // you go up less and come down slower, which is what makes water read as a
-    // medium rather than as a penalty.
-    vy = Math.min(vy * WATER_GRAVITY_MULT, WATER_TERMINAL_VY);
+    // Buoyancy is a weaker *gravity*, not a scaled velocity: scaling vy would eat
+    // the jump impulse on the frame it is given and leave a stroke that barely
+    // clears a step. You go up less and come down slower — a different move, not a
+    // worse one, which is what makes water read as a medium rather than a penalty.
+    const pull = applyGravity(vy, fastFalling) - vy;
+    vy = Math.min(vy + pull * WATER_GRAVITY_MULT, WATER_TERMINAL_VY);
     vx -= vx * WATER_DRAG;
     vx += current * CURRENT_PUSH * WATER_DRAG * 4;
+  } else {
+    vy = applyGravity(vy, fastFalling);
   }
   // Wind is the Apex's weather: a constant push on anything not standing on
   // something, so a jump is a decision about where the wind will have put you.
