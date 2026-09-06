@@ -109,7 +109,10 @@ export function brawl(obs) {
   const toward = partX > p.cx ? IN.RIGHT : IN.LEFT;
   const away = partX > p.cx ? IN.LEFT : IN.RIGHT;
   if (reach > THROW_MAX) return toward;
-  if (reach < THROW_MIN) return p.grounded && reach < THROW_MIN / 2 ? away | IN.JUMP : away;
+  // Backing off is better than trading contact damage — unless there is nowhere
+  // left to back off to, in which case take the shot from where you are standing.
+  const cornered = (away === IN.LEFT && p.cx < 40) || (away === IN.RIGHT && p.cx > obs.roomBounds.w - 40);
+  if (reach < THROW_MIN && !cornered) return away;
   // A flat throw, so it is only worth spending while the part is in the hand's lane.
   const hand = p.y + 6;
   if (hand < part.y - 3 || hand > part.y + part.h + 3 || !p.grounded) return 0;

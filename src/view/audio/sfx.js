@@ -61,12 +61,20 @@ export const RECIPES = {
   jump(g, t, o) {
     const b = base(o);
     return [
-      breath(g, { time: t, freq: 900 * b.vary, to: 1800 * b.vary, sweep: 0.08, attack: 0.005, decay: 0.11, gain: 0.28 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.25 }),
+      breath(g, { time: t, freq: 900 * b.vary, to: 1800 * b.vary, sweep: 0.08, attack: 0.005, decay: 0.11, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.25 }),
       tick(g, { time: t, freq: 520 * b.vary, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.15 }),
     ];
   },
 
-  /** 2. Land — weight. The sub carries it; the breath is the dust. */
+  /**
+   * 2. Land — weight. The sub carries it; the breath is the dust.
+   *
+   * The sub alone put this sound's spectral centroid at 90 Hz, which is a laptop
+   * speaker's way of saying "nothing happened": land, bossStomp, heartbeat and
+   * doorOpen were the game's entire vocabulary of weight and all four were
+   * inaudible off a subwoofer. The 180 Hz tick is the same impact an octave up —
+   * the sub stays for the systems that can play it.
+   */
   land(g, t, o) {
     const b = base(o);
     // Fall speed maps to loudness, not to pitch: a heavy landing should be louder,
@@ -74,22 +82,34 @@ export const RECIPES = {
     const impact = Math.max(0.35, Math.min(1, (o.speed ?? 4) / 6));
     return [
       sub(g, { time: t, freq: 90 * b.vary, to: 45 * b.vary, sweep: 0.06, attack: 0.002, decay: 0.12, gain: 0.55 * impact * b.gain, pan: b.pan, bus: b.bus }),
+      tick(g, { time: t, freq: 180 * b.vary, to: 120 * b.vary, sweep: 0.05, decay: 0.07, gain: 0.2 * impact * b.gain, pan: b.pan, bus: b.bus, reverb: 0.1 }),
       breath(g, { time: t, freq: 400 * b.vary, q: 0.8, attack: 0.002, decay: 0.06, gain: 0.22 * impact * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
     ];
   },
 
-  /** 3. Footstep — 45 ms, quiet, alternating pan. It must never draw attention. */
+  /**
+   * 3. Footstep — 45 ms, quiet, alternating pan. It must never draw attention.
+   *
+   * "Never draw attention" is not "never be heard": at 0.15 it measured -47 dBFS
+   * over its first 100 ms, which is under the music at every intensity. A step you
+   * cannot hear is a step that is not telling you your feet are on the ground.
+   */
   footstep(g, t, o) {
     const b = base(o);
     const material = o.material ?? 'stone';
     if (material === 'water') {
       return [
-        tick(g, { time: t, freq: 380 * b.vary, gain: 0.15 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.3 }),
+        tick(g, { time: t, freq: 380 * b.vary, gain: 0.28 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.3 }),
         breath(g, { time: t, freq: 200 * b.vary, q: 1.2, attack: 0.002, decay: 0.05, gain: 0.12 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }),
       ];
     }
     const f = material === 'metal' ? 700 : 1100;
-    return [tick(g, { time: t, freq: f * b.vary, gain: 0.15 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.2 })];
+    return [
+      tick(g, { time: t, freq: f * b.vary, gain: 0.28 * b.gain, pan: b.pan, bus: b.bus, decay: 0.04, reverb: 0.2 }),
+      // 30 ms of scuff over the tick: the part of a footstep that is cloth and
+      // grit rather than heel, and the part that survives a small speaker.
+      breath(g, { time: t, freq: 2200 * b.vary, q: 1.4, attack: 0.002, decay: 0.03, gain: 0.1 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.15 }),
+    ];
   },
 
   /** 4. Weapon swing — a whoosh that darkens as it passes. Also the Pin throw. */
@@ -171,6 +191,9 @@ export const RECIPES = {
       out.push(tick(g, { time: t + i * 0.07, freq: 90 * b.vary, to: 60, sweep: 0.02, decay: 0.03, gain: 0.18 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.3 }));
     }
     out.push(sub(g, { time: t + 0.62, freq: 60, attack: 0.004, decay: 0.18, gain: 0.6 * b.gain, bus: b.bus }));
+    // The thud, again in the octave a laptop can reproduce: the door closing on
+    // the room behind you is a story beat, and it was inaudible off a subwoofer.
+    out.push(tick(g, { time: t + 0.62, freq: 160 * b.vary, to: 100, sweep: 0.06, decay: 0.12, gain: 0.22 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.2 }));
     return out;
   },
 
@@ -288,21 +311,28 @@ export const RECIPES = {
     ];
   },
 
-  /** 16b. Boss stomp. */
+  /** 16b. Boss stomp. Same laptop problem as `land`, same answer. */
   bossStomp(g, t, o) {
     const b = base(o);
     return [
       sub(g, { time: t, freq: 70 * b.vary, to: 30, sweep: 0.12, attack: 0.002, decay: 0.2, gain: 0.9 * b.gain, pan: b.pan, bus: b.bus }),
+      tick(g, { time: t, freq: 220 * b.vary, to: 110 * b.vary, sweep: 0.06, decay: 0.1, gain: 0.3 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.15 }),
       breath(g, { time: t, freq: 150 * b.vary, mode: 'lowpass', attack: 0.004, decay: 0.2, gain: 0.4 * b.gain, pan: b.pan, bus: b.bus, reverb: 0.5 }),
     ];
   },
 
-  /** 17. Low-health heartbeat — two beats, 140 ms apart, under everything. */
+  /**
+   * 17. Low-health heartbeat — two beats, 140 ms apart, under everything. The
+   * thump you feel is the sub; the thump you *hear* on a laptop is the 140 Hz
+   * body over it, without which low health is silent on most machines.
+   */
   heartbeat(g, t, o) {
     const b = base(o);
     return [
       sub(g, { time: t, freq: 60, attack: 0.006, decay: 0.08, gain: 0.4 * b.gain, bus: b.bus }),
+      tick(g, { time: t, freq: 140, to: 90, sweep: 0.05, decay: 0.07, gain: 0.16 * b.gain, bus: b.bus, reverb: 0.1 }),
       sub(g, { time: t + 0.14, freq: 50, attack: 0.006, decay: 0.08, gain: 0.25 * b.gain, bus: b.bus }),
+      tick(g, { time: t + 0.14, freq: 120, to: 80, sweep: 0.05, decay: 0.06, gain: 0.1 * b.gain, bus: b.bus, reverb: 0.1 }),
     ];
   },
 };

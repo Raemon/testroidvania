@@ -23,7 +23,7 @@ export const tiles = `
 #..............................#
 #..............................#
 D..............................#
-DWW.L.....................o....#
+D...L.....................o....#
 ################################`;
 //  # stone  W wood  M metal  S slag  c crumble  . empty  = one-way  ^ spike  D door  L lantern  ~ water  o pickup
 
