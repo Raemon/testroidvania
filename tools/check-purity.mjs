@@ -37,7 +37,7 @@ const BANNED = [
   ['require', 'a static ESM import'],
 ];
 
-const BANNED_RE = BANNED.map(([name, fix]) => ({
+const BANNED_RE = BANNED.map(([name = '', fix = '']) => ({
   name,
   fix,
   // Not preceded by `.` or an identifier char, so `state.window` and `myconsole` are fine.
