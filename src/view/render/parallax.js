@@ -4,8 +4,8 @@
  *
  * Each skyline is generated once per region and baked into an offscreen canvas
  * two screens wide, then scrolled with `drawImage` and wrapped modulo its width.
- * Per frame this whole layer is 1 gradient + 6 blits + 3 gradient planes, which is
- * why the most compositionally important part of the scene is also the cheapest.
+ * Per frame this whole layer is 2 gradients and 6 blits, which is why the most
+ * compositionally important part of the scene is also the cheapest.
  *
  * The layers get *lighter* with distance. That inversion of the usual "far things
  * fade to the sky colour" is the entire depth cue here, since nothing is textured.
@@ -21,7 +21,7 @@ import { rgba, shade } from './palette.js';
 
 const LAYER_W = VIEW_W * 2;
 /** Taller than the view so a downward camera can slide the layer without a gap. */
-const LAYER_H = VIEW_H + 80;
+const LAYER_H = VIEW_H + 48;
 
 /**
  * @typedef {object} LayerSpec
@@ -35,12 +35,22 @@ const LAYER_H = VIEW_H + 80;
 
 /** @type {LayerSpec[]} */
 const LAYERS = [
-  { parallax: 0.20, baseline: 0.62, minH: 26, maxH: 96, spacing: 46, windows: 0.30 },
-  { parallax: 0.45, baseline: 0.74, minH: 34, maxH: 120, spacing: 62, windows: 0.22 },
-  { parallax: 0.70, baseline: 0.86, minH: 30, maxH: 104, spacing: 84, windows: 0.12 },
+  { parallax: 0.20, baseline: 0.52, minH: 30, maxH: 140, spacing: 44, windows: 0.34 },
+  { parallax: 0.45, baseline: 0.68, minH: 40, maxH: 150, spacing: 62, windows: 0.24 },
+  { parallax: 0.70, baseline: 0.84, minH: 34, maxH: 120, spacing: 88, windows: 0.12 },
 ];
 
 const cache = new SurfaceCache();
+
+/**
+ * The background is composited at *world* resolution and blitted up once.
+ * Nothing back here has an edge finer than a building silhouette, so the six
+ * full-screen passes it takes to build cost a quarter as much this way, and the
+ * one upscale that replaces them is invisible. Foreground art still draws at
+ * device resolution, which is where crisp 1.5px strokes actually matter.
+ */
+/** @type {Surface|null} */
+let composite = null;
 
 /**
  * One cathedral-city silhouette. Shapes come from a tiny vocabulary so the skyline
@@ -110,7 +120,9 @@ function skyline(region, index) {
     const s = createSurface(LAYER_W, LAYER_H);
     const rnd = cosmeticRng(seedFrom(`${region.id}:skyline:${index}`));
     const baseY = LAYER_H * spec.baseline;
-    const body = index === 0 ? region.far : index === 1 ? region.mid : shade(region.mid, -0.28);
+    // Value, not colour, carries depth: each layer steps darker as it comes
+    // nearer, ending just above the terrain band.
+    const body = index === 0 ? shade(region.far, 0.12) : index === 1 ? region.mid : shade(region.mid, -0.52);
 
     s.ctx.fillStyle = body;
     s.ctx.fillRect(0, baseY - 1, LAYER_W, LAYER_H - baseY + 1);
@@ -139,11 +151,13 @@ function skyline(region, index) {
       }
     }
 
-    // The layer fades into the fog toward its own footing, so the layers stack
-    // instead of butting up against each other.
+    // Each layer sits in its own bank of fog, densest at its footing. Baking the
+    // fog into the layer (rather than washing the whole screen) is what keeps the
+    // *near* fog from also lifting the far silhouettes.
     const g = s.ctx.createLinearGradient(0, baseY - spec.maxH, 0, LAYER_H);
     g.addColorStop(0, rgba(region.fog, 0));
-    g.addColorStop(1, rgba(region.fog, 0.30));
+    g.addColorStop(0.65, rgba(region.fog, 0.16));
+    g.addColorStop(1, rgba(region.fog, 0.34));
     s.ctx.fillStyle = g;
     s.ctx.fillRect(0, baseY - spec.maxH, LAYER_W, LAYER_H);
     return s;
@@ -157,8 +171,11 @@ function skyline(region, index) {
  */
 function drawVoid(ctx, region) {
   const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-  // Foundry is the one region lit from below — dead furnaces under the floor.
-  g.addColorStop(0, region.litFromBelow ? region.voidTop : region.voidTop);
+  // Foundry is the one region lit from below — dead furnaces under the floor —
+  // so its gradient runs the other way. Everywhere else the sky darkens downward
+  // and the fog banks put the light back at the horizon.
+  g.addColorStop(0, region.litFromBelow ? region.voidTop : shade(region.voidTop, 0.06));
+  g.addColorStop(0.6, region.voidTop);
   g.addColorStop(1, region.voidBottom);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -171,22 +188,29 @@ function drawVoid(ctx, region) {
  * @param {number} camY
  */
 export function drawParallax(ctx, region, camX, camY) {
-  drawVoid(ctx, region);
+  if (!composite) composite = createSurface(VIEW_W, VIEW_H);
+  const b = composite.ctx;
+  b.setTransform(1, 0, 0, 1, 0, 0);
+  b.globalCompositeOperation = 'source-over';
+  drawVoid(b, region);
 
   for (let i = 0; i < LAYERS.length; i++) {
     const spec = LAYERS[i] ?? /** @type {LayerSpec} */ (LAYERS[0]);
     const s = skyline(region, i);
     const off = ((-camX * spec.parallax) % LAYER_W + LAYER_W) % LAYER_W;
-    const y = Math.round(Math.max(-72, Math.min(24, -camY * spec.parallax * 0.30)));
-    ctx.drawImage(s.canvas, Math.round(off - LAYER_W), y);
-    ctx.drawImage(s.canvas, Math.round(off), y);
-
-    // Fog plane between this layer and the next: the atmosphere that keeps the
-    // value bands from touching.
-    const g = ctx.createLinearGradient(0, VIEW_H * 0.45, 0, VIEW_H);
-    g.addColorStop(0, rgba(region.fog, 0));
-    g.addColorStop(1, rgba(region.fog, 0.10 + i * 0.05));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    const y = Math.round(Math.max(-44, Math.min(20, -camY * spec.parallax * 0.30)));
+    b.drawImage(s.canvas, Math.round(off - LAYER_W), y);
+    b.drawImage(s.canvas, Math.round(off), y);
   }
+
+  // One fog plane in front of everything distant. A single bank of haze between
+  // the background and the foreground is what gives the terrain something
+  // lighter to be a silhouette *against*.
+  const g = b.createLinearGradient(0, VIEW_H * 0.30, 0, VIEW_H);
+  g.addColorStop(0, rgba(region.fog, 0.02));
+  g.addColorStop(1, rgba(region.fog, 0.20));
+  b.fillStyle = g;
+  b.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  ctx.drawImage(composite.canvas, 0, 0);
 }

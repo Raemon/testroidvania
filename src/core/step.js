@@ -5,14 +5,18 @@
  * first" is exactly the kind of thing that silently changes a replay:
  *
  *   1. input      — roll `input` into `prevInput`, advance `tick`
- *   2. player     — physics integration and the collision sweep
- *   3. abilities  — (Phase 3)
- *   4. entities   — (Phase 3)
- *   5. bosses     — (Phase 3)
- *   6. combat     — hazard contact, i-frames, death
- *   7. rooms      — door transitions
- *   8. progress   — pickups and flags
- *   9. liveness   — the softlock fingerprint window
+ *   2. hitstop    — if the world is frozen for impact, only the clock moves
+ *   3. player     — physics integration, jab timers and the collision sweep
+ *   4. pin        — throw, flight, embed, recall (06-revision-1 §G)
+ *   5. light      — the light list, which the next stage reads
+ *   6. entities   — enemies; Chargers aim at the lights, not at the player (§D2)
+ *   7. combat     — jab, hazards, contact damage, i-frames, death
+ *   8. rooms      — door transitions
+ *   9. progress   — save-lanterns and discovered-tile memory
+ *  10. liveness   — the softlock fingerprint window
+ *
+ * Light before entities is load-bearing: a Charger must be able to acquire a Pin
+ * thrown this frame, because "the Pin is a decoy" is a mechanic, not a coincidence.
  *
  * Every subsystem runs inside `runStage`, so a throw becomes a `SimError` in the
  * returned state rather than a dead loop (AGENTS.md rule 2). A failed stage leaves
@@ -20,8 +24,12 @@
  */
 
 import { SOFTLOCK_WINDOW } from './constants.js';
-import { stepPlayer, damagePlayer } from './player.js';
-import { doorUnder, resolvePartner, doorEntry, overlaps } from './rooms.js';
+import { stepPlayer } from './player.js';
+import { stagePin, snapPinToHand } from './pin.js';
+import { stageEntities, stageCombat, spawnFor } from './combat.js';
+import { stageLanterns } from './lanterns.js';
+import { computeLights, rememberSeen } from './light.js';
+import { doorUnder, resolvePartner, doorEntry } from './rooms.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
 /** @typedef {import('./types.js').InputMask} InputMask */
@@ -53,48 +61,65 @@ export function step(state, input) {
   /** @type {SimError[]} */
   const errors = state.errors.slice(0, 64);
 
+  // During hitstop the world is frozen, so the input *edges* are held open instead
+  // of being spent on frames nothing reads: a bit pressed mid-freeze still reads as
+  // a fresh press on the frame the world resumes. Without this, a recall pressed
+  // during the 6 frames after a kill would be silently eaten — and recall is the
+  // one input the game promises never to swallow.
+  const carried = state.hitstop > 0 ? state.prevInput & input : state.input;
+
   /** @type {GameState} */
   let s = {
     ...state,
     tick: state.tick + 1,
-    prevInput: state.input,
+    prevInput: carried,
     input,
     errors,
   };
 
+  // Hitstop freezes the world for 3-6 frames so a hit lands. Only the clock and
+  // the flash timers move; nothing that can change the outcome of the frame does.
+  if (s.hitstop > 0) {
+    s = { ...s, hitstop: s.hitstop - 1, flash: Math.max(0, s.flash - 1), shake: Math.max(0, s.shake - 1) };
+    return runStage(s, 'liveness', stageLiveness, errors);
+  }
+  s = { ...s, shake: Math.max(0, s.shake - 1) };
+
   s = runStage(s, 'player', stagePlayer, errors);
+  s = runStage(s, 'pin', stagePin, errors);
+  s = runStage(s, 'light', stageLight, errors);
+  s = runStage(s, 'entities', stageEntities, errors);
   s = runStage(s, 'combat', stageCombat, errors);
   s = runStage(s, 'rooms', stageRooms, errors);
+  s = runStage(s, 'lanterns', stageLanterns, errors);
+  s = runStage(s, 'discovery', stageDiscovery, errors);
   s = runStage(s, 'liveness', stageLiveness, errors);
   return s;
 }
 
 /** @param {GameState} s @returns {GameState} */
 function stagePlayer(s) {
-  return { ...s, player: stepPlayer(s.roomData, s.player, s.input, s.prevInput) };
-}
-
-/**
- * Hazard contact. A spike is a soft death: -1 HP and a respawn at the last safe
- * ground in the same room (03-game-feel §5), never a lost run.
- * @param {GameState} s @returns {GameState}
- */
-function stageCombat(s) {
-  const p = s.player;
-  if (p.hp <= 0 || p.iframes > 0) return s;
-  const box = { x: p.x, y: p.y, w: p.w, h: p.h };
-  for (const hz of s.roomData.hazards) {
-    if (!overlaps(box, hz)) continue;
-    const hurt = damagePlayer(p, 1, hz.x + hz.w / 2);
-    if (hurt.hp <= 0) return { ...s, player: hurt, progress: { ...s.progress, deaths: s.progress.deaths + 1 } };
-    return { ...s, player: { ...hurt, x: p.safeGround.x, y: p.safeGround.y, vx: 0, vy: 0 } };
-  }
-  return s;
+  return { ...s, player: stepPlayer(s.roomData, s.player, s.input, s.prevInput, s.pin) };
 }
 
 /** @param {GameState} s @returns {GameState} */
+function stageLight(s) {
+  return { ...s, lights: computeLights(s) };
+}
+
+/** @param {GameState} s @returns {GameState} */
+function stageDiscovery(s) {
+  return { ...s, discovered: rememberSeen(s) };
+}
+
+/**
+ * Door transitions. §G: crossing a room boundary snaps the Pin to Held, always,
+ * with no exceptions — so a Pin can never be left behind in a room you have left.
+ * @param {GameState} s @returns {GameState}
+ */
 function stageRooms(s) {
   const p = s.player;
+  if (p.hp <= 0) return s;
   const door = doorUnder(s.roomData, { x: p.x, y: p.y, w: p.w, h: p.h }, s.progress.abilities);
   if (!door) return s;
   const partner = resolvePartner(door);
@@ -103,13 +128,21 @@ function stageRooms(s) {
     return s;
   }
   const at = doorEntry(partner.room, partner.door, p.w, p.h);
-  return {
+  /** @type {GameState} */
+  const arrived = {
     ...s,
     room: partner.room.id,
     roomData: partner.room,
-    entities: [],
-    player: { ...p, x: at.x, y: at.y, vy: 0, grounded: false, coyote: 0, iframes: Math.max(p.iframes, 20), safeGround: at },
+    entities: spawnFor(partner.room),
+    brokenTiles: [],
+    player: {
+      ...p,
+      x: at.x, y: at.y, vy: 0, grounded: false, coyote: 0,
+      perch: false, hang: false, hangCooldown: 0, jabFrames: 0,
+      iframes: Math.max(p.iframes, 20), safeGround: at,
+    },
   };
+  return snapPinToHand(arrived);
 }
 
 /**
@@ -137,9 +170,11 @@ export function progressFingerprint(s) {
     s.player.hp | 0,
     s.room.length,
     hashString(s.room),
+    hashString(s.pin.state),
     s.progress.abilities.length,
     s.progress.bossesKilled.length,
     s.progress.pickupsTaken.length,
+    s.progress.lanternsLit.length,
     s.entities.length,
   ];
   let h = 0x811c9dc5;

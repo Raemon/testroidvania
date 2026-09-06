@@ -11,6 +11,7 @@
 
 import { TILE } from '../core/constants.js';
 import { IN } from '../core/input.js';
+import { runAction } from './actions.js';
 
 /** @typedef {import('./api.js').Observation} Observation */
 
@@ -38,11 +39,16 @@ export const ROOM_FRAME_BUDGET = 1800;
  * @property {number} frames    frames spent in this room
  * @property {boolean} stuck    give up: the wiggle did not help, or the budget ran out
  * @property {string} why       why it gave up, for the failure message
+ * @property {string} act       the waypoint action being performed, '' when none
+ * @property {{phase:number, frames:number}} actState
  */
 
 /** @returns {ServoMemory} */
 export function createServo() {
-  return { wp: 0, room: '', lastX: NaN, lastY: NaN, still: 0, wiggle: 0, frames: 0, stuck: false, why: '' };
+  return {
+    wp: 0, room: '', lastX: NaN, lastY: NaN, still: 0, wiggle: 0, frames: 0,
+    stuck: false, why: '', act: '', actState: { phase: 0, frames: 0 },
+  };
 }
 
 /**
@@ -67,7 +73,31 @@ export function servo(obs, mem) {
   const targetX = goal[0] * TILE + TILE / 2;
   const targetFootY = (goal[1] + 1) * TILE;
 
+  // An action owns the bot completely until it finishes: the whole point of
+  // `throw` is that it happens from one exact spot.
+  if (next.act) {
+    const result = runAction(next.act, obs, targetX, next.actState);
+    next.actState = result.st;
+    if (result.failed) {
+      next.stuck = true;
+      next.why = `${obs.room}: ${result.failed}`;
+      return { input: 0, mem: next, done: false };
+    }
+    if (!result.done) return { input: result.input, mem: next, done: false };
+    next.act = '';
+    next.still = 0;
+    if (next.wp >= route.length - 1) return { input: 0, mem: next, done: true };
+    next.wp++;
+    return { input: 0, mem: next, done: false };
+  }
+
   if (Math.abs(p.cx - targetX) <= ARRIVE_X && Math.abs(p.footY - targetFootY) <= ARRIVE_Y) {
+    const action = goal[2];
+    if (action) {
+      next.act = action;
+      next.actState = { phase: 0, frames: 0 };
+      return { input: 0, mem: next, done: false };
+    }
     if (next.wp >= route.length - 1) return { input: 0, mem: next, done: true };
     next.wp++;
     return { input: 0, mem: next, done: false };
@@ -117,7 +147,13 @@ function wantsJump(obs, dir, targetFootY) {
 
   // Still rising toward something higher than us: keep the button down so the
   // jump-cut does not fire and rob us of the last 30px of height.
-  if (!p.grounded) return p.vy < 0 && p.footY > targetFootY + 4;
+  if (!p.grounded) {
+    if (p.vy >= 0) return false;
+    if (p.footY > targetFootY + 4) return true;
+    // Or still under the lip of the thing we jumped at. Releasing here is how a
+    // bot ends up bouncing off the same 2-tile block forever.
+    return obs.solidAt(aheadTile, Math.floor((p.footY - 1) / TILE));
+  }
   if (obs.solidAt(aheadTile, footTile) || obs.solidAt(aheadTile, headTile)) return true;
 
   // The next waypoint is above us, and within the 56px a full jump buys.

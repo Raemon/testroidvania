@@ -8,8 +8,10 @@ import { ROOM_IDS, ROOM_MODULES } from './rooms/index.js';
 
 /** Where a new run begins. `at` is the tile the player's feet rest on. */
 export const START = {
-  room: 't1_flat',
-  at: /** @type {[number, number]} */ ([3, 12]),
+  room: 'o1_arrival',
+  // Two tiles above the floor: the run opens with a landing, before a key is
+  // pressed (03-game-feel §6 beat 0).
+  at: /** @type {[number, number]} */ ([3, 10]),
 };
 
 /**

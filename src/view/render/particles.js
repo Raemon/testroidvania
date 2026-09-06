@@ -121,7 +121,7 @@ export class Particles {
    */
   breathe(region, view, dt) {
     this.ambient += dt;
-    if (this.ambient < 2) return;
+    if (this.ambient < 7) return;
     this.ambient = 0;
     const x = view.x + this.rand(view.w);
     const y = view.y + this.rand(view.h);
@@ -132,7 +132,7 @@ export class Particles {
     } else if (region.id === 'verdant') {
       this.emit(x, y, (this.rnd() - 0.5) * 0.35, -(0.05 + this.rand(0.12)), 160 + this.rand(90), 1 + this.rand(0.9), region.accent, { glow: 0.5 });
     } else {
-      this.emit(x, y, (this.rnd() - 0.5) * 0.16, -(0.12 + this.rand(0.16)), 150 + this.rand(90), 0.9 + this.rand(0.9), region.accent, { glow: 0.4 });
+      this.emit(x, y, (this.rnd() - 0.5) * 0.16, -(0.12 + this.rand(0.16)), 120 + this.rand(80), 0.7 + this.rand(0.7), region.accent, { glow: 0.25 });
     }
   }
 
@@ -158,7 +158,7 @@ export class Particles {
       const k = p.life / p.maxLife;
       if (p.glow > 0 && glows < 120) {
         glows++;
-        drawGlow(ctx, p.x, p.y, p.size * 4 + 2, p.color, p.glow * Math.min(1, k * 1.4) * 0.5);
+        drawGlow(ctx, p.x, p.y, p.size * 4 + 2, p.color, p.glow * Math.min(1, k * 1.4) * 0.45);
       }
       const a = k > 0.8 ? (1 - k) * 5 : k;
       ctx.fillStyle = rgba(p.color, Math.min(1, a));

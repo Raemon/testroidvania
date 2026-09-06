@@ -28,6 +28,9 @@ export { RECIPES, SFX_IDS, REGIONS, WANTED_FROM_CORE };
 /** Sounds that duck the music bus to 0.6x (05 §6d). */
 const DUCKERS = new Set(['hurt', 'hazard', 'bossStomp']);
 
+/** 05 §7.1: the ability pickup forces the music to intensity 0 for its four seconds. */
+const ABILITY_CALM_TICKS = 240;
+
 /** @returns {URLSearchParams} */
 function pageParams() {
   try {
@@ -75,6 +78,7 @@ class AudioEngine {
     this.events = 0;
     this.paused = false;
     this.regionId = 'cistern';
+    this.calmUntilTick = -1;
     /** @type {(() => void)|null} */
     this.detach = null;
 
@@ -142,6 +146,9 @@ class AudioEngine {
     const played = this.sfx.play(id, opts);
     if (!played) return false;
     if (DUCKERS.has(id)) this.graph?.duckMusic(0.6, 0.04, 0.9);
+    // The heartbeat sidechains the music -3 dB on each beat, so the low-health
+    // pulse is felt through the score rather than layered on top of it.
+    if (id === 'heartbeat') this.graph?.duckMusic(0.7, 0.03, 0.4);
     if (id === 'abilityPickup') this.duckSfx(0.3, 4);
     return true;
   }
@@ -182,12 +189,13 @@ class AudioEngine {
 
     const seq = this.seq;
     if (seq) {
-      seq.setCalm(this.observer.calm(next));
+      seq.setCalm(this.observer.calm(next) || next.tick < this.calmUntilTick);
       seq.update(1 / 60, this.observer.intensity(next));
     }
 
     for (const e of events) {
       if (e.id === 'menuConfirm') this.setPaused(!this.paused);
+      if (e.id === 'abilityPickup') this.calmUntilTick = next.tick + ABILITY_CALM_TICKS;
       this.play(e.id, e.opts);
     }
   }

@@ -12,7 +12,7 @@
  * the hitbox would make the game feel different at different frame rates.
  */
 
-import { PLAYER, rgba } from './palette.js';
+import { PLAYER, rgba, shade } from './palette.js';
 import { drawGlow } from './glow.js';
 import { bone, clamp, ik2, makeChain, resetChain, spring, stepChain } from './rig.js';
 import { hashNoise } from './rng.js';
@@ -34,8 +34,8 @@ const HEAD_R = 6 * S;
 const STRIDE = 28 * S;
 const LEG_UPPER = 9 * S;
 const LEG_LOWER = 9 * S;
-const SCARF_SEG = 5 * S;
-const SCARF_N = 8;
+const SCARF_SEG = 3.6 * S;
+const SCARF_N = 7;
 
 /**
  * @typedef {object} PlayerRig
@@ -121,9 +121,11 @@ export function updatePlayerRig(rig, state, dt, fx) {
   if (rig.lastTick < 0 || Math.abs(state.tick - rig.lastTick) > 30) resetChain(rig.scarf, pts.neck.x, pts.neck.y);
   rig.lastTick = state.tick;
 
-  const wind = -p.vx * 0.5 - (p.grounded ? 0 : 0);
+  // Wind is deliberately weak against gravity: a scarf that streams straight out
+  // at running speed reads as a rigid stick, not cloth. It should lag and sag.
+  const wind = -p.vx * 0.16;
   for (let i = 0; i < Math.max(1, Math.round(dt)); i++) {
-    stepChain(rig.scarf, pts.neck.x, pts.neck.y, SCARF_SEG, 0.35, wind, p.vy * -0.08, 0.94);
+    stepChain(rig.scarf, pts.neck.x, pts.neck.y, SCARF_SEG, 0.5, wind, p.vy * -0.05, 0.9);
   }
   rig.hand = pts.flame;
   if (fx && p.grounded && Math.abs(p.vx) > 2.1 && state.tick % 8 === 0) fx.runDust(fx0, fy0, p.facing);
@@ -209,28 +211,32 @@ export function drawPlayer(ctx, state, rig, region, t) {
   ctx.lineTo(a.neck.x, a.neck.y);
   ctx.stroke();
 
+  const hr = HEAD_R * (0.65 + 0.35 * rig.sx);
+  // Hood first, as a cowl behind the head: a teardrop trailing back. It is what
+  // stops the head reading as a lollipop and gives the silhouette a facing at
+  // any size, so it is drawn in cloth cream rather than ink and the *face* is
+  // the dark shape.
+  ctx.fillStyle = shade(body, -0.22);
+  ctx.beginPath();
+  ctx.moveTo(a.head.x + p.facing * hr * 0.35, a.head.y - hr * 0.95);
+  ctx.quadraticCurveTo(a.head.x - p.facing * hr * 2.6, a.head.y - hr * 1.3, a.head.x - p.facing * hr * 2.0, a.head.y + hr * 1.0);
+  ctx.quadraticCurveTo(a.head.x - p.facing * hr * 0.4, a.head.y + hr * 1.15, a.head.x + p.facing * hr * 0.35, a.head.y - hr * 0.95);
+  ctx.fill();
+
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.arc(a.head.x, a.head.y, HEAD_R * rig.sx, 0, Math.PI * 2);
+  ctx.arc(a.head.x, a.head.y, hr, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = PLAYER.ink;
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // Hood: a teardrop trailing back from the head, which is what stops the head
-  // reading as a lollipop and gives the silhouette a direction at any size.
-  ctx.fillStyle = PLAYER.ink;
-  ctx.globalAlpha *= 0.85;
-  ctx.beginPath();
-  ctx.moveTo(a.head.x - p.facing * HEAD_R * 0.2, a.head.y - HEAD_R * 0.9);
-  ctx.quadraticCurveTo(a.head.x - p.facing * HEAD_R * 2.4, a.head.y - HEAD_R * 1.1, a.head.x - p.facing * HEAD_R * 1.9, a.head.y + HEAD_R * 0.8);
-  ctx.quadraticCurveTo(a.head.x - p.facing * HEAD_R * 0.8, a.head.y + HEAD_R * 0.4, a.head.x - p.facing * HEAD_R * 0.2, a.head.y - HEAD_R * 0.9);
-  ctx.fill();
-  ctx.globalAlpha = p.iframes > 0 && Math.floor(p.iframes / 4) % 2 === 1 ? 0.4 : 1;
-
+  // The face is a dark crescent on the facing side — one shape, no features. A
+  // face with an eye and a mouth would fight the cut-paper language.
   ctx.fillStyle = PLAYER.ink;
   ctx.beginPath();
-  ctx.arc(a.head.x + p.facing * HEAD_R * 0.45, a.head.y + HEAD_R * 0.05, HEAD_R * 0.34, 0, Math.PI * 2);
+  ctx.arc(a.head.x + p.facing * hr * 0.3, a.head.y + hr * 0.1, hr * 0.72, -Math.PI * 0.62, Math.PI * 0.62);
+  ctx.closePath();
   ctx.fill();
 
   // Arm to the hand, then whatever the hand is holding.
@@ -289,7 +295,7 @@ function drawScarf(ctx, rig, dead) {
     const b = rig.scarf[i];
     if (!a || !b) continue;
     ctx.strokeStyle = dead ? rgba(PLAYER.scarf, 0.5) : PLAYER.scarf;
-    ctx.lineWidth = 4 * S * (1 - (i - 1) / rig.scarf.length * 0.7);
+    ctx.lineWidth = 4.2 * S * (1 - (i - 1) / rig.scarf.length * 0.78);
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);

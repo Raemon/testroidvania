@@ -20,7 +20,7 @@ import { tileAt } from './tiles.js';
  * @property {Door[]} doors
  * @property {{kind:string, at:[number,number]}[]} spawns
  * @property {{id:string, kind:string, at:[number,number]}[]} pickups
- * @property {{route:[number,number][]}} hints
+ * @property {{route:import('../core/types.js').Waypoint[]}} hints
  * @property {number[]|null} macro
  */
 
@@ -35,11 +35,14 @@ export function compileRoom(mod) {
 
   /** @type {Hazard[]} */
   const hazards = [];
+  /** @type {{at:[number,number], x:number, y:number}[]} */
+  const lanterns = [];
   for (let ty = 0; ty < h; ty++) {
     const row = grid[ty] ?? '';
     for (let tx = 0; tx < w; tx++) {
       const def = tileAt(row[tx] ?? '.');
       if (def.damage > 0) hazards.push({ x: tx * TILE, y: ty * TILE, w: TILE, h: TILE, kind: def.name });
+      if (def.lantern) lanterns.push({ at: [tx, ty], x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 });
     }
   }
 
@@ -52,6 +55,7 @@ export function compileRoom(mod) {
     hazards,
     spawns: mod.spawns,
     pickups: mod.pickups,
+    lanterns,
     route: mod.hints.route,
     macro: mod.macro,
   };

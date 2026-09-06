@@ -10,6 +10,7 @@
  */
 
 import { getRoom } from '../content/rooms/index.js';
+import { applyBroken } from './rooms.js';
 import { createInitialState } from './state.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
@@ -39,7 +40,9 @@ export function restore(json) {
   const room = getRoom(saved.room);
   if (!room) throw new Error(`save names unknown room '${saved.room}'`);
   const base = createInitialState(saved.seed, saved.room);
-  return { ...base, ...saved, roomData: room };
+  // Crumbled tiles live in the save, not in a frozen copy of the room, so a save
+  // sees content edits instead of embalming them.
+  return { ...base, ...saved, roomData: applyBroken(room, saved.brokenTiles ?? []) };
 }
 
 /**

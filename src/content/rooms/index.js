@@ -4,15 +4,21 @@
  */
 
 import { compileRoom } from '../room-format.js';
-import * as t1_flat from './t1_flat.js';
-import * as t2_gap from './t2_gap.js';
-import * as t3_ceiling from './t3_ceiling.js';
+import * as o1_arrival from './o1_arrival.js';
+import * as o2_gaps from './o2_gaps.js';
+import * as o3_drop from './o3_drop.js';
+import * as o4_step from './o4_step.js';
+import * as o5_ladder from './o5_ladder.js';
+import * as o6_weapon from './o6_weapon.js';
 
 /** @type {Record<string, import('../room-format.js').RoomModule>} */
 export const ROOM_MODULES = {
-  t1_flat,
-  t2_gap,
-  t3_ceiling,
+  o1_arrival,
+  o2_gaps,
+  o3_drop,
+  o4_step,
+  o5_ladder,
+  o6_weapon,
 };
 
 export const ROOM_IDS = Object.keys(ROOM_MODULES).sort();

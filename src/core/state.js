@@ -6,17 +6,17 @@
 
 import { toSeed } from './rng.js';
 import { createPlayer } from './player.js';
+import { createPin } from './pin.js';
 import { getRoom, standOn } from './rooms.js';
+import { spawnFor } from './combat.js';
+import { computeLights } from './light.js';
 import { START } from '../content/world.js';
-import { PLAYER_W, PLAYER_H } from './constants.js';
+import { PLAYER_W, PLAYER_H, PIN_HAND_OFFSET } from './constants.js';
 
 /** @typedef {import('./types.js').GameState} GameState */
 /** @typedef {import('./types.js').Room} Room */
 
-/** @returns {import('./types.js').Pin} */
-export function createPin() {
-  return { state: 'held', x: 0, y: 0, vx: 0, vy: 0, travelled: 0, surface: null, dirX: 1, dirY: 0, hostId: null };
-}
+export { createPin };
 
 /** @returns {import('./types.js').Progress} */
 export function createProgress() {
@@ -30,7 +30,7 @@ export function createProgress() {
  */
 const VOID_ROOM = {
   id: '__void__', w: 3, h: 3, grid: ['###', '#.#', '###'],
-  doors: [], hazards: [], spawns: [], pickups: [], route: [], macro: null,
+  doors: [], hazards: [], spawns: [], pickups: [], lanterns: [], route: [], macro: null,
 };
 
 /**
@@ -49,7 +49,9 @@ export function createInitialState(seed, worldId) {
     : room.route[0] ?? /** @type {[number,number]} */ ([1, room.h - 2]);
   const pos = standOn(at[0], at[1], PLAYER_W, PLAYER_H);
 
-  return {
+  const player = createPlayer(pos.x, pos.y);
+  /** @type {GameState} */
+  const state = {
     tick: 0,
     rng: toSeed(seed),
     seed,
@@ -57,13 +59,21 @@ export function createInitialState(seed, worldId) {
     prevInput: 0,
     room: room.id,
     roomData: room,
-    player: createPlayer(pos.x, pos.y),
-    pin: createPin(),
-    entities: [],
+    player,
+    pin: { ...createPin(), x: pos.x + PLAYER_W / 2, y: pos.y + PIN_HAND_OFFSET },
+    entities: spawnFor(room),
     nextEntityId: 1,
     progress: createProgress(),
+    lights: [],
+    discovered: {},
+    brokenTiles: [],
+    hitstop: 0,
+    flash: 0,
+    shake: 0,
+    respawn: { room: room.id, x: pos.x, y: pos.y },
     liveness: { fingerprint: 0, sameFor: 0, inputFramesInWindow: 0 },
     errors: [],
     debug: false,
   };
+  return { ...state, lights: computeLights(state) };
 }

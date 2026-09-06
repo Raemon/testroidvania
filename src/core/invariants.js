@@ -9,9 +9,13 @@
  * The rule numbers are 04-architecture §6.
  */
 
-import { TILE, VMAX, MAX_ENTITIES, SOFTLOCK_WINDOW } from './constants.js';
+import { TILE, VMAX, MAX_ENTITIES, SOFTLOCK_WINDOW, PIN_AUTO_RECALL_FRAMES } from './constants.js';
 import { overlapsSolid } from './collision.js';
 import { hash, NonFiniteError } from './hash.js';
+import { IN, justPressed } from './input.js';
+
+/** @type {import('./types.js').PinState[]} */
+const PIN_STATES = ['held', 'flying', 'embedded', 'pinned', 'dropped', 'returning'];
 
 /** @typedef {import('./types.js').GameState} GameState */
 /** @typedef {import('./types.js').Violation} Violation */
@@ -181,3 +185,68 @@ export function check(prev, next, input) {
 export function formatViolation(v) {
   return `${v.code} at tick ${v.tick} in ${v.room}: ${v.detail}`;
 }
+
+// --- Phase 2: the Pin ------------------------------------------------------
+
+// 18. The Pin is in exactly one valid state, and its fields agree with it. Every
+//     other Pin rule is only meaningful if this one holds.
+addCheck(({ next, report }) => {
+  const pin = next.pin;
+  if (!PIN_STATES.includes(pin.state)) {
+    report('PIN_STATE', `pin.state is '${pin.state}'`);
+    return;
+  }
+  if (pin.state === 'pinned' && pin.hostId === null) report('PIN_STATE', 'a pinned Pin has no host');
+  if (pin.state !== 'pinned' && pin.hostId !== null) report('PIN_STATE', `a ${pin.state} Pin still names host ${pin.hostId}`);
+  if (pin.state === 'embedded' && pin.nx === 0 && pin.ny === 0) report('PIN_STATE', 'an embedded Pin has no surface normal');
+  if (pin.state === 'embedded' && pin.surface === null) report('PIN_STATE', 'an embedded Pin is embedded in nothing');
+  if (pin.state !== 'embedded' && pin.surface !== null) report('PIN_STATE', `a ${pin.state} Pin still names surface '${pin.surface}'`);
+  if (pin.state === 'held' && (pin.vx !== 0 || pin.vy !== 0)) report('PIN_STATE', 'a held Pin is moving');
+  for (const [name, v] of [['startup', pin.startup], ['clang', pin.clang], ['away', pin.away], ['lock', pin.lock], ['hostTimer', pin.hostTimer]]) {
+    if (!Number.isInteger(v) || v < 0) report('TIMER', `pin.${name} is ${v}`);
+  }
+});
+
+// 19. RECALL IS NEVER DISABLED. A Throw/Recall press on a frame the world is
+//     actually running, with the Pin anywhere but the hand, must start it home.
+//     This is the invariant the whole "you can never be stranded" promise rests on,
+//     so it is checked on every frame rather than trusted to a unit test.
+addCheck(({ prev, next, report }) => {
+  if (prev.hitstop > 0) return;
+  if (!justPressed(next.input, next.prevInput, IN.THROW)) return;
+  if (prev.pin.state === 'held') return;
+  if (next.pin.state === 'returning' || next.pin.state === 'held') return;
+  report('RECALL_REFUSED', `Recall pressed with the Pin ${prev.pin.state} and it stayed ${next.pin.state}`);
+});
+
+// 20. The player is never stranded: a Pin that has left the room or landed in
+//     something that kills is counting down to its own auto-recall.
+addCheck(({ next, report }) => {
+  const pin = next.pin;
+  if (pin.state === 'held' || pin.state === 'returning') return;
+  const room = next.roomData;
+  const outside = pin.x < 0 || pin.y < 0 || pin.x > room.w * TILE || pin.y > room.h * TILE;
+  if (!outside) return;
+  if (pin.away <= 0 || pin.away > PIN_AUTO_RECALL_FRAMES) {
+    report('PIN_ABANDONED', `Pin is ${pin.state} outside ${room.id} at (${pin.x.toFixed(1)}, ${pin.y.toFixed(1)}) with away=${pin.away}`);
+  }
+});
+
+// 21. Perch and Hang only exist while there is a wall pin to perch on or hang
+//     from — otherwise the player is standing on, or dangling from, nothing.
+addCheck(({ next, report }) => {
+  const p = next.player;
+  const wallPin = next.pin.state === 'embedded' && next.pin.nx !== 0;
+  if (p.perch && !wallPin) report('GRIP', 'the player is perched with no wall pin');
+  if (p.hang && !wallPin) report('GRIP', 'the player is hanging with no wall pin');
+  if (p.perch && p.hang) report('GRIP', 'the player is perched and hanging at once');
+});
+
+// 22. Enemy bookkeeping: health in range, and only light bodies get pinned.
+addCheck(({ next, report }) => {
+  for (const e of next.entities) {
+    if (e.hp <= 0 || e.hp > e.maxHp) report('ENEMY_HP', `${e.kind} ${e.id} has hp ${e.hp} of ${e.maxHp}`);
+    if (e.pinned && e.mass !== 0) report('ENEMY_PINNED', `heavy ${e.kind} ${e.id} is pinned to a wall`);
+    if (e.pinned && next.pin.hostId !== e.id) report('ENEMY_PINNED', `${e.kind} ${e.id} thinks it is pinned but the Pin is ${next.pin.state}`);
+  }
+});

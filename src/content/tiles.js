@@ -18,19 +18,24 @@
  * @property {number} damage     contact damage per touch, 0 for none
  * @property {Material|null} material
  * @property {boolean} pinnable  the Pin embeds here (stone needs Deep Pin; Phase 2)
+ * @property {boolean} crumble   gives way instead of holding the Pin (§G)
+ * @property {boolean} lantern   a save-lantern, lit by walking through it (§E)
  */
 
 /** @type {Record<string, TileDef>} */
 export const TILES = {
-  '.': { glyph: '.', name: 'empty', solid: false, oneWay: false, damage: 0, material: null, pinnable: false },
-  '#': { glyph: '#', name: 'stone', solid: true, oneWay: false, damage: 0, material: 'stone', pinnable: true },
-  'W': { glyph: 'W', name: 'wood', solid: true, oneWay: false, damage: 0, material: 'wood', pinnable: true },
-  'M': { glyph: 'M', name: 'metal', solid: true, oneWay: false, damage: 0, material: 'metal', pinnable: false },
-  '=': { glyph: '=', name: 'platform', solid: false, oneWay: true, damage: 0, material: 'wood', pinnable: true },
-  '^': { glyph: '^', name: 'spike', solid: false, oneWay: false, damage: 1, material: null, pinnable: false },
-  'D': { glyph: 'D', name: 'door', solid: false, oneWay: false, damage: 0, material: null, pinnable: false },
-  'o': { glyph: 'o', name: 'pickup', solid: false, oneWay: false, damage: 0, material: null, pinnable: false },
-  '~': { glyph: '~', name: 'water', solid: false, oneWay: false, damage: 0, material: null, pinnable: false },
+  '.': { glyph: '.', name: 'empty', solid: false, oneWay: false, damage: 0, material: null, pinnable: false, crumble: false, lantern: false },
+  '#': { glyph: '#', name: 'stone', solid: true, oneWay: false, damage: 0, material: 'stone', pinnable: true, crumble: false, lantern: false },
+  'W': { glyph: 'W', name: 'wood', solid: true, oneWay: false, damage: 0, material: 'wood', pinnable: true, crumble: false, lantern: false },
+  'M': { glyph: 'M', name: 'metal', solid: true, oneWay: false, damage: 0, material: 'metal', pinnable: false, crumble: false, lantern: false },
+  // A one-way platform is not pinnable: the Pin passes straight through it (§G).
+  '=': { glyph: '=', name: 'platform', solid: false, oneWay: true, damage: 0, material: 'wood', pinnable: false, crumble: false, lantern: false },
+  'c': { glyph: 'c', name: 'crumble', solid: true, oneWay: false, damage: 0, material: 'wood', pinnable: false, crumble: true, lantern: false },
+  '^': { glyph: '^', name: 'spike', solid: false, oneWay: false, damage: 1, material: null, pinnable: false, crumble: false, lantern: false },
+  'D': { glyph: 'D', name: 'door', solid: false, oneWay: false, damage: 0, material: null, pinnable: false, crumble: false, lantern: false },
+  'L': { glyph: 'L', name: 'lantern', solid: false, oneWay: false, damage: 0, material: null, pinnable: false, crumble: false, lantern: true },
+  'o': { glyph: 'o', name: 'pickup', solid: false, oneWay: false, damage: 0, material: null, pinnable: false, crumble: false, lantern: false },
+  '~': { glyph: '~', name: 'water', solid: false, oneWay: false, damage: 0, material: null, pinnable: false, crumble: false, lantern: false },
 };
 
 /** Glyphs that are legal in a room grid. */

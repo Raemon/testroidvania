@@ -29,8 +29,12 @@ import { rgba, shade } from './palette.js';
  * @property {number} [warmth]  0 = hole only, 1 = full warm cast
  */
 
-/** Supersampled so the light edges stay smooth when scaled to the device. */
-const SS = 2;
+/**
+ * The overlay lives at world resolution. Its content is nothing but wide radial
+ * gradients, so upscaling it to the device costs one blit and loses nothing —
+ * whereas building it at device resolution costs four times as much per light.
+ */
+const SS = 1;
 
 /** @type {import('./surface.js').Surface|null} */
 let surface = null;
@@ -61,9 +65,9 @@ export function drawDarkness(ctx, region, lights, alpha) {
   const s = overlay();
   const o = s.ctx;
   o.setTransform(1, 0, 0, 1, 0, 0);
-  o.globalCompositeOperation = 'source-over';
-  o.clearRect(0, 0, s.w, s.h);
-
+  // 'copy' replaces the previous frame's punched holes in the same pass that
+  // lays the new wash down, which is one full-surface pass cheaper than clearing.
+  o.globalCompositeOperation = 'copy';
   // Not black: the wash carries the region's hue so that unlit space still says
   // which region you are standing in.
   o.fillStyle = rgba(shade(region.fog, -0.78), Math.min(DARKNESS_ALPHA_CAP, Math.max(0, alpha)));
@@ -80,8 +84,9 @@ export function drawDarkness(ctx, region, lights, alpha) {
     // Flat and bright out to a third of the radius, then a long soft shoulder —
     // a linear falloff reads as a spotlight, this reads as a lantern.
     g.addColorStop(0, 'rgba(0,0,0,1)');
-    g.addColorStop(0.35, 'rgba(0,0,0,0.85)');
-    g.addColorStop(0.7, 'rgba(0,0,0,0.42)');
+    g.addColorStop(0.30, 'rgba(0,0,0,0.88)');
+    g.addColorStop(0.55, 'rgba(0,0,0,0.58)');
+    g.addColorStop(0.78, 'rgba(0,0,0,0.24)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     o.fillStyle = g;
     o.fillRect(x - r, y - r, r * 2, r * 2);

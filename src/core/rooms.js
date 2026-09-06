@@ -78,3 +78,42 @@ export function resolvePartner(door) {
   if (!partner) return null;
   return { room, door: partner };
 }
+
+/**
+ * Crumble a tile out of the room (§G: the Pin bites, the tile gives way).
+ *
+ * The compiled room is immutable shared content, so a broken tile produces a
+ * *derived* room rather than mutating the registry's copy. `brokenTiles` travels
+ * in the state so a save can rebuild that derived room instead of freezing it.
+ *
+ * @param {Room} room
+ * @param {readonly string[]} brokenTiles
+ * @param {number} tx
+ * @param {number} ty
+ * @returns {{room: Room, brokenTiles: string[]}}
+ */
+export function breakTile(room, brokenTiles, tx, ty) {
+  const key = `${tx},${ty}`;
+  if (brokenTiles.includes(key)) return { room, brokenTiles: /** @type {string[]} */ (brokenTiles.slice()) };
+  return { room: withoutTile(room, tx, ty), brokenTiles: [...brokenTiles, key].sort() };
+}
+
+/**
+ * @param {Room} room
+ * @param {readonly string[]} brokenTiles
+ * @returns {Room} the room with every recorded tile crumbled away
+ */
+export function applyBroken(room, brokenTiles) {
+  let out = room;
+  for (const key of brokenTiles) {
+    const [tx, ty] = key.split(',').map(Number);
+    if (Number.isInteger(tx) && Number.isInteger(ty)) out = withoutTile(out, Number(tx), Number(ty));
+  }
+  return out;
+}
+
+/** @param {Room} room @param {number} tx @param {number} ty @returns {Room} */
+function withoutTile(room, tx, ty) {
+  const grid = room.grid.map((row, y) => (y === ty ? row.slice(0, tx) + '.' + row.slice(tx + 1) : row));
+  return { ...room, grid };
+}

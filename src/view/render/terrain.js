@@ -10,7 +10,7 @@
  * legible through the darkness overlay, not decoration that can be dropped.
  */
 
-import { TILE } from '../../core/constants.js';
+import { TILE, VIEW_W, VIEW_H } from '../../core/constants.js';
 import { TILES } from '../../content/tiles.js';
 import { createSurface, SurfaceCache } from './surface.js';
 import { cosmeticRng, seedFrom } from './rng.js';
@@ -22,8 +22,8 @@ import { materialLook, rgba, shade } from './palette.js';
 
 /** 45-degree cut on every exposed convex corner. The signature of the shape language. */
 const CHAMFER = 4;
-/** Rooms bigger than this are drawn live rather than cached, to bound memory. */
-const MAX_CACHED_PX = 4096;
+/** Ceiling on a baked room canvas, so a huge room degrades rather than explodes. */
+const MAX_CACHED_PX = 8192;
 
 const cache = new SurfaceCache();
 
@@ -89,11 +89,17 @@ function facePattern(ctx, rnd, look, x, y) {
 /**
  * @param {Room} room
  * @param {Region} region
+ * @param {number} scale
  * @returns {Surface}
  */
-function bakeRoom(room, region) {
-  const s = createSurface(room.w * TILE, room.h * TILE);
+function bakeRoom(room, region, scale) {
+  const s = createSurface(room.w * TILE * scale, room.h * TILE * scale);
   const ctx = s.ctx;
+  // Baked at *device* scale, not world scale. The room is then blitted 1:1, which
+  // both skips the per-frame upscale filter (the single most expensive draw in
+  // the frame when it was there) and leaves the 1px bevels genuinely crisp
+  // instead of resampled.
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   const rnd = cosmeticRng(seedFrom(`${room.id}:terrain`));
   const dark = shade(region.terrain, -0.45);
 
@@ -223,24 +229,127 @@ function drawPlatform(ctx, region, x, y) {
   ctx.fillRect(x + 10, y + 3, 3, 1);
 }
 
+
 /**
- * @param {Room} room
- * @param {Region} region
- * @returns {Surface|null} null for rooms too large to bake
+ * Blit only the part of a baked room the camera can see. Rooms are much bigger
+ * than the screen, and a full-room blit makes the cost of drawing terrain scale
+ * with the room instead of with the window.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Surface} s
+ * @param {number} k device pixels per world unit in the baked surface
+ * @param {{scale:number, offsetX:number, offsetY:number, camX:number, camY:number}} v
+ * @param {number} alpha
  */
-export function roomSurface(room, region) {
-  if (room.w * TILE > MAX_CACHED_PX || room.h * TILE > MAX_CACHED_PX) return null;
-  return cache.get(`room|${room.id}|${region.id}`, () => bakeRoom(room, region));
+function blitRoom(ctx, s, k, v, alpha) {
+  const sx = Math.max(0, Math.floor(v.camX * k));
+  const sy = Math.max(0, Math.floor(v.camY * k));
+  const sw = Math.min(s.w - sx, Math.ceil(VIEW_W * k) + 2);
+  const sh = Math.min(s.h - sy, Math.ceil(VIEW_H * k) + 2);
+  if (sw <= 0 || sh <= 0) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(
+    s.canvas, sx, sy, sw, sh,
+    Math.round(v.offsetX + (sx / k - v.camX) * v.scale), Math.round(v.offsetY + (sy / k - v.camY) * v.scale),
+    Math.round(sw * v.scale / k), Math.round(sh * v.scale / k),
+  );
+  ctx.globalAlpha = 1;
+  ctx.setTransform(v.scale, 0, 0, v.scale, v.offsetX, v.offsetY);
+  ctx.translate(-v.camX, -v.camY);
 }
 
 /**
+ * @param {Room} room
+ * @param {Region} region
+ * @param {number} scale device pixels per world unit
+ * @returns {Surface|null} null for rooms too large to bake
+ */
+export function roomSurface(room, region, scale) {
+  const q = Math.max(1, Math.min(4, Math.round(scale * 2) / 2));
+  const s = room.w * TILE * q > MAX_CACHED_PX || room.h * TILE * q > MAX_CACHED_PX ? 1 : q;
+  return cache.get(`room|${room.id}|${region.id}|${s}`, () => bakeRoom(room, region, s));
+}
+
+/**
+ * Draws the baked room 1:1 in device space. The caller passes the transform
+ * rather than the renderer inferring it, so the rounding that keeps the blit
+ * pixel-aligned happens in exactly one place.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Room} room
  * @param {Region} region
+ * @param {{scale:number, offsetX:number, offsetY:number, camX:number, camY:number}} v
+ * @param {number} [alpha]
  */
-export function drawTerrain(ctx, room, region) {
-  const s = roomSurface(room, region);
-  if (s) ctx.drawImage(s.canvas, 0, 0);
+export function drawTerrain(ctx, room, region, v, alpha = 1) {
+  const s = roomSurface(room, region, v.scale);
+  if (!s) return;
+  blitRoom(ctx, s, s.w / (room.w * TILE), v, alpha);
+}
+
+/** @type {{key:string, sig:number, surface:Surface}|null} */
+let memory = null;
+/** @type {{key:string, surface:Surface}|null} */
+let maskSurface = null;
+
+/** @param {Room} room @returns {Surface} a 1px-per-tile scratch canvas */
+function maskFor(room) {
+  const key = `${room.id}`;
+  if (maskSurface && maskSurface.key === key) return maskSurface.surface;
+  const surface = createSurface(room.w, room.h);
+  maskSurface = { key, surface };
+  return surface;
+}
+
+/**
+ * Terrain the player has already seen, drawn back over the darkness at alpha 0.25
+ * (06 §D5 — 0.12 was "a rumour"). You never re-explore a room blind.
+ *
+ * The mask is one bitmask number per row, so the whole memory of a room is a few
+ * dozen integers; the masked image is rebuilt only when that changes, which is a
+ * handful of times per room rather than per frame.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Room} room
+ * @param {Region} region
+ * @param {number[]} rows
+ * @param {number} alpha
+ * @param {{scale:number, offsetX:number, offsetY:number, camX:number, camY:number}} v
+ */
+export function drawDiscovered(ctx, room, region, rows, alpha, v) {
+  const base = roomSurface(room, region, v.scale);
+  if (!base || rows.length === 0) return;
+  const k = base.w / (room.w * TILE);
+  let sig = rows.length;
+  for (let i = 0; i < rows.length; i++) sig = (Math.imul(sig, 31) + (rows[i] ?? 0)) | 0;
+  const key = `${room.id}|${region.id}`;
+
+  if (!memory || memory.key !== key || memory.sig !== sig) {
+    // The mask is painted one *pixel* per tile into a room-sized-in-tiles canvas
+    // and then scaled up unsmoothed. Masking with one rect per discovered tile
+    // instead costs a composited fill per cell every time a tile is revealed,
+    // which is the difference between 40ms and nothing.
+    const mask = maskFor(room);
+    mask.ctx.clearRect(0, 0, mask.w, mask.h);
+    mask.ctx.fillStyle = '#000000';
+    for (let ty = 0; ty < rows.length && ty < room.h; ty++) {
+      const bits = rows[ty] ?? 0;
+      if (bits === 0) continue;
+      for (let tx = 0; tx < room.w; tx++) {
+        if ((bits >>> tx) & 1) mask.ctx.fillRect(tx, ty, 1, 1);
+      }
+    }
+
+    const s = memory && memory.key === key ? memory.surface : createSurface(base.w, base.h);
+    s.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    s.ctx.globalCompositeOperation = 'copy';
+    s.ctx.drawImage(base.canvas, 0, 0);
+    s.ctx.globalCompositeOperation = 'destination-in';
+    s.ctx.imageSmoothingEnabled = false;
+    s.ctx.drawImage(mask.canvas, 0, 0, s.w, s.h);
+    s.ctx.globalCompositeOperation = 'source-over';
+    memory = { key, sig, surface: s };
+  }
+
+  blitRoom(ctx, memory.surface, k, v, alpha);
 }
 
 /**

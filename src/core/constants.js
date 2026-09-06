@@ -161,10 +161,11 @@ export const DEATH_RESPAWN_FRAMES = 60;
 // --- Enemies ----------------------------------------------------------------
 
 export const CRAWLER_SPEED = 1.0;
-export const CRAWLER_W = 12;
-export const CRAWLER_H = 12;
-export const CHARGER_W = 14;
-export const CHARGER_H = 10;
+/** A full tile tall, so a chest-height throw always meets it. */
+export const CRAWLER_W = 14;
+export const CRAWLER_H = 16;
+export const CHARGER_W = 16;
+export const CHARGER_H = 12;
 export const CHARGER_SIGHT = 200;
 export const CHARGER_WINDUP = 20;
 export const CHARGER_DASH_SPEED = 3.2;
