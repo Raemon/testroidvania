@@ -7,7 +7,7 @@
  * instead of a single step, so it is load-bearing long before Zip exists.
  */
 
-import { PIN_PLATFORM_H, PIN_HAND_OFFSET, HANG_GRAB_DIST } from './constants.js';
+import { PIN_PLATFORM_H, PIN_HAND_OFFSET, HANG_GRAB_DIST, HANG_COOLDOWN } from './constants.js';
 import { overlapsSolid } from './collision.js';
 import { pinPlatform } from './pin-geometry.js';
 
@@ -73,4 +73,18 @@ export function stillHanging(p, pin) {
   if (p.hp <= 0 || p.hurtFrames > 0) return false;
   const nearEdge = pin.nx > 0 ? p.x : p.x + p.w;
   return Math.abs(nearEdge - pin.x) <= 1e-6 && Math.abs(pin.y - PIN_HAND_OFFSET - p.y) <= PIN_PLATFORM_H;
+}
+
+/**
+ * The Pin left, so whatever was holding on to it lets go. This runs after the Pin
+ * stage because the player moves first: without it, a recall pressed while hanging
+ * would leave the player dangling from a Pin that is already flying home.
+ * @param {import('./types.js').GameState} s
+ * @returns {import('./types.js').GameState}
+ */
+export function stageGrip(s) {
+  const p = s.player;
+  if (!p.hang && !p.perch) return s;
+  if (s.pin.state === 'embedded' && s.pin.nx !== 0) return s;
+  return { ...s, player: { ...p, hang: false, perch: false, hangCooldown: p.hang ? HANG_COOLDOWN : p.hangCooldown } };
 }

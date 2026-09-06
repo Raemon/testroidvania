@@ -40,7 +40,7 @@ export const REGIONS = {
     voidTop: '#0F1A24', voidBottom: '#070E15', litFromBelow: false,
     far: '#16283A', mid: '#1E3A4E', fog: '#2A5468',
     terrain: '#070B10', edge: '#3C6A7C', enemy: '#24384A', accent: '#5FE3D0',
-    darkness: 0.5,
+    darkness: 0.55,
   },
   ossuary: {
     id: 'ossuary',

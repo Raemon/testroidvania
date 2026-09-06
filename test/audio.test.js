@@ -113,18 +113,26 @@ test('the engine builds, every voice and every SFX fires, and stopping leaks not
 
     // Sound must actually fire during play, not merely be possible.
     await game.call('setInput', IN.RIGHT);
-    await game.pump(90);
-    await game.call('setInput', IN.RIGHT | IN.JUMP);
-    await game.pump(30);
-    await game.call('setInput', IN.RIGHT);
     await game.pump(60);
+    await game.call('setInput', IN.RIGHT | IN.JUMP);
+    await game.pump(20);
+    await game.call('setInput', IN.RIGHT);
+    await game.pump(40);
     const during = await game.call('audio');
-    assert.ok(during.events > 0, 'observing 180 frames of play derived no events at all');
+    assert.ok(during.events > 0, 'observing 120 frames of play derived no events at all');
     assert.ok(during.plays > 0, 'the engine never played a sound during a real playthrough');
     assert.ok(during.byId.jump > 0 || during.byId.footstep > 0 || during.byId.land > 0,
       `expected movement sounds, got ${JSON.stringify(during.byId)}`);
     assert.ok(during.sequencer.scheduledSteps > 0, 'the sequencer scheduled nothing');
     assert.ok(during.active <= 24, `${during.active} concurrent SFX voices, cap is 24`);
+
+    // The lookahead clock has to keep running on its own, against real time and
+    // not against the frame pump. Half a second at 72 BPM is two-and-a-bit
+    // sixteenths, and the scheduler works 120 ms ahead of that.
+    await game.page.waitForTimeout(500);
+    const later = await game.call('audio');
+    assert.ok(later.sequencer.scheduledSteps >= during.sequencer.scheduledSteps + 2,
+      `the sequencer scheduled ${later.sequencer.scheduledSteps - during.sequencer.scheduledSteps} steps in half a second of real time`);
 
     await game.call('audioDispose');
     const stopped = await game.call('audio');

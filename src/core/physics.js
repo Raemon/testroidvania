@@ -164,8 +164,14 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
   let hang = false;
   if (grounded && !stunned) {
     const centre = perchCentre(box, pin);
-    if (centre !== null) {
+    // Perch latches on the *landing* and is released by Jump or Down. Re-arming it
+    // every frame you stand there would make Down a one-frame nudge instead of a
+    // decision to step off.
+    if (centre !== null && !p.grounded) {
       box = { ...box, x: centre };
+      vx = 0;
+      nextPerch = true;
+    } else if (centre !== null && perch) {
       nextPerch = true;
     }
   } else if (!grounded && !stunned && vy > 0 && hangCooldown === 0 && grabbableHang(room, box, pin)) {

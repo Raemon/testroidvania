@@ -290,7 +290,10 @@ function stepFlying(s, pin, entities, room) {
       if (contact.ny < 0) next = { ...next, state: 'dropped', y: contact.y - 2, vy: 0 };
       break;
     }
-    next = { ...next, x: next.x + sx, y: next.y + sy, travelled: next.travelled + Math.hypot(sx, sy) };
+    // Range counts flight, not the fall afterwards, so `travelled` stays the
+    // number the range cap is written in terms of.
+    const flown = next.inert ? 0 : Math.hypot(sx, sy);
+    next = { ...next, x: next.x + sx, y: next.y + sy, travelled: next.travelled + flown };
 
     const hit = list.findIndex((e) => e.hp > 0 && !e.pinned && overlaps(pinHitbox(next), entityBox(e)));
     if (hit >= 0 && !next.inert) {

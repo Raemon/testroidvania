@@ -85,7 +85,7 @@ export function drawEntities(ctx, state, region, t, light) {
     const hurt = (e.flash ?? 0) > 0;
 
     // Guarantee 2: the backlight halo, behind everything else the entity draws.
-    drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.6, region.fog, 0.20);
+    drawHalo(ctx, cx, cy, Math.max(e.w, e.h) * 1.25, region.fog, 0.22);
 
     const body = hurt ? '#FFFFFF' : e.pinned ? shade(region.enemy, 0.12) : region.enemy;
     const rig = rigFor(e.kind);
@@ -132,7 +132,7 @@ function rim(ctx, path, region, dir) {
  * @param {Region} region @param {number} intensity
  */
 function eye(ctx, x, y, r, region, intensity) {
-  drawGlow(ctx, x, y, 12 * intensity, region.accent, 0.75);
+  drawGlow(ctx, x, y, 9 * intensity, region.accent, 0.7);
   ctx.fillStyle = region.accent;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -155,7 +155,7 @@ function drawTick(ctx, e, region, body, dir, t) {
   const rx = e.w * 0.9;
   const ry = e.h * 0.55;
   const phase = m.walk / 16;
-  const legColor = shade(body, -0.25);
+  const legColor = shade(body, 0.14);
 
   for (let i = 0; i < 6; i++) {
     const side = i < 3 ? -1 : 1;
@@ -164,11 +164,11 @@ function drawTick(ctx, e, region, body, dir, t) {
     const ph = (phase + tripod) * Math.PI * 2;
     const hx = cx + (slot - 1) * rx * 0.55;
     const hy = cy + ry * 0.2;
-    const tx = hx + Math.cos(ph) * 5 * e.facing;
-    const ty = e.y + e.h + side * 0.5 - Math.max(0, Math.sin(ph)) * 3;
+    const tx = hx + (slot - 1) * 2.2 + Math.cos(ph) * 5 * e.facing;
+    const ty = e.y + e.h + 1.5 - Math.max(0, Math.sin(ph)) * 3;
     const knee = ik2(hx, hy, tx, ty, e.h * 0.55, e.h * 0.55, side);
-    bone(ctx, hx, hy, knee.x, knee.y, 1.8, legColor);
-    bone(ctx, knee.x, knee.y, tx, ty, 1.4, legColor);
+    bone(ctx, hx, hy, knee.x, knee.y, 2.2, legColor);
+    bone(ctx, knee.x, knee.y, tx, ty, 1.6, legColor);
   }
 
   const bob = Math.sin(phase * Math.PI * 2) * 0.7;
@@ -183,7 +183,7 @@ function drawTick(ctx, e, region, body, dir, t) {
   ctx.stroke();
 
   const alert = e.mode === 'charging' || e.mode === 'windup' || e.mode === 'alert';
-  eye(ctx, cx + e.facing * rx * 0.55, cy + bob - ry * 0.15, 2.2, region, alert ? 2 : 1 + 0.12 * Math.sin(t * 4));
+  eye(ctx, cx + e.facing * rx * 0.5, cy + bob - ry * 0.2, 1.9, region, alert ? 1.8 : 1 + 0.12 * Math.sin(t * 4));
 }
 
 /**

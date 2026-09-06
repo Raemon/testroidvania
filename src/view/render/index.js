@@ -6,7 +6,7 @@
  *
  * Back to front:
  *   void gradient -> parallax skylines + fog planes  (view space, no camera)
- *   terrain -> fluids -> hazards -> particles -> entities -> Pin -> player  (world)
+ *   terrain -> props -> fluids -> hazards -> particles -> entities -> Pin -> player
  *   warm light casts                                                       (world, additive)
  *   the darkness overlay                                                   (view)
  *   remembered terrain                                                     (world)
@@ -23,6 +23,7 @@ import { regionFor, INK, PLAYER } from './palette.js';
 import { drawParallax } from './parallax.js';
 import { drawTerrain, drawFluids, drawDiscovered } from './terrain.js';
 import { drawHazards, drawHazardGlow } from './hazards.js';
+import { drawLanterns, drawCrumble, drawPickups } from './props.js';
 import { drawDarkness } from './darkness.js';
 import { buildLights } from './lights.js';
 import { createPlayerRig, updatePlayerRig, drawPlayer, handLight } from './player.js';
@@ -114,8 +115,11 @@ export function render(ctx, state, cam, target) {
   ctx.translate(-camX, -camY);
   const v = { scale, offsetX, offsetY, camX, camY };
   drawTerrain(ctx, state.roomData, region, v);
+  drawCrumble(ctx, state, region, view);
   drawFluids(ctx, state.roomData, region, view, t);
   drawHazards(ctx, state.roomData, view, t);
+  drawLanterns(ctx, state, region, t);
+  drawPickups(ctx, state, region, t);
   particles.draw(ctx);
   drawEntities(ctx, state, region, t, hand);
   drawPin(ctx, state, region, t);
@@ -127,7 +131,7 @@ export function render(ctx, state, cam, target) {
   // the surfaces near a light instead of washing them out.
   for (const l of lights) {
     if (!l.warmth) continue;
-    drawGlow(ctx, l.x, l.y, Math.min(l.r * 0.42, 110), l.color, 0.22 * l.warmth, 2.4);
+    drawGlow(ctx, l.x, l.y, Math.min(l.r * 0.5, 130), l.color, 0.20 * l.warmth, 3.2);
   }
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);

@@ -27,15 +27,15 @@ import { hashNoise } from './rng.js';
  */
 const S = 0.75;
 
-const HIP_Y = -14 * S;
-const SHOULDER_Y = -26 * S;
-const HEAD_Y = -31 * S;
-const HEAD_R = 6 * S;
+const HIP_Y = -13 * S;
+const SHOULDER_Y = -27 * S;
+const HEAD_Y = -32.5 * S;
+const HEAD_R = 5.2 * S;
 const STRIDE = 28 * S;
 const LEG_UPPER = 9 * S;
 const LEG_LOWER = 9 * S;
-const SCARF_SEG = 3.6 * S;
-const SCARF_N = 7;
+const SCARF_SEG = 3.4 * S;
+const SCARF_N = 8;
 
 /**
  * @typedef {object} PlayerRig
@@ -118,14 +118,18 @@ export function updatePlayerRig(rig, state, dt, fx) {
   [rig.arm, rig.armV] = spring(rig.arm, rig.armV, armTarget, jab > 0 ? 420 : 120, 16, dt / 60);
 
   const pts = anchors(p, rig);
-  if (rig.lastTick < 0 || Math.abs(state.tick - rig.lastTick) > 30) resetChain(rig.scarf, pts.neck.x, pts.neck.y);
+  // Anchored a little behind the neck, and pushed back a little every frame: a
+  // scarf hanging from the centre of the chest reads as a tail.
+  const anchorX = pts.neck.x - p.facing * 1.8;
+  const anchorY = pts.neck.y + 0.5;
+  if (rig.lastTick < 0 || Math.abs(state.tick - rig.lastTick) > 30) resetChain(rig.scarf, anchorX, anchorY);
   rig.lastTick = state.tick;
 
   // Wind is deliberately weak against gravity: a scarf that streams straight out
   // at running speed reads as a rigid stick, not cloth. It should lag and sag.
-  const wind = -p.vx * 0.16;
+  const wind = -p.vx * 0.16 - p.facing * 0.12;
   for (let i = 0; i < Math.max(1, Math.round(dt)); i++) {
-    stepChain(rig.scarf, pts.neck.x, pts.neck.y, SCARF_SEG, 0.5, wind, p.vy * -0.05, 0.9);
+    stepChain(rig.scarf, anchorX, anchorY, SCARF_SEG, 0.5, wind, p.vy * -0.05, 0.9);
   }
   rig.hand = pts.flame;
   if (fx && p.grounded && Math.abs(p.vx) > 2.1 && state.tick % 8 === 0) fx.runDust(fx0, fy0, p.facing);
@@ -211,33 +215,7 @@ export function drawPlayer(ctx, state, rig, region, t) {
   ctx.lineTo(a.neck.x, a.neck.y);
   ctx.stroke();
 
-  const hr = HEAD_R * (0.65 + 0.35 * rig.sx);
-  // Hood first, as a cowl behind the head: a teardrop trailing back. It is what
-  // stops the head reading as a lollipop and gives the silhouette a facing at
-  // any size, so it is drawn in cloth cream rather than ink and the *face* is
-  // the dark shape.
-  ctx.fillStyle = shade(body, -0.22);
-  ctx.beginPath();
-  ctx.moveTo(a.head.x + p.facing * hr * 0.35, a.head.y - hr * 0.95);
-  ctx.quadraticCurveTo(a.head.x - p.facing * hr * 2.6, a.head.y - hr * 1.3, a.head.x - p.facing * hr * 2.0, a.head.y + hr * 1.0);
-  ctx.quadraticCurveTo(a.head.x - p.facing * hr * 0.4, a.head.y + hr * 1.15, a.head.x + p.facing * hr * 0.35, a.head.y - hr * 0.95);
-  ctx.fill();
-
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.arc(a.head.x, a.head.y, hr, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = PLAYER.ink;
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-
-  // The face is a dark crescent on the facing side — one shape, no features. A
-  // face with an eye and a mouth would fight the cut-paper language.
-  ctx.fillStyle = PLAYER.ink;
-  ctx.beginPath();
-  ctx.arc(a.head.x + p.facing * hr * 0.3, a.head.y + hr * 0.1, hr * 0.72, -Math.PI * 0.62, Math.PI * 0.62);
-  ctx.closePath();
-  ctx.fill();
+  drawHead(ctx, a.head.x, a.head.y, HEAD_R * (0.7 + 0.3 * rig.sx), p.facing, body);
 
   // Arm to the hand, then whatever the hand is holding.
   bone(ctx, a.neck.x, a.neck.y, a.hand.x, a.hand.y, 4 * S, body);
@@ -257,7 +235,7 @@ function drawLegs(ctx, p, rig, a, body) {
   const moving = p.grounded && Math.abs(p.vx) > 0.25;
   const phase = rig.dist / STRIDE;
   for (let i = 0; i < 2; i++) {
-    const hx = a.hip.x + (i === 0 ? -1.5 : 1.5) * rig.sx;
+    const hx = a.hip.x + (i === 0 ? -2.6 : 2.6) * rig.sx;
     const hy = a.hip.y;
     let tx;
     let ty;
@@ -271,12 +249,12 @@ function drawLegs(ctx, p, rig, a, body) {
       tx = hx + Math.cos(ph) * 8.25 * p.facing;
       ty = a.fy - Math.max(0, Math.sin(ph)) * 4.5;
     } else {
-      tx = hx + (i === 0 ? -3.75 : 3.75);
+      tx = hx + (i === 0 ? -2.2 : 2.2);
       ty = a.fy;
     }
     const knee = ik2(hx, hy, tx, ty, LEG_UPPER, LEG_LOWER, p.facing);
-    bone(ctx, hx, hy, knee.x, knee.y, 5 * S, body);
-    bone(ctx, knee.x, knee.y, tx, ty, 4.2 * S, body);
+    bone(ctx, hx, hy, knee.x, knee.y, 4.4 * S, i === 0 ? shade(body, -0.16) : body);
+    bone(ctx, knee.x, knee.y, tx, ty, 3.6 * S, i === 0 ? shade(body, -0.16) : body);
   }
 }
 
@@ -288,19 +266,84 @@ function drawLegs(ctx, p, rig, a, body) {
  * @param {boolean} dead
  */
 function drawScarf(ctx, rig, dead) {
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (let i = 1; i < rig.scarf.length; i++) {
-    const a = rig.scarf[i - 1];
-    const b = rig.scarf[i];
-    if (!a || !b) continue;
-    ctx.strokeStyle = dead ? rgba(PLAYER.scarf, 0.5) : PLAYER.scarf;
-    ctx.lineWidth = 4.2 * S * (1 - (i - 1) / rig.scarf.length * 0.78);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
+  const pts = rig.scarf;
+  if (pts.length < 2) return;
+  // Built as a tapered ribbon rather than a stroked polyline: a chain of
+  // round-capped segments reads as a rope, and a polygon whose width falls to a
+  // point reads as cloth. Same data, completely different material.
+  const n = pts.length;
+  /** @type {number[][]} */
+  const left = [];
+  /** @type {number[][]} */
+  const right = [];
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    const q = pts[Math.min(n - 1, i + 1)] ?? p;
+    const r = pts[Math.max(0, i - 1)] ?? p;
+    if (!p || !q || !r) continue;
+    const dx = q.x - r.x;
+    const dy = q.y - r.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const w = 3.6 * S * Math.pow(1 - i / (n - 1), 0.7) + 0.25;
+    left.push([p.x - (dy / d) * w, p.y + (dx / d) * w]);
+    right.push([p.x + (dy / d) * w, p.y - (dx / d) * w]);
   }
+  ctx.fillStyle = dead ? rgba(PLAYER.scarf, 0.5) : PLAYER.scarf;
+  ctx.beginPath();
+  for (let i = 0; i < left.length; i++) {
+    const q = left[i];
+    if (!q) continue;
+    if (i === 0) ctx.moveTo(q[0] ?? 0, q[1] ?? 0);
+    else ctx.lineTo(q[0] ?? 0, q[1] ?? 0);
+  }
+  for (let i = right.length - 1; i >= 0; i--) {
+    const q = right[i];
+    if (!q) continue;
+    ctx.lineTo(q[0] ?? 0, q[1] ?? 0);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * The head: a cream face inside a dark hood. The hood is the dark shape and the
+ * face is the light one, which is the read that survives at 12px and at any
+ * distance — a light head with a dark feature on it just looks like a smudge.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x @param {number} y @param {number} r
+ * @param {number} facing @param {string} body
+ */
+function drawHead(ctx, x, y, r, facing, body) {
+  // The hood's tail, trailing back outside the skull.
+  ctx.fillStyle = PLAYER.ink;
+  ctx.beginPath();
+  ctx.moveTo(x - facing * r * 0.2, y - r * 1.05);
+  ctx.quadraticCurveTo(x - facing * r * 2.3, y - r * 1.0, x - facing * r * 1.9, y + r * 0.75);
+  ctx.quadraticCurveTo(x - facing * r * 0.9, y + r * 0.35, x - facing * r * 0.2, y - r * 1.05);
+  ctx.fill();
+
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The hood proper: a disc offset backward, clipped to the skull, leaving a
+  // crescent of face on the side the player is looking.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, r + 0.4, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = PLAYER.ink;
+  ctx.beginPath();
+  ctx.arc(x - facing * r * 0.78, y - r * 0.12, r * 1.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = PLAYER.ink;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 /**
@@ -317,34 +360,47 @@ function drawScarf(ctx, rig, dead) {
 function drawHandFlame(ctx, state, rig, a, region, t) {
   const held = (state.pin?.state ?? 'held') === 'held';
   const wobble = 0.9 + hashNoise(Math.floor(t * 11)) * 0.2;
-  const h = (held ? 7 : 3.4) * wobble * (1 + Math.abs(rig.pendV) * 0.04);
-  const w = h * 0.55;
+  const h = (held ? 5.4 : 3) * wobble * (1 + Math.abs(rig.pendV) * 0.04);
+  const w = h * 0.5;
 
   if (held) {
     // The Pin itself: a short iron stake, ink-dark so the flame reads against it.
     ctx.strokeStyle = '#2A2620';
     ctx.lineWidth = 1.6;
     ctx.lineCap = 'round';
+    // Stops short of the flame: a shaft drawn *through* the flame puts a dark
+    // bar across it and the whole thing reads as a ring rather than a fire.
     ctx.beginPath();
     ctx.moveTo(a.hand.x, a.hand.y);
-    ctx.lineTo(a.flame.x + Math.sin(rig.pend) * 3, a.flame.y + Math.cos(rig.pend) * 3);
+    ctx.lineTo(a.hand.x + Math.sin(rig.pend) * 3.4, a.hand.y + Math.cos(rig.pend) * 3.4);
     ctx.stroke();
   }
 
-  drawGlow(ctx, a.flame.x, a.flame.y, held ? 26 : 14, PLAYER.flame, 0.55);
-  drawGlow(ctx, a.flame.x, a.flame.y, held ? 9 : 5, PLAYER.core, 0.9);
+  // Kept below the flame's own brightness: an additive core hotter than the
+  // teardrop turns the flame into a dark ring inside a bright disc.
+  drawGlow(ctx, a.flame.x, a.flame.y, held ? 30 : 16, PLAYER.flame, 0.42);
+  drawGlow(ctx, a.flame.x, a.flame.y, held ? 12 : 6, PLAYER.core, 0.30);
 
-  ctx.fillStyle = PLAYER.flame;
-  ctx.beginPath();
-  ctx.moveTo(a.flame.x, a.flame.y - h);
-  ctx.quadraticCurveTo(a.flame.x + w, a.flame.y - h * 0.3, a.flame.x, a.flame.y + w * 0.6);
-  ctx.quadraticCurveTo(a.flame.x - w, a.flame.y - h * 0.3, a.flame.x, a.flame.y - h);
-  ctx.fill();
-  ctx.fillStyle = PLAYER.core;
-  ctx.beginPath();
-  ctx.ellipse(a.flame.x, a.flame.y - h * 0.25, w * 0.4, h * 0.35, 0, 0, Math.PI * 2);
-  ctx.fill();
+  teardrop(ctx, a.flame.x, a.flame.y, h, w, PLAYER.flame);
+  teardrop(ctx, a.flame.x, a.flame.y - h * 0.1, h * 0.55, w * 0.45, PLAYER.core);
   // A breath of the region accent in the flame's halo ties the player's light to
   // the room it is standing in without changing the flame's own colour.
   drawGlow(ctx, a.flame.x, a.flame.y - h * 0.4, 5, region.accent, 0.25);
+}
+
+/**
+ * A flame: pointed at the top, round at the bottom. The obvious symmetric lens
+ * shape reads as a leaf, and every flame in the game is drawn from here so they
+ * all agree.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} x @param {number} y
+ * @param {number} h @param {number} w @param {string} color
+ */
+export function teardrop(ctx, x, y, h, w, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y - h);
+  ctx.bezierCurveTo(x + w * 0.75, y - h * 0.45, x + w, y + h * 0.05, x, y + w * 0.85);
+  ctx.bezierCurveTo(x - w, y + h * 0.05, x - w * 0.75, y - h * 0.45, x, y - h);
+  ctx.fill();
 }

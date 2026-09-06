@@ -8,6 +8,7 @@
  *   2. hitstop    — if the world is frozen for impact, only the clock moves
  *   3. player     — physics integration, jab timers and the collision sweep
  *   4. pin        — throw, flight, embed, recall (06-revision-1 §G)
+ *   4b. grip      — a Pin that left drops whoever was perched on or hanging off it
  *   5. light      — the light list, which the next stage reads
  *   6. entities   — enemies; Chargers aim at the lights, not at the player (§D2)
  *   7. combat     — jab, hazards, contact damage, i-frames, death
@@ -26,6 +27,7 @@
 import { SOFTLOCK_WINDOW } from './constants.js';
 import { stepPlayer } from './player.js';
 import { stagePin, snapPinToHand } from './pin.js';
+import { stageGrip } from './grip.js';
 import { stageEntities, stageCombat, spawnFor } from './combat.js';
 import { stageLanterns } from './lanterns.js';
 import { computeLights, rememberSeen } from './light.js';
@@ -61,32 +63,44 @@ export function step(state, input) {
   /** @type {SimError[]} */
   const errors = state.errors.slice(0, 64);
 
-  // During hitstop the world is frozen, so the input *edges* are held open instead
-  // of being spent on frames nothing reads: a bit pressed mid-freeze still reads as
-  // a fresh press on the frame the world resumes. Without this, a recall pressed
-  // during the 6 frames after a kill would be silently eaten — and recall is the
-  // one input the game promises never to swallow.
-  const carried = state.hitstop > 0 ? state.prevInput & input : state.input;
+  // Hitstop freezes the world for 3-6 frames so a hit lands. Only the clock and the
+  // flash timers move.
+  //
+  // The subtle part is input. A frozen frame must not *spend* an edge: it records
+  // only which bits are still held (`prevInput & input`), so a button pressed
+  // during the freeze is still an unpressed button when the world resumes, and
+  // reads as a fresh press on the first live frame. Without this a Recall tapped
+  // in the six frames after a kill would be silently eaten — and Recall is the one
+  // input this game promises never to swallow.
+  if (state.hitstop > 0) {
+    const stillHeld = state.prevInput & input;
+    /** @type {GameState} */
+    const frozen = {
+      ...state,
+      tick: state.tick + 1,
+      prevInput: stillHeld,
+      input: stillHeld,
+      hitstop: state.hitstop - 1,
+      flash: Math.max(0, state.flash - 1),
+      shake: Math.max(0, state.shake - 1),
+      errors,
+    };
+    return runStage(frozen, 'liveness', stageLiveness, errors);
+  }
 
   /** @type {GameState} */
   let s = {
     ...state,
     tick: state.tick + 1,
-    prevInput: carried,
+    prevInput: state.input,
     input,
+    shake: Math.max(0, state.shake - 1),
     errors,
   };
 
-  // Hitstop freezes the world for 3-6 frames so a hit lands. Only the clock and
-  // the flash timers move; nothing that can change the outcome of the frame does.
-  if (s.hitstop > 0) {
-    s = { ...s, hitstop: s.hitstop - 1, flash: Math.max(0, s.flash - 1), shake: Math.max(0, s.shake - 1) };
-    return runStage(s, 'liveness', stageLiveness, errors);
-  }
-  s = { ...s, shake: Math.max(0, s.shake - 1) };
-
   s = runStage(s, 'player', stagePlayer, errors);
   s = runStage(s, 'pin', stagePin, errors);
+  s = runStage(s, 'grip', stageGrip, errors);
   s = runStage(s, 'light', stageLight, errors);
   s = runStage(s, 'entities', stageEntities, errors);
   s = runStage(s, 'combat', stageCombat, errors);

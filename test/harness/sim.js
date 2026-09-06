@@ -96,7 +96,10 @@ export function run(state, input, frames, label = 'run') {
  * @returns {GameState}
  */
 export function tap(state, bits, after = 0, label = 'tap') {
-  return run(run(state, bits, 1, label), 0, after, label);
+  // Release first: these are edge-triggered inputs, and a "press" that was already
+  // held is not a press. Getting this wrong makes a test that proves nothing.
+  const released = run(state, 0, 1, label);
+  return run(run(released, bits, 1, label), 0, after, label);
 }
 
 /**

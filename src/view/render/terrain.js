@@ -115,7 +115,9 @@ function bakeRoom(room, region, scale) {
         drawPlatform(ctx, region, x, y);
         continue;
       }
-      if (!def.solid) continue;
+      // Crumble tiles are drawn live (render/props.js): baking them would mean
+      // re-baking the whole room every time one gave way.
+      if (!def.solid || def.crumble) continue;
 
       const look = materialLook(def.material ?? 'stone');
       const up = solid(room, tx, ty - 1);
@@ -131,7 +133,7 @@ function bakeRoom(room, region, scale) {
       if (rnd() < 1 / 6) {
         ctx.strokeStyle = dark;
         ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 0.55;
         ctx.beginPath();
         const vertical = rnd() < 0.5;
         const o = 3 + rnd() * (TILE - 6);
@@ -144,15 +146,17 @@ function bakeRoom(room, region, scale) {
       if (!up) facePattern(ctx, rnd, look, x, y);
 
       if (!up) {
-        // Top light: 2px bevel plus a short gradient down the face, which is what
-        // makes a flat block read as a lit surface rather than a rectangle.
-        ctx.fillStyle = look.edge;
-        ctx.fillRect(x, y, TILE, 2);
-        const g = ctx.createLinearGradient(0, y + 2, 0, y + 12);
-        g.addColorStop(0, rgba(look.edge, 0.22));
+        // Top light: a bevel plus a short gradient down the face, which is what
+        // makes a flat block read as a lit surface rather than a rectangle. Its
+        // brightness wobbles per cell so a long ledge is a lit edge and not a
+        // drafting rule.
+        ctx.fillStyle = rgba(look.edge, 0.78 + rnd() * 0.22);
+        ctx.fillRect(x, y, TILE, 1.6);
+        const g = ctx.createLinearGradient(0, y + 1.6, 0, y + 12);
+        g.addColorStop(0, rgba(look.edge, 0.20));
         g.addColorStop(1, rgba(look.edge, 0));
         ctx.fillStyle = g;
-        ctx.fillRect(x, y + 2, TILE, 10);
+        ctx.fillRect(x, y + 1.6, TILE, 10);
       }
       if (!down) {
         ctx.fillStyle = dark;

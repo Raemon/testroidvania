@@ -47,6 +47,13 @@ const STONE_WALL = `
 /** @param {string} art @param {object} [o] */
 const at = (art, tx = 3, ty = 5, o = {}) => stateIn(roomFrom(art, o), tx, ty);
 
+/**
+ * Recall is edge-triggered, so it needs a fresh press: holding the button down
+ * from the throw would not be a second press, and testing that would test nothing.
+ * @param {import('../../src/core/types.js').GameState} s
+ */
+const recall = (s, label = 'recall') => until(tap(s, IN.THROW, 0, label), 0, (x) => x.pin.state === 'held', label);
+
 test('held: the Pin rides in the hand and follows the player', () => {
   let s = at(WOOD_WALL);
   assert.equal(s.pin.state, 'held');
@@ -125,39 +132,43 @@ test('perch: horizontal input is ignored until Jump or Down', () => {
 });
 
 test('hang (§D1.2): falling past a wall pin snaps to it, and Jump is a wall-kick', () => {
-  let s = at(WOOD_WALL);
-  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'embed');
-  // Jump up past the pin and come back down beside it.
-  s = run(s, IN.RIGHT | IN.JUMP, 10, 'up');
-  s = until(s, IN.RIGHT, (x) => x.player.hang || x.player.perch, 'grab or land');
-  if (!s.player.hang) {
-    // Landed on it instead; step off the side and fall past it.
-    s = run(s, IN.JUMP, 6, 'hop off');
-    s = until(s, IN.RIGHT, (x) => x.player.hang, 'grab on the way down');
-  }
+  const s = hangingOnTheWall();
   assert.equal(s.player.hang, true);
   assert.equal(s.player.vy, 0, 'a hang holds you still');
   assert.equal(s.player.x + s.player.w, s.pin.x, 'the body is flush with the surface');
 
   const kicked = run(s, IN.JUMP, 2, 'wall kick');
-  assert.ok(kicked.player.vx < 0, 'the kick pushes away from the wall');
+  assert.ok(kicked.player.vx < 0, `the kick must push away from the wall, not ${kicked.player.vx}`);
   assert.ok(kicked.player.vy < 0, 'the kick goes up');
   assert.equal(kicked.player.hang, false);
 });
 
 test('hang: Down lets go, and recall drops you — a hang can never strand you', () => {
-  let s = at(WOOD_WALL);
-  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'embed');
-  s = run(s, IN.RIGHT | IN.JUMP, 10, 'up');
-  s = until(s, IN.RIGHT, (x) => x.player.hang, 'grab', 240);
+  const s = hangingOnTheWall();
 
   const dropped = run(s, IN.DOWN, 2, 'let go');
   assert.equal(dropped.player.hang, false);
+  assert.ok(dropped.player.vy > 0, 'letting go falls');
 
   const recalled = run(s, IN.THROW, 2, 'recall while hanging');
   assert.equal(recalled.player.hang, false, 'recall must drop the player, never hold them');
   assert.notEqual(recalled.pin.state, 'embedded');
 });
+
+/**
+ * Throw at the top of a jump: the shelf lands above anything a jump from the floor
+ * can reach, so the way back down passes the Pin instead of standing on it. That
+ * is the situation §D1.2 exists for — the Pin you jumped for and did not quite get.
+ * @returns {import('../../src/core/types.js').GameState}
+ */
+function hangingOnTheWall() {
+  let s = at(WOOD_WALL);
+  s = run(s, IN.RIGHT, 70, 'press against the wall');
+  s = run(s, IN.RIGHT | IN.JUMP, 12, 'jump');
+  s = run(s, IN.RIGHT | IN.JUMP | IN.THROW, 1, 'throw at the apex');
+  s = until(s, IN.RIGHT | IN.JUMP, (x) => x.pin.state === 'embedded', 'embed high on the wall');
+  return until(s, IN.RIGHT, (x) => x.player.hang, 'grab it on the way down');
+}
 
 test('clang: metal is never pinnable — white flash, and straight down', () => {
   let s = at(METAL_WALL);
@@ -216,34 +227,40 @@ test('dropped: walking over the Pin picks it up', () => {
   assert.equal(s.pin.state, 'held');
 });
 
-test('recall: 13 px/f straight home, phasing through terrain', () => {
-  const throughWall = `
-################
-#......#.......W
-#......#.......W
-#......#.......W
-################`;
-  let s = at(throughWall, 2, 3);
-  // Throw over the pillar so the Pin has to come home through it.
-  s = until(s, IN.UP | IN.RIGHT | IN.THROW, (x) => x.pin.state !== 'held' && x.pin.state !== 'flying', 'lands somewhere', 300);
-  const away = Math.hypot(s.pin.x - s.player.x, s.pin.y - s.player.y);
-  assert.ok(away > TILE * 3, `the Pin only got ${away.toFixed(1)}px away`);
-  s = until(s, IN.THROW, (x) => x.pin.state === 'held', 'phases home through the pillar');
-  assert.equal(s.pin.state, 'held');
+test('recall phases through all terrain: a solid pillar does not stop it', () => {
+  const pillar = `
+####################
+#....#.............#
+#....#.............#
+#....#.............#
+####################`;
+  const start = at(pillar, 2, 3);
+  // Placed directly: choreographing a throw over a pillar would be testing the
+  // throw, and the rule under test is that the way *home* ignores geometry.
+  let s = { ...start, pin: { ...start.pin, state: /** @type {const} */ ('dropped'), x: 15 * TILE, y: 3.5 * TILE } };
+  assert.ok(s.pin.x > 6 * TILE, 'the Pin starts on the far side of the pillar');
+
+  const path = [];
+  s = tap(s, IN.THROW, 0, 'recall');
+  for (let i = 0; i < 60 && s.pin.state !== 'held'; i++) {
+    path.push(s.pin.x);
+    s = run(s, 0, 1, 'flying home');
+  }
+  assert.equal(s.pin.state, 'held', 'the Pin came home through the pillar');
+  assert.ok(path.some((x) => x > 5 * TILE && x < 6 * TILE), `the path never crossed the pillar: ${path.map((x) => x.toFixed(0)).join(',')}`);
 });
 
 test('recall is never disabled: it works from every state the Pin can be in', () => {
   /** @type {[string, (s: import('../../src/core/types.js').GameState) => import('../../src/core/types.js').GameState][]} */
   const situations = [
-    ['flying', (s) => run(s, IN.RIGHT | IN.THROW, 2, 'mid-flight')],
+    ['flying', (s) => run(run(s, IN.RIGHT | IN.THROW, 1, 'press'), IN.RIGHT, PIN_THROW_STARTUP + 1, 'mid-flight')],
     ['embedded', (s) => until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'embed')],
     ['dropped', (s) => until(s, IN.UP | IN.THROW, (x) => x.pin.state === 'dropped', 'drop', 300)],
   ];
   for (const [name, reach] of situations) {
     const staged = reach(at(WOOD_WALL));
     assert.equal(staged.pin.state, name, `setup for '${name}'`);
-    const back = until(staged, IN.THROW, (x) => x.pin.state === 'held', `recall from ${name}`);
-    assert.equal(back.pin.state, 'held');
+    assert.equal(recall(staged, `recall from ${name}`).pin.state, 'held');
   }
 });
 
@@ -258,7 +275,7 @@ test('recall cuts what it passes, for 1 damage', () => {
   s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'pinned' || x.pin.state === 'dropped', 'hit it');
   const hp = s.entities[0]?.hp ?? 0;
   assert.equal(hp, ENEMY_HP_LIGHT - 2, 'the throw does 2');
-  s = until(s, IN.THROW, (x) => x.pin.state === 'held', 'recall through it');
+  s = recall(s, 'recall through it');
   assert.equal(s.entities[0]?.hp, hp - 1, 'recall does 1 on its line');
 });
 
@@ -307,7 +324,7 @@ test('§G water: the Pin sinks slowly, stays recallable, and keeps its light', (
   assert.ok(s.pin.vy <= 0.5 + 1e-9, `sinking at ${s.pin.vy}, which is not slow`);
   const lit = s.lights.find((l) => l.kind === 'pin');
   assert.ok(lit && lit.x === s.pin.x, 'the light is still on the Pin, underwater');
-  s = until(s, IN.THROW, (x) => x.pin.state === 'held', 'recall out of the water');
+  assert.equal(recall(s, 'recall out of the water').pin.state, 'held');
 });
 
 test('§G crumble: the tile gives way and the Pin drops', () => {
@@ -326,13 +343,14 @@ test('§G crumble: the tile gives way and the Pin drops', () => {
 
 test('§G auto-recall: a Pin in a kill volume comes home by itself after 30 frames', () => {
   const room = roomFrom(`
-##############
-#............#
-#............#
-#......^^^^^^#
-##############`);
+#########################
+#.......................#
+#.......................#
+#....^^^^^^^^^^^^^^^^^^^#
+#########################`);
   let s = stateIn(room, 2, 3);
-  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.away > 0, 'the Pin lands in the spikes', 300);
+  s = tap(s, IN.THROW, 0, 'throw into the spikes');
+  s = until(s, 0, (x) => x.pin.away > 0, 'the Pin ends up in the spikes', 300);
   const startedAt = s.tick;
   s = until(s, 0, (x) => x.pin.state === 'returning' || x.pin.state === 'held', 'auto-recall fires', 120);
   assert.ok(s.tick - startedAt <= PIN_AUTO_RECALL_FRAMES + 2, `waited ${s.tick - startedAt} frames`);
@@ -343,14 +361,16 @@ test('§G death: the Pin is back in the hand on respawn', () => {
 ##############
 #............W
 #............W
-#..^^^^^^^^^^#
+#............W
+#...^^^^^^^^^W
 ##############`);
-  let s = stateIn(room, 2, 3);
-  s = until(s, IN.RIGHT | IN.THROW, (x) => x.pin.state === 'embedded', 'throw it away first');
-  s = until(s, IN.RIGHT, (x) => x.player.hp < 5, 'walk into the spikes', 300);
-  s = until(s, 0, (x) => x.player.hp === 0, 'die', 900);
+  let s = stateIn(room, 2, 4);
+  s = { ...s, player: { ...s.player, hp: 1 } };
+  s = until(s, IN.THROW, (x) => x.pin.state === 'embedded', 'throw it away first');
+  s = until(s, IN.RIGHT, (x) => x.player.hp === 0, 'walk into the spikes', 300);
   s = until(s, 0, (x) => x.player.hp > 0, 'respawn', 200);
   assert.equal(s.pin.state, 'held', 'death always returns the Pin');
+  assert.equal(s.progress.deaths, 1);
 });
 
 test('the state machine only ever visits legal states', () => {
@@ -384,7 +404,6 @@ test('the player can never be stranded: from any state, holding recall returns t
     s = run(s, bits, 1, 'wander');
     if (s.pin.state === 'held') continue;
     // From right here, tapping Recall must bring it home. Every time, no exceptions.
-    const home = until(tap(s, IN.THROW, 0, 'recall'), 0, (x) => x.pin.state === 'held', `recall at tick ${s.tick}`, 120);
-    assert.equal(home.pin.state, 'held');
+    assert.equal(recall(s, `recall at tick ${s.tick}`).pin.state, 'held');
   }
 });
