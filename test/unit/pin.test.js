@@ -131,16 +131,30 @@ test('perch: horizontal input is ignored until Jump or Down', () => {
   assert.equal(s.player.perch, false, 'Down releases the perch');
 });
 
-test('hang (§D1.2): falling past a wall pin snaps to it, and Jump is a wall-kick', () => {
+test('hang (§D1.2): falling past a wall pin snaps to it, and Jump away is a wall-kick', () => {
   const s = hangingOnTheWall();
   assert.equal(s.player.hang, true);
   assert.equal(s.player.vy, 0, 'a hang holds you still');
   assert.equal(s.player.x + s.player.w, s.pin.x, 'the body is flush with the surface');
 
-  const kicked = run(s, IN.JUMP, 2, 'wall kick');
+  const kicked = run(s, IN.JUMP | IN.LEFT, 2, 'wall kick');
   assert.ok(kicked.player.vx < 0, `the kick must push away from the wall, not ${kicked.player.vx}`);
   assert.ok(kicked.player.vy < 0, 'the kick goes up');
   assert.equal(kicked.player.hang, false);
+});
+
+test('hang: Jump with no direction mantles up onto the shelf, and lands as a Perch', () => {
+  const s = hangingOnTheWall();
+  const plat = pinPlatform(s.pin);
+  assert.ok(plat, 'the pin being hung from is a shelf');
+
+  const up = run(s, IN.JUMP, 2, 'mantle');
+  assert.equal(up.player.vx, 0, 'a mantle goes straight up, never away from the wall');
+  assert.ok(up.player.vy < 0, 'a mantle goes up');
+  assert.equal(up.player.hang, false);
+
+  const landed = until(up, 0, (x) => x.player.perch, 'settle onto the shelf');
+  assert.equal(landed.player.y + landed.player.h, plat?.y, 'the mantle ends standing on the shelf');
 });
 
 test('hang: Down lets go, and recall drops you — a hang can never strand you', () => {

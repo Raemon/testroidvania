@@ -47,8 +47,12 @@ export function nearestVisibleLight(room, eyeX, eyeY, lights, range) {
   let bestDist = Infinity;
   for (const light of lights) {
     const d = Math.hypot(light.x - eyeX, light.y - eyeY);
-    // The light's own radius counts: a big hole is visible from further away.
-    if (d > range + light.r) continue;
+    // The eye's own range, and nothing else. Counting the light's radius made a
+    // *held* Pin visible from 448px, so a Charger woke the moment the player
+    // entered the room and the decoy verb never read. Range alone is what makes a
+    // Pin thrown *near* an enemy wake it while a Pin held across the room does not
+    // — which is what turns the light into a decision (06-revision-1 §D2).
+    if (d > range) continue;
     if (d >= bestDist) continue;
     if (!hasLineOfSight(room, eyeX, eyeY, light.x, light.y)) continue;
     best = light;

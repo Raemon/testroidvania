@@ -108,7 +108,12 @@ export const PIN_HAND_OFFSET = 6;
 export const PIN_CLANG_FLASH_FRAMES = 6;
 /** Out of bounds or inside a kill volume for this long and the Pin comes home. */
 export const PIN_AUTO_RECALL_FRAMES = 30;
-export const PIN_PINNED_FRAMES = 90;
+/**
+ * How long a pinned body stays helpless. 90 was measured against nothing: the bot
+ * needs 55 frames just to cross the room and land the first jab, so a human hit
+ * the timer and watched the kill wriggle free. 150 leaves room for the walk.
+ */
+export const PIN_PINNED_FRAMES = 150;
 export const PIN_THROW_DAMAGE = 2;
 export const PIN_RECALL_DAMAGE = 1;
 /** A light enemy is carried this far to the wall behind it before it can be pinned. */
@@ -120,6 +125,12 @@ export const PIN_WATER_SINK = 0.5;
 export const HANG_GRAB_DIST = 8;
 export const HANG_KICK_VX = 3.0;
 export const HANG_KICK_VY = -5.0;
+/**
+ * Jump from a Hang with no direction held: mantle straight up onto the shelf
+ * rather than away from it. Enough to lift the hands (14px) over the shelf and
+ * settle back onto it as a Perch; not enough to read as a second jump.
+ */
+export const HANG_MANTLE_VY = -3.2;
 /** Frames after letting go before the same pin may be grabbed again. */
 export const HANG_COOLDOWN = 12;
 

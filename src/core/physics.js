@@ -13,7 +13,8 @@ import {
   JUMP_VY, GRAVITY_RISE, GRAVITY_FALL, APEX_HANG_VY, APEX_HANG_MULT,
   TERMINAL_VY, FASTFALL_TERMINAL_VY, FASTFALL_GRAVITY_MULT,
   JUMP_CUT_MULT, JUMP_CUT_MIN_FRAMES, COYOTE_FRAMES, JUMP_BUFFER_FRAMES,
-  DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_COOLDOWN, STRIDE_LENGTH, TILE,
+  DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_MANTLE_VY, HANG_COOLDOWN,
+  STRIDE_LENGTH, TILE,
 } from './constants.js';
 import { IN, axisX, isDown, justPressed } from './input.js';
 import { moveBox, isSupported, materialUnder, inWater } from './collision.js';
@@ -93,18 +94,26 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin, events, platfo
   if (p.hang) {
     if (!stillHanging(p, pin)) return { ...p, hang: false, hangCooldown: HANG_COOLDOWN };
     if (!letGo) return { ...p, vx: 0, vy: 0, grounded: false, onOneWay: false, coyote: 0, fallFrames: 0 };
-    // Jump off a wall pin is a kick away from the wall; Down is just a release.
-    const kick = jumpPressed;
+    // Jump *away* from the wall is the kick. Jump with nothing held — or held into
+    // the wall — is a **mantle**: straight up, onto the shelf you are gripping.
+    // A player holding a ledge who presses Jump means "up", and the version where
+    // the only up was a backwards fling cost the test bot a whole room.
+    const away = axisX(input) === Math.sign(pin.nx);
+    const kick = jumpPressed && away;
+    const mantle = jumpPressed && !away;
     if (kick) emit(events, 'wallkick', p.x + p.w / 2, p.y + p.h / 2, { material: pin.surface });
+    if (mantle) emit(events, 'jump', p.x + p.w / 2, p.y + p.h, { material: pin.surface });
     return {
       ...p,
       hang: false,
       hangCooldown: HANG_COOLDOWN,
       vx: kick ? HANG_KICK_VX * pin.nx : 0,
-      vy: kick ? HANG_KICK_VY : 0,
+      vy: kick ? HANG_KICK_VY : mantle ? HANG_MANTLE_VY : 0,
       facing: kick ? /** @type {-1|1} */ (pin.nx > 0 ? 1 : -1) : p.facing,
       jumpFrames: kick ? 1 : 0,
-      jumpCut: false,
+      // A mantle is a fixed 14px lift, not a jump: the variable-height cut would
+      // eat more than half of it and leave the hands under the shelf.
+      jumpCut: mantle,
       jumpBuffer: 0,
       coyote: 0,
     };
