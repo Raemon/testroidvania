@@ -10,22 +10,14 @@
 import { TILE } from './constants.js';
 import { getRoom } from '../content/rooms/index.js';
 import { findDoor } from '../content/world.js';
+import { overlaps } from './geometry.js';
 
 /** @typedef {import('./types.js').Room} Room */
 /** @typedef {import('./types.js').Door} Door */
 /** @typedef {import('./types.js').AABB} AABB */
 /** @typedef {import('./types.js').AbilityId} AbilityId */
 
-export { getRoom };
-
-/**
- * @param {AABB} a
- * @param {AABB} b
- * @returns {boolean}
- */
-export function overlaps(a, b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
+export { getRoom, overlaps };
 
 /**
  * Where a body of size w x h stands when its feet rest on the bottom of tile

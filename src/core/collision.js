@@ -58,13 +58,25 @@ export function overlapsSolid(room, box) {
 }
 
 /**
+ * @param {AABB} a @param {AABB} b @returns {boolean} true if the spans overlap in x
+ */
+function overlapsX(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x;
+}
+
+/**
  * @param {Room} room
  * @param {AABB} box
- * @returns {boolean} true if any solid tile sits directly under the box's feet
+ * @param {readonly AABB[]} [platforms] dynamic one-way surfaces, e.g. an embedded Pin
+ * @returns {boolean} true if any standable surface sits directly under the box's feet
  */
-export function isSupported(room, box) {
-  const ty = tileIndex(box.y + box.h);
-  if (Math.abs(box.y + box.h - ty * TILE) > 1e-9) return false;
+export function isSupported(room, box, platforms = []) {
+  const feet = box.y + box.h;
+  for (const p of platforms) {
+    if (Math.abs(feet - p.y) <= 1e-9 && overlapsX(box, p)) return true;
+  }
+  const ty = tileIndex(feet);
+  if (Math.abs(feet - ty * TILE) > 1e-9) return false;
   for (let tx = spanLo(box.x); tx <= spanHi(box.x + box.w); tx++) {
     if (solidAt(room, tx, ty) || oneWayAt(room, tx, ty)) return true;
   }
@@ -123,12 +135,49 @@ function highestSolidTop(room, tx, tyLo, tyHi) {
  * @param {AABB} box
  * @param {number} dy
  * @param {boolean} ignoreOneWay
+ * @param {readonly AABB[]} [platforms] dynamic one-way surfaces, e.g. an embedded Pin
  * @returns {{ y:number, hit:boolean, landedOnOneWay:boolean, overlap:number, shift:number }}
  *   `overlap` is how much of the foot is supported by the landed-on tiles and
  *   `shift` the x correction the falling-edge snap wants; both 0 when not landing.
  */
-export function sweepY(room, box, dy, ignoreOneWay) {
+export function sweepY(room, box, dy, ignoreOneWay, platforms = []) {
   if (dy === 0) return { y: box.y, hit: false, landedOnOneWay: false, overlap: 0, shift: 0 };
+  if (dy > 0 && !ignoreOneWay && platforms.length) {
+    const tiles = sweepYTiles(room, box, dy, ignoreOneWay);
+    const plat = sweepYPlatforms(box, dy, platforms);
+    // Whichever surface the feet meet first wins; a tie goes to the terrain,
+    // which is the one the player can never fall through.
+    if (plat && (!tiles.hit || plat.y < tiles.y)) return plat;
+    return tiles;
+  }
+  return sweepYTiles(room, box, dy, ignoreOneWay);
+}
+
+/**
+ * @param {AABB} box @param {number} dy @param {readonly AABB[]} platforms
+ * @returns {{ y:number, hit:boolean, landedOnOneWay:boolean, overlap:number, shift:number }|null}
+ */
+function sweepYPlatforms(box, dy, platforms) {
+  const bottom = box.y + box.h;
+  let best = Infinity;
+  /** @type {AABB|null} */
+  let hit = null;
+  for (const p of platforms) {
+    if (!overlapsX(box, p)) continue;
+    if (bottom > p.y + 1e-9 || bottom + dy < p.y) continue;
+    if (p.y < best) { best = p.y; hit = p; }
+  }
+  if (!hit) return null;
+  const left = Math.max(box.x, hit.x);
+  const right = Math.min(box.x + box.w, hit.x + hit.w);
+  return { y: best - box.h, hit: true, landedOnOneWay: true, overlap: Math.max(0, right - left), shift: 0 };
+}
+
+/**
+ * @param {Room} room @param {AABB} box @param {number} dy @param {boolean} ignoreOneWay
+ * @returns {{ y:number, hit:boolean, landedOnOneWay:boolean, overlap:number, shift:number }}
+ */
+function sweepYTiles(room, box, dy, ignoreOneWay) {
   const txLo = spanLo(box.x);
   const txHi = spanHi(box.x + box.w);
   if (dy > 0) {
@@ -206,9 +255,10 @@ function footSupport(room, box, ty, ignoreOneWay) {
  * @param {number} vx
  * @param {number} vy
  * @param {boolean} ignoreOneWay
+ * @param {readonly AABB[]} [platforms] dynamic one-way surfaces, e.g. an embedded Pin
  * @returns {MoveResult}
  */
-export function moveBox(room, box, vx, vy, ignoreOneWay) {
+export function moveBox(room, box, vx, vy, ignoreOneWay, platforms = []) {
   let x = box.x;
   let y = box.y;
   let outVx = vx;
@@ -239,7 +289,7 @@ export function moveBox(room, box, vx, vy, ignoreOneWay) {
   }
 
   const yBefore = y;
-  const yr = sweepY(room, { x, y, w: box.w, h: box.h }, vy, ignoreOneWay);
+  const yr = sweepY(room, { x, y, w: box.w, h: box.h }, vy, ignoreOneWay, platforms);
   y = yr.y;
   let grounded = false;
   let onOneWay = false;

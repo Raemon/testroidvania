@@ -13,12 +13,15 @@ import {
   JUMP_VY, GRAVITY_RISE, GRAVITY_FALL, APEX_HANG_VY, APEX_HANG_MULT,
   TERMINAL_VY, FASTFALL_TERMINAL_VY, FASTFALL_GRAVITY_MULT,
   JUMP_CUT_MULT, JUMP_CUT_MIN_FRAMES, COYOTE_FRAMES, JUMP_BUFFER_FRAMES,
-  DROP_THROUGH_FRAMES,
+  DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_COOLDOWN,
 } from './constants.js';
 import { IN, axisX, isDown, justPressed } from './input.js';
 import { moveBox, isSupported } from './collision.js';
+import { pinPlatforms } from './pin-geometry.js';
+import { grabbableHang, hangAnchor, perchCentre, stillHanging } from './grip.js';
 
 /** @typedef {import('./types.js').Player} Player */
+/** @typedef {import('./types.js').Pin} Pin */
 /** @typedef {import('./types.js').Room} Room */
 /** @typedef {import('./types.js').InputMask} InputMask */
 
@@ -72,14 +75,40 @@ export function applyGravity(vy, fastFalling) {
  * @param {Player} p
  * @param {InputMask} input
  * @param {InputMask} prevInput
+ * @param {Readonly<Pin>} pin the Pin is a platform, so motion has to know about it
  * @returns {Player} a fresh player object
  */
-export function stepPlayerPhysics(room, p, input, prevInput) {
+export function stepPlayerPhysics(room, p, input, prevInput, pin) {
+  const platforms = pinPlatforms(pin);
   const stunned = p.hurtFrames > 0;
-  const ax = stunned ? 0 : axisX(input);
   const downHeld = isDown(input, IN.DOWN);
   const jumpHeld = isDown(input, IN.JUMP);
   const jumpPressed = justPressed(input, prevInput, IN.JUMP);
+  const downPressed = justPressed(input, prevInput, IN.DOWN);
+  const letGo = jumpPressed || downPressed;
+
+  if (p.hang) {
+    if (!stillHanging(p, pin)) return { ...p, hang: false, hangCooldown: HANG_COOLDOWN };
+    if (!letGo) return { ...p, vx: 0, vy: 0, grounded: false, onOneWay: false, coyote: 0, fallFrames: 0 };
+    // Jump off a wall pin is a kick away from the wall; Down is just a release.
+    const kick = jumpPressed;
+    return {
+      ...p,
+      hang: false,
+      hangCooldown: HANG_COOLDOWN,
+      vx: kick ? HANG_KICK_VX * pin.nx : 0,
+      vy: kick ? HANG_KICK_VY : 0,
+      facing: kick ? /** @type {-1|1} */ (pin.nx > 0 ? 1 : -1) : p.facing,
+      jumpFrames: kick ? 1 : 0,
+      jumpCut: false,
+      jumpBuffer: 0,
+      coyote: 0,
+    };
+  }
+
+  // Perch (§D1.1) holds you still on a 16x4 shelf until you ask to leave it.
+  const perch = p.perch && !letGo;
+  const ax = stunned || perch || p.throwFreeze > 0 ? 0 : axisX(input);
 
   let coyote = p.grounded ? COYOTE_FRAMES : Math.max(0, p.coyote - 1);
   let jumpBuffer = jumpPressed ? JUMP_BUFFER_FRAMES : Math.max(0, p.jumpBuffer - 1);
@@ -87,7 +116,7 @@ export function stepPlayerPhysics(room, p, input, prevInput) {
   let jumpFrames = p.jumpFrames > 0 ? p.jumpFrames + 1 : 0;
   let jumpCut = p.jumpCut;
 
-  let vx = accelerate(p.vx, ax, p.grounded);
+  let vx = p.throwFreeze > 0 ? 0 : accelerate(p.vx, ax, p.grounded);
   let vy = p.vy;
 
   // Down + jump on a one-way platform drops through instead of jumping.
@@ -112,29 +141,49 @@ export function stepPlayerPhysics(room, p, input, prevInput) {
     jumpCut = true;
   }
 
-  const moved = moveBox(room, { x: p.x, y: p.y, w: p.w, h: p.h }, vx, vy, dropThrough > 0);
+  const moved = moveBox(room, { x: p.x, y: p.y, w: p.w, h: p.h }, vx, vy, dropThrough > 0, platforms);
   vx = moved.vx;
   vy = moved.vy;
 
-  const box = { x: moved.x, y: moved.y, w: p.w, h: p.h };
-  const grounded = moved.grounded || (vy >= 0 && isSupported(room, box) && dropThrough === 0);
+  let box = { x: moved.x, y: moved.y, w: p.w, h: p.h };
+  const grounded = moved.grounded || (vy >= 0 && isSupported(room, box, platforms) && dropThrough === 0);
   if (grounded) {
     jumpFrames = 0;
     jumpCut = false;
     coyote = COYOTE_FRAMES;
   }
 
-  const facing = ax !== 0 ? /** @type {-1|1} */ (ax) : p.facing;
+  let facing = ax !== 0 ? /** @type {-1|1} */ (ax) : p.facing;
   const fallFrames = vy > 0 && !grounded ? p.fallFrames + 1 : 0;
   const safeGround = grounded ? { x: moved.x, y: moved.y } : p.safeGround;
+  const hangCooldown = Math.max(0, p.hangCooldown - 1);
+
+  // Landing on a wall pin centres you on it; falling past one grabs it. Both are
+  // §D1's answer to "a 16x4 shelf under a 12-wide player is a nervous place".
+  let nextPerch = false;
+  let hang = false;
+  if (grounded && !stunned) {
+    const centre = perchCentre(box, pin);
+    if (centre !== null) {
+      box = { ...box, x: centre };
+      nextPerch = true;
+    }
+  } else if (!grounded && !stunned && vy > 0 && hangCooldown === 0 && grabbableHang(room, box, pin)) {
+    const at = hangAnchor(box, pin);
+    box = { ...box, x: at.x, y: at.y };
+    hang = true;
+    vx = 0;
+    vy = 0;
+    facing = /** @type {-1|1} */ (pin.nx > 0 ? -1 : 1);
+  }
 
   return {
     ...p,
-    x: moved.x,
-    y: moved.y,
+    x: box.x,
+    y: box.y,
     vx,
     vy,
-    grounded,
+    grounded: hang ? false : grounded,
     onOneWay: moved.onOneWay,
     facing,
     coyote,
@@ -145,6 +194,10 @@ export function stepPlayerPhysics(room, p, input, prevInput) {
     dropThrough,
     fallFrames,
     safeGround,
+    perch: nextPerch,
+    hang,
+    hangCooldown,
+    throwFreeze: Math.max(0, p.throwFreeze - 1),
   };
 }
 
