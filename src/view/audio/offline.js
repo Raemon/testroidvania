@@ -14,7 +14,12 @@ import { RECIPES, SFX_IDS } from './sfx.js';
 import { createSequencer } from './sequencer.js';
 import { REGIONS } from './regions/index.js';
 
-const RATE = 44100;
+/**
+ * Measurements render at 22.05 kHz by default. Every voice ends in a lowpass at or
+ * below 8 kHz (05 §6d), so nothing the engine produces lives above the 11 kHz
+ * Nyquist — and halving the rate halves the time the test suite spends rendering.
+ */
+const RATE = 22050;
 
 /** SFX with tails longer than the default render window. */
 /** @type {Record<string, number>} */
@@ -85,6 +90,7 @@ export function analyse(buffer, id) {
  * @param {string} id
  * @param {object} [options]
  * @param {number} [options.seconds]
+ * @param {number} [options.rate]
  * @param {import('./sfx.js').SfxOpts} [options.opts]
  * @returns {Promise<Measurement>}
  */
@@ -92,7 +98,8 @@ export async function renderSfx(id, options = {}) {
   const recipe = RECIPES[id];
   if (!recipe) throw new Error(`renderSfx: no recipe '${id}'`);
   const seconds = options.seconds ?? RENDER_SECONDS[id] ?? DEFAULT_SECONDS;
-  const ctx = new OfflineAudioContext(2, Math.ceil(RATE * seconds), RATE);
+  const rate = options.rate ?? RATE;
+  const ctx = new OfflineAudioContext(2, Math.ceil(rate * seconds), rate);
   const graph = createGraph(ctx, { region: 'cistern' });
   recipe(graph, 0.05, { gain: 1, pan: 0, vary: 1, bus: graph.sfxBus, ...options.opts });
   return analyse(await ctx.startRendering(), id);
@@ -105,6 +112,7 @@ export async function renderSfx(id, options = {}) {
  * @param {number} [options.bars]
  * @param {number} [options.intensity] 0..1
  * @param {number} [options.tail] extra seconds so the reverb finishes
+ * @param {number} [options.rate]
  * @returns {Promise<Measurement & {bars: number, steps: number}>}
  */
 export async function renderMusic(options = {}) {
@@ -116,7 +124,8 @@ export async function renderMusic(options = {}) {
   const stepDur = 60 / region.tempo / 4;
   const seconds = steps * stepDur + (options.tail ?? 4);
 
-  const ctx = new OfflineAudioContext(2, Math.ceil(RATE * seconds), RATE);
+  const rate = options.rate ?? RATE;
+  const ctx = new OfflineAudioContext(2, Math.ceil(rate * seconds), rate);
   const graph = createGraph(ctx, { region: regionId, delayTime: (60 / region.tempo) * 0.75 });
   const seq = createSequencer(graph, region, { seed: 1 });
   seq.setIntensity(options.intensity ?? 1);
