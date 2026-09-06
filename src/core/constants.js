@@ -191,3 +191,9 @@ export const DARKNESS_ALPHA_CAP = 0.55;
 
 /** Frames a crumble tile survives after the Pin bites into it. */
 export const CRUMBLE_FRAMES = 12;
+
+/** Distance walked between footsteps, from 05-aesthetic §4 (foot phase = distance / 28). */
+export const STRIDE_LENGTH = 28;
+
+/** How far ahead of a door the `door.open` event fires, so a grind has a wind-up. */
+export const DOOR_LEAD = 24;

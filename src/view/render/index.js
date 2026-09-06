@@ -8,8 +8,7 @@
  *   void gradient -> parallax skylines + fog planes  (view space, no camera)
  *   terrain -> props -> fluids -> hazards -> particles -> entities -> Pin -> player
  *   warm light casts                                                       (world, additive)
- *   the darkness overlay                                                   (view)
- *   remembered terrain                                                     (world)
+ *   the darkness overlay, incl. remembered terrain                        (view)
  *   vignette, region tint, flash, grain                                    (view)
  *   HUD                                                                    (view)
  *
@@ -21,7 +20,7 @@
 import { VIEW_W, VIEW_H, DISCOVERED_ALPHA } from '../../core/constants.js';
 import { regionFor, INK, PLAYER } from './palette.js';
 import { drawParallax } from './parallax.js';
-import { drawTerrain, drawFluids, drawDiscovered } from './terrain.js';
+import { drawTerrain, drawFluids, updateMemoryMask } from './terrain.js';
 import { drawHazards, drawHazardGlow } from './hazards.js';
 import { drawLanterns, drawCrumble, drawPickups } from './props.js';
 import { drawDarkness } from './darkness.js';
@@ -86,6 +85,9 @@ export function render(ctx, state, cam, target) {
   const camY = Math.round(cam.y);
   const view = { x: camX, y: camY, w: VIEW_W, h: VIEW_H };
 
+  const P = /** @type {any} */ (globalThis).__PROF__;
+  const mark = P ? (/** @type {string} */ n) => { P[n] = (P[n] ?? 0) + performance.now() - P.__t; P.__t = performance.now(); } : (/** @type {string} */ _n) => {};
+  if (P) P.__t = performance.now();
   updatePlayerRig(rig, state, dt, particles);
   updateEntities(state, dt);
   particles.breathe(region, view, dt);
@@ -111,20 +113,25 @@ export function render(ctx, state, cam, target) {
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawParallax(ctx, region, camX, camY);
+  mark('parallax');
 
   ctx.translate(-camX, -camY);
   const v = { scale, offsetX, offsetY, camX, camY };
   drawTerrain(ctx, state.roomData, region, v);
+  mark('terrain');
   drawCrumble(ctx, state, region, view);
   drawFluids(ctx, state.roomData, region, view, t);
   drawHazards(ctx, state.roomData, view, t);
   drawLanterns(ctx, state, region, t);
   drawPickups(ctx, state, region, t);
+  mark('props');
   particles.draw(ctx);
+  mark('particles');
   drawEntities(ctx, state, region, t, hand);
   drawPin(ctx, state, region, t);
   drawPlayer(ctx, state, rig, region, t);
   drawHazardGlow(ctx, state.roomData, view);
+  mark('chars');
 
   // The warm cast: what the light *adds* to the scene, as opposed to what the
   // darkness overlay subtracts everywhere else. Additive and low, so it colours
@@ -135,20 +142,17 @@ export function render(ctx, state, cam, target) {
   }
 
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+  updateMemoryMask(state.roomData, state.discovered?.[state.room] ?? [], DISCOVERED_ALPHA, v);
   drawDarkness(ctx, region, lights.map((l) => ({ ...l, x: l.x - camX, y: l.y - camY })), region.darkness);
-
-  const rows = state.discovered?.[state.room];
-  if (rows && rows.length) {
-    ctx.translate(-camX, -camY);
-    drawDiscovered(ctx, state.roomData, region, rows, DISCOVERED_ALPHA, v);
-    ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-  }
+  mark('darkness');
 
 
   drawGrade(ctx, state, region, state.tick, target);
+  mark('grade');
   ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawHudOverlay(ctx, state, state.tick, dt);
   drawRoomLabel(ctx, state.room);
+  mark('hud');
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;

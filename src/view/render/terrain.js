@@ -15,6 +15,7 @@ import { TILES } from '../../content/tiles.js';
 import { createSurface, SurfaceCache } from './surface.js';
 import { cosmeticRng, seedFrom } from './rng.js';
 import { materialLook, rgba, shade } from './palette.js';
+import { setMemoryMask } from './darkness.js';
 
 /** @typedef {import('../../core/types.js').Room} Room */
 /** @typedef {import('./palette.js').Region} Region */
@@ -290,8 +291,6 @@ export function drawTerrain(ctx, room, region, v, alpha = 1) {
   blitRoom(ctx, s, s.w / (room.w * TILE), v, alpha);
 }
 
-/** @type {{key:string, sig:number, surface:Surface}|null} */
-let memory = null;
 /** @type {{key:string, surface:Surface}|null} */
 let maskSurface = null;
 
@@ -304,34 +303,30 @@ function maskFor(room) {
   return surface;
 }
 
+let maskSig = 0;
+
 /**
- * Terrain the player has already seen, drawn back over the darkness at alpha 0.25
- * (06 §D5 — 0.12 was "a rumour"). You never re-explore a room blind.
+ * Repaint the remembered-tile mask when it has changed, and hand it to the
+ * darkness overlay to punch.
  *
- * The mask is one bitmask number per row, so the whole memory of a room is a few
- * dozen integers; the masked image is rebuilt only when that changes, which is a
- * handful of times per room rather than per frame.
- * @param {CanvasRenderingContext2D} ctx
+ * The mask is one *pixel* per tile — a whole room's memory is a few hundred
+ * bytes — and the reveal happens by lifting the darkness rather than by drawing
+ * the terrain a second time, which is one full-screen pass cheaper per frame.
  * @param {Room} room
- * @param {Region} region
- * @param {number[]} rows
+ * @param {number[]} rows one bitmask per tile row
  * @param {number} alpha
- * @param {{scale:number, offsetX:number, offsetY:number, camX:number, camY:number}} v
+ * @param {{camX:number, camY:number}} v
  */
-export function drawDiscovered(ctx, room, region, rows, alpha, v) {
-  const base = roomSurface(room, region, v.scale);
-  if (!base || rows.length === 0) return;
-  const k = base.w / (room.w * TILE);
+export function updateMemoryMask(room, rows, alpha, v) {
+  if (!rows || rows.length === 0) {
+    setMemoryMask(null);
+    return;
+  }
   let sig = rows.length;
   for (let i = 0; i < rows.length; i++) sig = (Math.imul(sig, 31) + (rows[i] ?? 0)) | 0;
-  const key = `${room.id}|${region.id}`;
-
-  if (!memory || memory.key !== key || memory.sig !== sig) {
-    // The mask is painted one *pixel* per tile into a room-sized-in-tiles canvas
-    // and then scaled up unsmoothed. Masking with one rect per discovered tile
-    // instead costs a composited fill per cell every time a tile is revealed,
-    // which is the difference between 40ms and nothing.
-    const mask = maskFor(room);
+  const mask = maskFor(room);
+  if (sig !== maskSig) {
+    maskSig = sig;
     mask.ctx.clearRect(0, 0, mask.w, mask.h);
     mask.ctx.fillStyle = '#000000';
     for (let ty = 0; ty < rows.length && ty < room.h; ty++) {
@@ -341,19 +336,13 @@ export function drawDiscovered(ctx, room, region, rows, alpha, v) {
         if ((bits >>> tx) & 1) mask.ctx.fillRect(tx, ty, 1, 1);
       }
     }
-
-    const s = memory && memory.key === key ? memory.surface : createSurface(base.w, base.h);
-    s.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    s.ctx.globalCompositeOperation = 'copy';
-    s.ctx.drawImage(base.canvas, 0, 0);
-    s.ctx.globalCompositeOperation = 'destination-in';
-    s.ctx.imageSmoothingEnabled = false;
-    s.ctx.drawImage(mask.canvas, 0, 0, s.w, s.h);
-    s.ctx.globalCompositeOperation = 'source-over';
-    memory = { key, sig, surface: s };
   }
-
-  blitRoom(ctx, memory.surface, k, v, alpha);
+  setMemoryMask({
+    mask: mask.canvas,
+    x: -v.camX, y: -v.camY,
+    w: room.w * TILE, h: room.h * TILE,
+    alpha,
+  });
 }
 
 /**

@@ -65,6 +65,9 @@
  * @property {number} jabFrames    frames elapsed in the current jab, 0 when idle
  * @property {number} jabHits      entities already hit by the current jab
  * @property {number} deadFrames   frames spent dead, counting up to the respawn
+ * @property {number} stride       distance walked since the last footstep
+ * @property {boolean} inWater     the body is in water, for the entry/exit ripple
+ * @property {string} nearDoor     door id the player is close enough to open, '' for none
  */
 
 /**
@@ -188,6 +191,17 @@
  */
 
 /**
+ * One thing that happened during a frame. Fields are uniform across every kind so
+ * the list hashes cheaply and a consumer never has to test for a missing key.
+ * @typedef {object} SimEvent
+ * @property {string} kind          one of EVENT_KINDS
+ * @property {number} x             world units
+ * @property {number} y
+ * @property {Material|null} material  the surface involved, for footsteps and impacts
+ * @property {number|null} id       the entity involved, when there is one
+ */
+
+/**
  * @typedef {object} SimError
  * @property {number} tick
  * @property {string} where   subsystem name
@@ -218,6 +232,7 @@
  * @property {number} nextEntityId
  * @property {Progress} progress
  * @property {Liveness} liveness
+ * @property {SimEvent[]} events           what happened this frame; rebuilt every step
  * @property {Light[]} lights              every light hole this frame, brightest first
  * @property {Record<string, number[]>} discovered per-room seen-tile bitmask, one number per row
  * @property {string[]} brokenTiles        'tx,ty' of tiles crumbled away in this room

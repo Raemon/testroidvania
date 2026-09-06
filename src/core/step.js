@@ -24,7 +24,8 @@
  * its slice of the state untouched and the rest of the frame still runs.
  */
 
-import { SOFTLOCK_WINDOW } from './constants.js';
+import { SOFTLOCK_WINDOW, DOOR_LEAD } from './constants.js';
+import { emit } from './events.js';
 import { stepPlayer } from './player.js';
 import { stagePin, snapPinToHand } from './pin.js';
 import { stageGrip } from './grip.js';
@@ -62,6 +63,10 @@ function runStage(state, where, fn, errors) {
 export function step(state, input) {
   /** @type {SimError[]} */
   const errors = state.errors.slice(0, 64);
+  // Rebuilt from scratch every frame: `events` is what happened *this* step, so it
+  // stays a pure function of the frame and a replay hashes identically.
+  /** @type {import('./types.js').SimEvent[]} */
+  const events = [];
 
   // Hitstop freezes the world for 3-6 frames so a hit lands. Only the clock and the
   // flash timers move.
@@ -80,6 +85,7 @@ export function step(state, input) {
       tick: state.tick + 1,
       prevInput: stillHeld,
       input: stillHeld,
+      events,
       hitstop: state.hitstop - 1,
       flash: Math.max(0, state.flash - 1),
       shake: Math.max(0, state.shake - 1),
@@ -96,6 +102,7 @@ export function step(state, input) {
     input,
     shake: Math.max(0, state.shake - 1),
     errors,
+    events,
   };
 
   s = runStage(s, 'player', stagePlayer, errors);
@@ -104,7 +111,7 @@ export function step(state, input) {
   s = runStage(s, 'light', stageLight, errors);
   s = runStage(s, 'entities', stageEntities, errors);
   s = runStage(s, 'combat', stageCombat, errors);
-  s = runStage(s, 'rooms', stageRooms, errors);
+  s = runStage(s, 'rooms', (x) => stageRooms(x, state), errors);
   s = runStage(s, 'lanterns', stageLanterns, errors);
   s = runStage(s, 'discovery', stageDiscovery, errors);
   s = runStage(s, 'liveness', stageLiveness, errors);
@@ -113,7 +120,7 @@ export function step(state, input) {
 
 /** @param {GameState} s @returns {GameState} */
 function stagePlayer(s) {
-  return { ...s, player: stepPlayer(s.roomData, s.player, s.input, s.prevInput, s.pin) };
+  return { ...s, player: stepPlayer(s.roomData, s.player, s.input, s.prevInput, s.pin, s.events) };
 }
 
 /** @param {GameState} s @returns {GameState} */
@@ -129,12 +136,24 @@ function stageDiscovery(s) {
 /**
  * Door transitions. §G: crossing a room boundary snaps the Pin to Held, always,
  * with no exceptions — so a Pin can never be left behind in a room you have left.
- * @param {GameState} s @returns {GameState}
+ *
+ * `door.open` fires while the player is still walking *at* the door, not as they
+ * cross it: a transition is instantaneous, so anything with a wind-up needs the
+ * approach rather than the arrival.
+ * @param {GameState} s @param {Readonly<GameState>} prev @returns {GameState}
  */
-function stageRooms(s) {
+function stageRooms(s, prev) {
   const p = s.player;
   if (p.hp <= 0) return s;
-  const door = doorUnder(s.roomData, { x: p.x, y: p.y, w: p.w, h: p.h }, s.progress.abilities);
+  const box = { x: p.x, y: p.y, w: p.w, h: p.h };
+  const approaching = doorUnder(s.roomData, { ...box, x: box.x - DOOR_LEAD, w: box.w + DOOR_LEAD * 2 }, s.progress.abilities);
+  const nearDoor = approaching?.id ?? '';
+  if (nearDoor && nearDoor !== prev.player.nearDoor) {
+    emit(s.events, 'door.open', box.x + box.w / 2, box.y + box.h / 2);
+  }
+  s = { ...s, player: { ...p, nearDoor } };
+
+  const door = doorUnder(s.roomData, box, s.progress.abilities);
   if (!door) return s;
   const partner = resolvePartner(door);
   if (!partner) {
@@ -142,6 +161,7 @@ function stageRooms(s) {
     return s;
   }
   const at = doorEntry(partner.room, partner.door, p.w, p.h);
+  emit(s.events, 'room.enter', at.x, at.y);
   /** @type {GameState} */
   const arrived = {
     ...s,
@@ -152,7 +172,7 @@ function stageRooms(s) {
     player: {
       ...p,
       x: at.x, y: at.y, vy: 0, grounded: false, coyote: 0,
-      perch: false, hang: false, hangCooldown: 0, jabFrames: 0,
+      perch: false, hang: false, hangCooldown: 0, jabFrames: 0, nearDoor: '',
       iframes: Math.max(p.iframes, 20), safeGround: at,
     },
   };

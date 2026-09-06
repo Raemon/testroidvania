@@ -38,11 +38,40 @@ const SS = 1;
 
 /** @type {import('./surface.js').Surface|null} */
 let surface = null;
+/** @type {import('./surface.js').Surface|null} */
+let holeSprite = null;
 
 /** @returns {import('./surface.js').Surface} */
 function overlay() {
   if (!surface) surface = createSurface(VIEW_W * SS, VIEW_H * SS);
   return surface;
+}
+
+/**
+ * The shape of one light, baked once.
+ *
+ * Building a `createRadialGradient` per light per frame allocates a gradient
+ * object and then evaluates it per pixel; the identical result is one scaled
+ * `drawImage` of this sprite. Flat and bright out to a third of the radius, then
+ * a long soft shoulder — a linear falloff reads as a spotlight, this reads as a
+ * lantern.
+ * @returns {import('./surface.js').Surface}
+ */
+function hole() {
+  if (holeSprite) return holeSprite;
+  const size = 256;
+  const s = createSurface(size, size);
+  const c = size / 2;
+  const g = s.ctx.createRadialGradient(c, c, 0, c, c, c);
+  g.addColorStop(0, 'rgba(0,0,0,1)');
+  g.addColorStop(0.30, 'rgba(0,0,0,0.88)');
+  g.addColorStop(0.55, 'rgba(0,0,0,0.58)');
+  g.addColorStop(0.78, 'rgba(0,0,0,0.24)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  s.ctx.fillStyle = g;
+  s.ctx.fillRect(0, 0, size, size);
+  holeSprite = s;
+  return s;
 }
 
 /**
@@ -74,24 +103,45 @@ export function drawDarkness(ctx, region, lights, alpha) {
   o.fillRect(0, 0, s.w, s.h);
 
   o.globalCompositeOperation = 'destination-out';
+  const sprite = hole().canvas;
   for (const light of lights) {
     const r = light.r * SS;
     if (!(r > 0)) continue;
     const x = light.x * SS;
     const y = light.y * SS;
     if (x < -r || y < -r || x > s.w + r || y > s.h + r) continue;
-    const g = o.createRadialGradient(x, y, 0, x, y, r);
-    // Flat and bright out to a third of the radius, then a long soft shoulder —
-    // a linear falloff reads as a spotlight, this reads as a lantern.
-    g.addColorStop(0, 'rgba(0,0,0,1)');
-    g.addColorStop(0.30, 'rgba(0,0,0,0.88)');
-    g.addColorStop(0.55, 'rgba(0,0,0,0.58)');
-    g.addColorStop(0.78, 'rgba(0,0,0,0.24)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    o.fillStyle = g;
-    o.fillRect(x - r, y - r, r * 2, r * 2);
+    o.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+  }
+
+  // Terrain the player has already seen stays legible at alpha 0.25 (06 §D5 —
+  // 0.12 was "a rumour"). Folded into the overlay as one more hole rather than a
+  // second full-screen pass over the finished frame: the darkness is what is
+  // hiding it, so lifting the darkness is the cheapest place to reveal it.
+  if (memory) {
+    o.globalAlpha = memory.alpha;
+    o.imageSmoothingEnabled = false;
+    o.drawImage(memory.mask, memory.x * SS, memory.y * SS, memory.w * SS, memory.h * SS);
+    o.imageSmoothingEnabled = true;
+    o.globalAlpha = 1;
   }
   o.globalCompositeOperation = 'source-over';
 
   ctx.drawImage(s.canvas, 0, 0, VIEW_W, VIEW_H);
+}
+
+/**
+ * @typedef {object} Memory
+ * @property {HTMLCanvasElement} mask  one opaque pixel per remembered tile
+ * @property {number} x screen-space placement of the mask, in world units
+ * @property {number} y
+ * @property {number} w
+ * @property {number} h
+ * @property {number} alpha
+ */
+/** @type {Memory|null} */
+let memory = null;
+
+/** @param {Memory|null} m the remembered-terrain mask to punch on the next frame */
+export function setMemoryMask(m) {
+  memory = m;
 }

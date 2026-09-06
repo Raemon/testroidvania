@@ -16,6 +16,7 @@ import {
 import { stepPlayerPhysics } from './physics.js';
 import { stepJab } from './jab.js';
 import { overlaps } from './geometry.js';
+import { emit } from './events.js';
 
 /** @typedef {import('./types.js').Player} Player */
 /** @typedef {import('./types.js').Pin} Pin */
@@ -60,6 +61,9 @@ export function createPlayer(x, y) {
     jabFrames: 0,
     jabHits: 0,
     deadFrames: 0,
+    stride: 0,
+    inWater: false,
+    nearDoor: '',
   };
 }
 
@@ -80,9 +84,10 @@ export function deriveAnimState(p) {
  * @param {InputMask} input
  * @param {InputMask} prevInput
  * @param {Readonly<Pin>} pin
+ * @param {import('./types.js').SimEvent[]} events appended to; see events.js
  * @returns {Player}
  */
-export function stepPlayer(room, player, input, prevInput, pin) {
+export function stepPlayer(room, player, input, prevInput, pin, events) {
   const ticked = {
     ...player,
     iframes: Math.max(0, player.iframes - 1),
@@ -101,7 +106,8 @@ export function stepPlayer(room, player, input, prevInput, pin) {
     };
   }
   const jabbed = stepJab(ticked, input, prevInput);
-  const moved = stepPlayerPhysics(room, jabbed, input, prevInput, pin);
+  if (jabbed.jabFrames === 1) emit(events, 'jab', jabbed.x + jabbed.w / 2, jabbed.y + jabbed.h / 2);
+  const moved = stepPlayerPhysics(room, jabbed, input, prevInput, pin, events);
   return { ...moved, state: deriveAnimState(moved) };
 }
 

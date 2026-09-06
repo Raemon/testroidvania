@@ -64,6 +64,7 @@ export function createInitialState(seed, worldId) {
     entities: spawnFor(room),
     nextEntityId: 1,
     progress: createProgress(),
+    events: [],
     lights: [],
     discovered: {},
     brokenTiles: [],

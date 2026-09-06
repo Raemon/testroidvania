@@ -58,6 +58,21 @@ export function overlapsSolid(room, box) {
 }
 
 /**
+ * @param {Room} room
+ * @param {AABB} box
+ * @returns {import('./types.js').Material|null} the material directly under the
+ *   box's feet — what a footstep or a landing lands on
+ */
+export function materialUnder(room, box) {
+  const ty = tileIndex(box.y + box.h);
+  for (let tx = spanLo(box.x); tx <= spanHi(box.x + box.w); tx++) {
+    const def = tileAt(glyphAt(room, tx, ty));
+    if (def.solid || def.oneWay) return def.material;
+  }
+  return null;
+}
+
+/**
  * @param {AABB} a @param {AABB} b @returns {boolean} true if the spans overlap in x
  */
 function overlapsX(a, b) {

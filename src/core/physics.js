@@ -13,10 +13,11 @@ import {
   JUMP_VY, GRAVITY_RISE, GRAVITY_FALL, APEX_HANG_VY, APEX_HANG_MULT,
   TERMINAL_VY, FASTFALL_TERMINAL_VY, FASTFALL_GRAVITY_MULT,
   JUMP_CUT_MULT, JUMP_CUT_MIN_FRAMES, COYOTE_FRAMES, JUMP_BUFFER_FRAMES,
-  DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_COOLDOWN,
+  DROP_THROUGH_FRAMES, HANG_KICK_VX, HANG_KICK_VY, HANG_COOLDOWN, STRIDE_LENGTH, TILE,
 } from './constants.js';
 import { IN, axisX, isDown, justPressed } from './input.js';
-import { moveBox, isSupported } from './collision.js';
+import { moveBox, isSupported, materialUnder, glyphAt } from './collision.js';
+import { emit } from './events.js';
 import { pinPlatforms } from './pin-geometry.js';
 import { grabbableHang, hangAnchor, perchCentre, stillHanging } from './grip.js';
 
@@ -76,9 +77,10 @@ export function applyGravity(vy, fastFalling) {
  * @param {InputMask} input
  * @param {InputMask} prevInput
  * @param {Readonly<Pin>} pin the Pin is a platform, so motion has to know about it
+ * @param {import('./types.js').SimEvent[]} events appended to; see events.js
  * @returns {Player} a fresh player object
  */
-export function stepPlayerPhysics(room, p, input, prevInput, pin) {
+export function stepPlayerPhysics(room, p, input, prevInput, pin, events) {
   const platforms = pinPlatforms(pin);
   const stunned = p.hurtFrames > 0;
   const downHeld = isDown(input, IN.DOWN);
@@ -92,6 +94,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
     if (!letGo) return { ...p, vx: 0, vy: 0, grounded: false, onOneWay: false, coyote: 0, fallFrames: 0 };
     // Jump off a wall pin is a kick away from the wall; Down is just a release.
     const kick = jumpPressed;
+    if (kick) emit(events, 'wallkick', p.x + p.w / 2, p.y + p.h / 2, { material: pin.surface });
     return {
       ...p,
       hang: false,
@@ -125,6 +128,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
     jumpBuffer = 0;
     coyote = 0;
   } else if (!stunned && jumpBuffer > 0 && coyote > 0) {
+    emit(events, 'jump', p.x + p.w / 2, p.y + p.h, { material: materialUnder(room, p) });
     vy = JUMP_VY;
     jumpBuffer = 0;
     coyote = 0;
@@ -155,6 +159,20 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
 
   let facing = ax !== 0 ? /** @type {-1|1} */ (ax) : p.facing;
   const fallFrames = vy > 0 && !grounded ? p.fallFrames + 1 : 0;
+  if (grounded && !p.grounded) {
+    emit(events, 'land', box.x + box.w / 2, box.y + box.h, { material: materialUnder(room, box) });
+  }
+  // Footsteps are paced by distance, not by frames, so a walk and a sprint sound
+  // like a walk and a sprint rather than the same loop at two speeds.
+  let stride = grounded ? p.stride + Math.abs(vx) : 0;
+  if (stride >= STRIDE_LENGTH) {
+    stride -= STRIDE_LENGTH;
+    emit(events, 'footstep', box.x + box.w / 2, box.y + box.h, { material: materialUnder(room, box) });
+  }
+  const inWater = glyphAt(room, Math.floor((box.x + box.w / 2) / TILE), Math.floor((box.y + box.h / 2) / TILE)) === '~';
+  if (inWater !== p.inWater) {
+    emit(events, inWater ? 'water.enter' : 'water.exit', box.x + box.w / 2, box.y + box.h / 2);
+  }
   const safeGround = grounded ? { x: moved.x, y: moved.y } : p.safeGround;
   const hangCooldown = Math.max(0, p.hangCooldown - 1);
 
@@ -171,6 +189,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
       box = { ...box, x: centre };
       vx = 0;
       nextPerch = true;
+      emit(events, 'perch', box.x + box.w / 2, box.y + box.h, { material: pin.surface });
     } else if (centre !== null && perch) {
       nextPerch = true;
     }
@@ -180,6 +199,7 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
     hang = true;
     vx = 0;
     vy = 0;
+    emit(events, 'hang', at.x + box.w / 2, at.y + box.h / 2, { material: pin.surface });
     facing = /** @type {-1|1} */ (pin.nx > 0 ? -1 : 1);
   }
 
@@ -204,6 +224,8 @@ export function stepPlayerPhysics(room, p, input, prevInput, pin) {
     hang,
     hangCooldown,
     throwFreeze: Math.max(0, p.throwFreeze - 1),
+    stride,
+    inWater,
   };
 }
 
