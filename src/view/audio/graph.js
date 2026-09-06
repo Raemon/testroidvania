@@ -57,6 +57,15 @@ export const REGION_REVERB = {
   ending: { tail: 4, top: 7500, bottom: 1000, early: 0.04 },
 };
 
+/**
+ * 05 §6b: "Region change crossfades over 4 s." What crosses is the *space* — the
+ * reverb tail and the delay both fade out, change, and fade back over this — and
+ * the layer gains, which survive the swap untouched so no part of the arrangement
+ * stops and restarts. The material itself changes on one downbeat, because a
+ * chord table that swaps mid-bar is a mistake, not a crossfade.
+ */
+export const REGION_CROSSFADE_S = 4;
+
 /** 12 ms of silence in front of the tail, so the reverb reads as a room and not as a smear. */
 const PRE_DELAY_S = 0.012;
 
@@ -273,20 +282,31 @@ export function createGraph(ctx, options = {}) {
       }
       graph.region = next;
       // Swapping a convolver buffer mid-tail is an audible cut, so duck the return
-      // across the swap. 05 §6b asks for a 4 s region crossfade; this is its tail half.
+      // across the swap: out over 0.4 s, and the new room opens over the rest of
+      // the crossfade. This is the half of it you hear as the walls moving.
       const now = ctx.currentTime;
       reverbReturn.gain.cancelScheduledValues(now);
       reverbReturn.gain.setValueAtTime(Math.max(reverbReturn.gain.value, SILENT), now);
-      reverbReturn.gain.linearRampToValueAtTime(SILENT, now + 0.25);
+      reverbReturn.gain.linearRampToValueAtTime(SILENT, now + 0.4);
       convolver.buffer = ir;
-      reverbReturn.gain.linearRampToValueAtTime(MIX.reverbReturn, now + 2);
+      reverbReturn.gain.linearRampToValueAtTime(MIX.reverbReturn, now + REGION_CROSSFADE_S);
     },
 
     setDelayTime(seconds) {
       const now = ctx.currentTime;
+      const want = Math.max(0.01, Math.min(2, seconds));
+      if (Math.abs(want - delay.delayTime.value) < 0.004) return;
+      // Ramping a delay line's time pitch-bends everything already inside it: the
+      // old region's tail arrives as a tape wobble in the middle of the change.
+      // So duck the return, step the time while nothing is coming back, and let
+      // the new tempo's echo fade in across the crossfade instead.
+      const g = delayReturn.gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(Math.max(g.value, SILENT), now);
+      g.linearRampToValueAtTime(SILENT, now + 0.2);
       delay.delayTime.cancelScheduledValues(now);
-      delay.delayTime.setValueAtTime(delay.delayTime.value, now);
-      delay.delayTime.linearRampToValueAtTime(Math.max(0.01, Math.min(2, seconds)), now + 0.5);
+      delay.delayTime.setValueAtTime(want, now + 0.2);
+      g.linearRampToValueAtTime(MIX.delayReturn, now + REGION_CROSSFADE_S);
     },
 
     setPauseFilter(open) {

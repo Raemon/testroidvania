@@ -150,6 +150,8 @@ function build(graph, startRegion, options) {
   let barIntensity = 0;
   let calm = false;
   let abilities = 0;
+  /** @type {Region|null} A region change waiting for a downbeat to land on. */
+  let pendingRegion = null;
   let lastChordIndex = -1;
   let resyncs = 0;
   let scheduledSteps = 0;
@@ -209,6 +211,21 @@ function build(graph, startRegion, options) {
    * @param {number} time
    */
   function scheduleStep(absStep, time) {
+    // A region change lands here, on the first bar of a chord, and nowhere else.
+    // Swapping the chord table the instant the player crosses a threshold changes
+    // the harmony halfway through a bar, which reads as a mistake rather than as
+    // a new place; waiting costs at most two bars and the space has already
+    // changed around it.
+    if (pendingRegion && absStep % region.stepsPerBar === 0
+      && Math.floor(absStep / region.stepsPerBar) % region.barsPerChord === 0) {
+      region = pendingRegion;
+      pendingRegion = null;
+      // The new region's tempo arrives with its downbeat. Easing into it the way
+      // the boss lift does would turn 66 -> 96 BPM into fifteen seconds of
+      // accelerando, which is a different musical idea from "somewhere else".
+      tempo = barIntensity >= 1 ? region.bossTempo : region.tempo;
+      lastChordIndex = -1;
+    }
     const spb = region.stepsPerBar;
     const bar = Math.floor(absStep / spb);
     const stepInBar = absStep % spb;
@@ -375,23 +392,33 @@ function build(graph, startRegion, options) {
      */
     setAbilities(value) { abilities = Math.max(0, Math.round(value)); },
 
-    /** @param {Region} next */
+    /**
+     * Change region. Nothing stops: the layer gains are untouched, so whatever is
+     * playing keeps playing, and the drone glides rather than being retriggered.
+     *
+     * The *space* changes now — reverb tail and delay time, both faded across
+     * `REGION_CROSSFADE_S` (graph.js), because you have already walked through
+     * the door. The *material* changes on the next chord downbeat, which is at
+     * most two bars away. That is the whole of 05 §6b's "region change crossfades
+     * over 4 s", and it is what actually happens rather than what a comment here
+     * used to claim while the chord table swapped mid-bar and the delay time
+     * ramped audibly under it.
+     * @param {Region} next
+     */
     setRegion(next) {
-      if (next.id === region.id) return;
-      region = next;
-      lastChordIndex = -1;
+      if (next.id === (pendingRegion ?? region).id) return;
+      pendingRegion = next;
       graph.setRegion(next.id);
       graph.setDelayTime((60 / next.tempo) * 0.75);
-      // Layer gains survive the swap, so a region change is a 4 s crossfade of
-      // material rather than the music stopping and starting.
       const now = ctx.currentTime;
-      droneHandle?.setFreq(midiToFreq(region.chords[0]?.drone ?? 26), now, 4);
+      droneHandle?.setFreq(midiToFreq(next.chords[0]?.drone ?? 26), now, 4);
     },
 
     state() {
       const spb = region.stepsPerBar;
       return {
-        region: region.id,
+        region: (pendingRegion ?? region).id,
+        playing: region.id,
         running: timer !== null,
         open,
         step,
