@@ -1,0 +1,38 @@
+{
+  "seed": 1,
+  "every": 25,
+  "scripted": {
+    "final": "17fee1f8",
+    "checkpoints": [
+      "361b27f1",
+      "d8f94aba",
+      "6b499f5f",
+      "d507dfbf",
+      "0696a0d7",
+      "d66c2a43",
+      "60857571",
+      "b375e502",
+      "22996311",
+      "7820dfba",
+      "c4d10c15",
+      "f6dd80d5",
+      "9bb0f181",
+      "708e9cc1",
+      "de5159bb",
+      "21aee7b8",
+      "de365f18",
+      "9c3b34db",
+      "2c7d5ea1",
+      "375686c6",
+      "49dacbfe",
+      "53f45c75",
+      "4245e181",
+      "17fee1f8"
+    ]
+  },
+  "bot": {
+    "final": "a29963f8",
+    "frames": 503,
+    "room": "t3_ceiling"
+  }
+}

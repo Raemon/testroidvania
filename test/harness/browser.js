@@ -63,6 +63,7 @@ function installPump() {
  * @property {import('playwright').Page} page
  * @property {string[]} errors      console errors + page errors, in order
  * @property {(n: number) => Promise<number>} pump
+ * @property {(predicate: string, options?: {batch?: number, maxFrames?: number, label?: string}) => Promise<number>} pumpUntil
  * @property {() => void} assertClean
  * @property {(method: string, ...args: unknown[]) => Promise<any>} call  invoke a `__HARNESS__` method
  * @property {() => Promise<PixelProbe>} probe
@@ -116,6 +117,25 @@ export async function launchGame(options = {}) {
         throw new Error(`invariant ${v.code} at tick ${v.tick} in ${v.room}: ${v.detail}`);
       }
       return frame;
+    },
+
+    /**
+     * Pump in batches until a `__HARNESS__` predicate method returns true. The
+     * frame budget is mandatory: a browser test that waits on a condition which
+     * never arrives must fail by name, never spin.
+     */
+    async pumpUntil(predicate, opts = {}) {
+      const batch = opts.batch ?? 30;
+      const maxFrames = opts.maxFrames ?? 3000;
+      let pumped = 0;
+      while (pumped < maxFrames) {
+        if (await harness.call(predicate)) return pumped;
+        await harness.pump(batch);
+        pumped += batch;
+      }
+      const room = await harness.call('room');
+      const tick = await harness.call('tick');
+      throw new Error(`${opts.label ?? predicate}: not satisfied after ${maxFrames} frames (room ${room}, tick ${tick})`);
     },
 
     assertClean() {

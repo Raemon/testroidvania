@@ -7,14 +7,19 @@ import { IN } from '../../src/core/input.js';
 import { newRun } from '../harness/run.js';
 import { step } from '../../src/core/step.js';
 
-/** Hold `input` for `frames` from a settled standing start. */
+/**
+ * Hold `input` for `frames` from a settled standing start.
+ * @param {number} frames
+ * @param {number | ((frame: number) => number)} input
+ * @param {number} [seed]
+ */
 function drive(frames, input, seed = 1) {
   let s = newRun(seed);
   for (let i = 0; i < 10; i++) s = step(s, 0);
   const start = { x: s.player.x, y: s.player.y };
   let minY = start.y;
   for (let i = 0; i < frames; i++) {
-    s = step(s, typeof input === 'function' ? input(i, s) : input);
+    s = step(s, typeof input === 'function' ? input(i) : input);
     minY = Math.min(minY, s.player.y);
   }
   return { state: s, start, minY };
@@ -53,7 +58,7 @@ test('a full jump clears about 3.5 tiles (56px)', () => {
 });
 
 test('a tapped jump clears about 1.4 tiles (22px), proving jump-cut works', () => {
-  const { start, minY } = drive(60, (i) => (i === 0 ? IN.JUMP : 0));
+  const { start, minY } = drive(60, (/** @type {number} */ i) => (i === 0 ? IN.JUMP : 0));
   const height = start.y - minY;
   assert.ok(height > 18 && height < 27, `tap jump height was ${height.toFixed(2)}px, want ~22`);
   assert.ok(height < 40, 'a tap must be much shorter than a full jump');

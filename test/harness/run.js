@@ -29,7 +29,7 @@ export function newRun(seed, room) {
  * @param {object} [options]
  * @param {number} [options.maxFrames]
  * @param {(s: GameState) => boolean} [options.until] stop early when this is true
- * @returns {{ state: GameState, tape: number[], frames: number, done: boolean, stuck: boolean, violation: string|null }}
+ * @returns {{ state: GameState, tape: number[], frames: number, done: boolean, stuck: boolean, violation: string|null, why: string }}
  */
 export function runBot(start, options = {}) {
   const maxFrames = options.maxFrames ?? 2000;
@@ -49,16 +49,30 @@ export function runBot(start, options = {}) {
     const violations = check(prev, state, result.input);
     if (violations.length) {
       const v = violations[0];
-      return { state, tape, frames: tape.length, done: false, stuck: mem.stuck, violation: v ? formatViolation(v) : 'unknown' };
+      return { state, tape, frames: tape.length, done: false, stuck: mem.stuck, violation: v ? formatViolation(v) : 'unknown', why: mem.why };
     }
-    if (mem.stuck) return { state, tape, frames: tape.length, done: false, stuck: true, violation: null };
-    if (options.until?.(state)) return { state, tape, frames: tape.length, done: true, stuck: false, violation: null };
+    if (mem.stuck) return { state, tape, frames: tape.length, done: false, stuck: true, violation: null, why: mem.why };
+    if (options.until?.(state)) return { state, tape, frames: tape.length, done: true, stuck: false, violation: null, why: '' };
     if (result.done) {
       done = true;
       break;
     }
   }
-  return { state, tape, frames: tape.length, done, stuck: false, violation: null };
+  return {
+    state, tape, frames: tape.length, done, stuck: false, violation: null,
+    why: done ? '' : `ran out of the ${maxFrames}-frame budget in ${state.room} at (${state.player.x.toFixed(1)}, ${state.player.y.toFixed(1)})`,
+  };
+}
+
+/**
+ * Assert a bot run finished, with a message that names where it stopped. Callers
+ * use this instead of a bare `assert.ok(result.done)` so a failure says *why*.
+ * @param {ReturnType<typeof runBot>} result
+ * @param {string} label
+ */
+export function assertFinished(result, label) {
+  if (result.violation) throw new Error(`${label}: ${result.violation}`);
+  if (!result.done) throw new Error(`${label}: bot did not finish — ${result.why || 'no reason given'}`);
 }
 
 /**

@@ -41,7 +41,12 @@ const VOID_ROOM = {
 export function createInitialState(seed, worldId) {
   const roomId = worldId ?? START.room;
   const room = getRoom(roomId) ?? VOID_ROOM;
-  const at = roomId === START.room ? START.at : /** @type {[number,number]} */ ([1, room.h - 2]);
+  // A run that starts anywhere but the world's start room (a room test, the
+  // fuzzer) begins at that room's first servo waypoint, which content validation
+  // has already proved is a standable tile.
+  const at = roomId === START.room
+    ? START.at
+    : room.route[0] ?? /** @type {[number,number]} */ ([1, room.h - 2]);
   const pos = standOn(at[0], at[1], PLAYER_W, PLAYER_H);
 
   return {

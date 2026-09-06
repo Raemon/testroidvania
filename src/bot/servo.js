@@ -20,6 +20,12 @@ const ARRIVE_Y = 14;
 /** Frames of no quantized movement before the servo calls itself stuck. */
 const STUCK_FRAMES = 45;
 const WIGGLE_FRAMES = 20;
+/**
+ * Hard per-room budget. Even a servo that is technically still moving must give up
+ * eventually: a bot that can loop forever is exactly the overnight failure the
+ * softlock invariant exists to prevent, and silence is worse than a red test.
+ */
+export const ROOM_FRAME_BUDGET = 1800;
 
 /**
  * @typedef {object} ServoMemory
@@ -29,12 +35,14 @@ const WIGGLE_FRAMES = 20;
  * @property {number} lastY
  * @property {number} still     frames without quantized movement
  * @property {number} wiggle    frames left of the unstick manoeuvre
- * @property {boolean} stuck    the wiggle did not help; escalate
+ * @property {number} frames    frames spent in this room
+ * @property {boolean} stuck    give up: the wiggle did not help, or the budget ran out
+ * @property {string} why       why it gave up, for the failure message
  */
 
 /** @returns {ServoMemory} */
 export function createServo() {
-  return { wp: 0, room: '', lastX: NaN, lastY: NaN, still: 0, wiggle: 0, stuck: false };
+  return { wp: 0, room: '', lastX: NaN, lastY: NaN, still: 0, wiggle: 0, frames: 0, stuck: false, why: '' };
 }
 
 /**
@@ -46,6 +54,13 @@ export function servo(obs, mem) {
   const next = mem.room === obs.room ? { ...mem } : { ...createServo(), room: obs.room };
   const route = obs.route;
   if (route.length === 0) return { input: 0, mem: next, done: true };
+
+  next.frames++;
+  if (next.frames > ROOM_FRAME_BUDGET) {
+    next.stuck = true;
+    next.why = `spent ${next.frames} frames in ${obs.room} without finishing its route (budget ${ROOM_FRAME_BUDGET})`;
+    return { input: 0, mem: next, done: false };
+  }
 
   const p = obs.player;
   const goal = route[Math.min(next.wp, route.length - 1)] ?? [0, 0];
@@ -68,7 +83,10 @@ export function servo(obs, mem) {
   if (next.still >= STUCK_FRAMES && next.wiggle === 0) {
     next.wiggle = WIGGLE_FRAMES;
     next.still = 0;
-    next.stuck = mem.wiggle > 0;
+    if (mem.wiggle > 0) {
+      next.stuck = true;
+      next.why = `stuck at waypoint ${next.wp} of ${route.length} in ${obs.room}, at (${p.x.toFixed(1)}, ${p.y.toFixed(1)}); the wiggle did not help`;
+    }
   }
 
   const dir = p.cx < targetX ? 1 : -1;

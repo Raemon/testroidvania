@@ -56,19 +56,21 @@ test('a fast downward sweep lands on the floor instead of tunnelling through it'
 test('one-way platforms block from above and pass through from below', () => {
   const plat = room([
     '........',
+    '........',
+    '........',
     '..====..',
     '........',
     '########',
   ]);
-  assert.equal(oneWayAt(plat, 2, 1), true);
-  assert.equal(solidAt(plat, 2, 1), false);
+  assert.equal(oneWayAt(plat, 2, 3), true);
+  assert.equal(solidAt(plat, 2, 3), false);
 
   const above = sweepY(plat, { x: 2 * TILE, y: 0, w: PLAYER_W, h: PLAYER_H }, 40, false);
   assert.equal(above.hit, true);
   assert.equal(above.landedOnOneWay, true);
-  assert.equal(above.y, TILE - PLAYER_H);
+  assert.equal(above.y, 3 * TILE - PLAYER_H, 'lands on the platform surface');
 
-  const below = sweepY(plat, { x: 2 * TILE, y: 2 * TILE, w: PLAYER_W, h: PLAYER_H }, -30, false);
+  const below = sweepY(plat, { x: 2 * TILE, y: 4 * TILE, w: PLAYER_W, h: PLAYER_H }, -30, false);
   assert.equal(below.hit, false, 'rising through a one-way must not be blocked');
 
   const ignoring = sweepY(plat, { x: 2 * TILE, y: 0, w: PLAYER_W, h: PLAYER_H }, 40, true);
@@ -76,13 +78,24 @@ test('one-way platforms block from above and pass through from below', () => {
 });
 
 test('the ledge nudge steps over a lip of 3px or less but not more', () => {
-  const step = room(['...', '..#', '###']);
-  const lipTop = TILE;                       // top face of the block in column 2
-  const nudged = moveBox(step, { x: 0, y: lipTop - PLAYER_H + LEDGE_NUDGE, w: PLAYER_W, h: PLAYER_H }, 4, 0, false);
-  assert.ok(nudged.x > 0, 'a 3px lip is stepped over');
-  assert.equal(nudged.hitWall, false);
+  const ledge = room([
+    '.....',
+    '.....',
+    '.....',
+    '...#.',
+    '#####',
+  ]);
+  const top = 3 * TILE;   // top face of the block in column 3
 
-  const blocked = moveBox(step, { x: 0, y: lipTop - PLAYER_H + LEDGE_NUDGE + 3, w: PLAYER_W, h: PLAYER_H }, 4, 0, false);
+  const nearWall = 3 * TILE - PLAYER_W - 2;   // one frame of travel from the block's face
+  const feetJustAbove = { x: nearWall, y: top + LEDGE_NUDGE - PLAYER_H, w: PLAYER_W, h: PLAYER_H };
+  const nudged = moveBox(ledge, feetJustAbove, 4, 0, false);
+  assert.equal(nudged.hitWall, false, 'a 3px lip is stepped over, not hit');
+  assert.ok(nudged.x > feetJustAbove.x, 'the player kept moving');
+  assert.equal(nudged.y, feetJustAbove.y - LEDGE_NUDGE, 'and was lifted onto the lip');
+
+  const tooLow = { x: nearWall, y: top + LEDGE_NUDGE + 3 - PLAYER_H, w: PLAYER_W, h: PLAYER_H };
+  const blocked = moveBox(ledge, tooLow, 4, 0, false);
   assert.equal(blocked.hitWall, true, 'a 6px lip is a wall');
 });
 
