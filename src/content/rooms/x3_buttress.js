@@ -8,7 +8,9 @@
 // plate, and the door is at the top of it.
 //
 // It is the same shape as the Spine's own S4 gate, mirrored, one region later and
-// with the floor taken out from under it.
+// with the floor taken out from under it. Nothing lives in here: a room that
+// teaches a verb should only ever ask for the verb, which is why the Roots' own
+// gate room is empty too.
 
 export const id = 'x3_buttress';
 
@@ -38,7 +40,7 @@ export const doors = [
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */
-export const spawns = [{ kind: 'drifter', at: [20, 10] }];
+export const spawns = [];
 
 /** @type {{kind:string, at:[number,number], to:[number,number]}[]} */
 export const rails = [];

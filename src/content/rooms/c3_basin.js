@@ -64,5 +64,15 @@ export const needs = [];
 
 export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 24], [8, 24], [16, 24], [24, 24], [31, 24]]) };
 
+/**
+ * The gallery, east to west — the Cistern's exit. The four-tile break at x=14 is
+ * the whole reason the walk is worth having: you cross it looking down at the
+ * water you crossed on the way in, nineteen tiles below.
+ * @type {import('../../core/types.js').RouteVariant[]}
+ */
+export const variants = [
+  { needs: ['ricochet'], route: [[2, 4], [9, 4], [13, 4], [18, 4], [26, 4], [31, 4]] },
+];
+
 /** @type {number[]|null} */
 export const macro = null;

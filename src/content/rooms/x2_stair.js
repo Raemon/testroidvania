@@ -42,7 +42,7 @@ export const doors = [
 ];
 
 /** @type {{kind:string, at:[number,number]}[]} */
-export const spawns = [{ kind: 'hopper', at: [10, 18] }, { kind: 'hopper', at: [20, 18] }];
+export const spawns = [{ kind: 'hopper', at: [10, 18] }, { kind: 'hopper', at: [20, 18] }, { kind: 'shell', at: [25, 18] }, { kind: 'drifter', at: [16, 16] }];
 
 /** @type {{kind:string, at:[number,number], to:[number,number]}[]} */
 export const rails = [];

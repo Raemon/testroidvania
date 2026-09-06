@@ -17,7 +17,7 @@ export const tiles = `
 #..............................#
 #..............................#
 D..............................#
-D..........................L...#
+D..L...........................#
 #######........................#
 #..............................#
 #..............................#
@@ -54,6 +54,16 @@ export const pickups = [];
 export const needs = [];
 
 export const hints = { route: /** @type {import('../../core/types.js').Waypoint[]} */ ([[2, 16], [8, 16], [16, 16], [31, 16]]) };
+
+/**
+ * The way out. Ricochet is the tell: the only way to be standing on that shelf is
+ * to have come back through the Basin's gallery, and the only way to have done
+ * that is to have killed the Diver.
+ * @type {import('../../core/types.js').RouteVariant[]}
+ */
+export const variants = [
+  { needs: ['ricochet'], route: [[3, 4], [9, 16], [3, 16], [0, 16]] },
+];
 
 /** @type {number[]|null} */
 export const macro = null;
