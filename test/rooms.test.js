@@ -63,9 +63,12 @@ for (const id of ROOM_IDS) {
 }
 
 test('the opening is one connected chain the bot walks end to end, unaided', () => {
-  const result = runBot(newRun(1), { maxFrames: 2400 });
+  // The opening is the six `o` rooms: arrival to the stone wall the Pin cannot
+  // solve. It is no longer where the game stops, so the test is "the bot walked
+  // out of it", not "the bot ended in it".
+  const result = runBot(newRun(1), { maxFrames: 2400, until: (s) => !s.room.startsWith('o') });
   assertFinished(result, 'the opening');
-  assert.equal(result.state.room, 'o6_weapon', 'the opening ends at the stone wall the Pin cannot solve');
+  assert.ok(!result.state.room.startsWith('o'), `the bot never left the opening; it stopped in ${result.state.room}`);
   assert.equal(result.state.player.hp, result.state.player.maxHp, 'the opening must cost no health');
   assert.equal(result.state.progress.deaths, 0, 'and no deaths');
   assert.ok(
@@ -80,7 +83,7 @@ test('the bot uses the Pin: it throws, stands on it, jabs an enemy and recalls',
   let killed = false;
   const result = runBot(newRun(1), {
     maxFrames: 2400,
-    until: () => false,
+    until: (s) => !s.room.startsWith('o'),
   });
   assertFinished(result, 'the opening');
   // Replaying the bot's own tape is how we see the states it passed through.
