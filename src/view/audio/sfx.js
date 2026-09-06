@@ -39,7 +39,6 @@ const D_DORIAN = [0, 2, 3, 5, 7, 9, 10];
 
 /**
  * @param {AudioGraph} g
- * @param {number} t
  * @param {SfxOpts} o
  * @returns {{gain:number, pan:number, vary:number, bus:AudioNode|undefined}}
  */

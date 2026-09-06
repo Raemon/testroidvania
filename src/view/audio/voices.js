@@ -7,7 +7,7 @@
  * synthesized web audio from sounding like a buzzer (05 §6d).
  */
 
-import { SILENT, MAX_LOWPASS_HZ, MIN_ATTACK, MIN_RELEASE } from './graph.js';
+import { SILENT, MAX_LOWPASS_HZ, MIN_ATTACK, MIN_RELEASE, VOICE_TRIM } from './graph.js';
 import { createRng } from './rng.js';
 
 /** @typedef {import('./graph.js').AudioGraph} AudioGraph */
@@ -75,7 +75,7 @@ export function outputChain(graph, opts, lowpassHz) {
   pan.pan.value = Math.max(-1, Math.min(1, opts.pan ?? 0));
 
   const level = ctx.createGain();
-  level.gain.value = Math.max(SILENT, opts.gain ?? 1);
+  level.gain.value = Math.max(SILENT, (opts.gain ?? 1) * VOICE_TRIM);
 
   lp.connect(pan);
   pan.connect(level);
@@ -218,7 +218,9 @@ export function pad(graph, opts) {
       osc.frequency.value = base;
       osc.detune.value = cents;
       const v = ctx.createGain();
-      v.gain.value = 1 / (freqs.length * 3);
+      // Per-note, not per-chord: the 380 Hz lowpass already removes most of the
+      // energy above C5, so dividing by the whole voicing makes the pad vanish.
+      v.gain.value = 1 / 3;
       osc.connect(v);
       v.connect(amp);
       osc.start(t);
@@ -274,8 +276,10 @@ export function drone(graph, opts) {
   const root = ctx.createOscillator();
   root.type = 'sine';
   root.frequency.value = f;
+  // Normalised so root + sub + fifth cannot sum past unity; the drone runs for
+  // the whole game and is the one voice that must never creep up on the mix.
   const rootG = ctx.createGain();
-  rootG.gain.value = 1;
+  rootG.gain.value = 0.6;
   root.connect(rootG);
   rootG.connect(amp);
 
@@ -283,7 +287,7 @@ export function drone(graph, opts) {
   sub.type = 'triangle';
   sub.frequency.value = f / 2;
   const subG = ctx.createGain();
-  subG.gain.value = 0.5;
+  subG.gain.value = 0.3;
   sub.connect(subG);
   subG.connect(amp);
 
@@ -320,7 +324,7 @@ export function drone(graph, opts) {
       const g = fifthG.gain;
       g.cancelScheduledValues(when);
       g.setValueAtTime(Math.max(g.value, SILENT), when);
-      g.linearRampToValueAtTime(on ? 0.15 : SILENT, when + 2);
+      g.linearRampToValueAtTime(on ? 0.09 : SILENT, when + 2);
     },
     release(when) {
       amp.gain.cancelScheduledValues(when);

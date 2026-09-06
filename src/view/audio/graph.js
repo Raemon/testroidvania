@@ -30,6 +30,16 @@ export const SILENT = 0.0001;
 /** 05 §6d: nothing unfiltered reaches the output. */
 export const MAX_LOWPASS_HZ = 8000;
 
+/**
+ * Every voice's output is scaled by this before its bus. The recipes in 05 §6c are
+ * written in *velocities* (a "vel 0.7" tick), and a velocity of 1 on a raw
+ * oscillator is full scale — so summing three or four of them slams the limiter and
+ * everything comes out squashed. This is the one number that turns the design's
+ * relative levels into the absolute ones §6d asks for: SFX peaking near -10 dBFS,
+ * music near -16.
+ */
+export const VOICE_TRIM = 0.38;
+
 export const MIN_ATTACK = 0.001;
 export const MIN_RELEASE = 0.008;
 

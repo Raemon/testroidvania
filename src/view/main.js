@@ -6,7 +6,8 @@
  * There is no test-only code path in the game; `?bot=1` swaps the input source and
  * nothing else.
  *
- * URL parameters: `seed`, `debug=1`, `lockstep=1`, `bot=1`, `room=<id>`.
+ * URL parameters: `seed`, `debug=1`, `lockstep=1`, `bot=1`, `room=<id>`,
+ * `mute=1` (audio off entirely), `audio=silent` (audio runs, output disconnected).
  */
 
 import { createInitialState } from '../core/state.js';
@@ -21,6 +22,7 @@ import { createHud, HUD_FIELDS } from './hud.js';
 import { createCamera, updateCamera } from './render/camera.js';
 import { render, viewTransform } from './render/index.js';
 import { guardContext } from './debug/ctxGuard.js';
+import { createAudio } from './audio.js';
 
 /** @typedef {import('../core/types.js').GameState} GameState */
 /** @typedef {import('./input-source.js').InputSource} InputSource */
@@ -43,6 +45,10 @@ let state = createInitialState(seed, startRoom);
 state = { ...state, debug };
 let camera = createCamera(state);
 const updateHud = createHud(document);
+
+// Audio observes `step()`'s output and never writes to it; `?mute=1` makes it a
+// no-op shell. It unlocks on the first user gesture, as browsers require.
+const audio = createAudio({ params, seed });
 
 const manual = manualSource();
 const bot = botSource();
@@ -74,6 +80,7 @@ function onStep() {
     if (found.length) violations = violations.concat(found).slice(0, 32);
   }
   camera = updateCamera(camera, state);
+  audio.observe(prev, state);
 }
 
 function onRender() {
@@ -176,6 +183,8 @@ const harness = {
       y: Math.round(t.offsetY + (state.player.y + state.player.h / 2 - Math.round(camera.y)) * t.scale),
     };
   },
+  audio: () => audio.stats(),
+  audioDispose: () => audio.dispose(),
   stop: () => loop.stop(),
 };
 
