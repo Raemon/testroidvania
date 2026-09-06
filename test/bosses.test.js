@@ -48,8 +48,13 @@ function fight(roomId, drive, frames, midArena = false) {
   const needs = ROOM_MODULES[roomId]?.needs ?? [];
   let s = { ...start, progress: { ...start.progress, abilities: needs.slice() } };
   if (midArena) {
-    const mid = (getRoom(roomId)?.w ?? 2) * TILE / 2;
-    s = { ...s, player: { ...s.player, x: mid } };
+    // Stand next to the boss, on the side away from the door: a passive test is
+    // about whether the boss can kill you, not about how far knockback carries you.
+    const room = getRoom(roomId);
+    const boss = room?.spawns.find((sp) => isBoss(sp.kind));
+    const bossX = (boss?.at[0] ?? 0) * TILE;
+    const doorX = (room?.doors[0]?.at[0] ?? 0) * TILE;
+    s = { ...s, player: { ...s.player, x: doorX < bossX ? bossX + 40 : bossX - 40 } };
   }
   for (let f = 0; f < frames; f++) {
     const prev = s;
